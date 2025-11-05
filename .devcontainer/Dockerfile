@@ -3,21 +3,21 @@ FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
 # Install Node.js (LTS), Python, Playwright, and Postgres
 RUN apt-get update && \
-    apt-get install -y curl python3 python3-pip python3-venv postgresql postgresql-contrib && \
+    apt-get install -y curl python3 python3-pip python3-venv postgresql postgresql-contrib sudo && \
     curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && \
     apt-get install -y nodejs && \
     npm install -g playwright && \
-    playwright install --with-deps
+    playwright install --with-deps && \
+    apt-get clean -y && rm -rf /var/lib/apt/lists/*
 
-# Set up a non-root user (optional, recommended for dev containers)
-ARG USERNAME=vscode
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
-RUN groupadd --gid $USER_GID $USERNAME \
-    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
-    && apt-get clean -y && rm -rf /var/lib/apt/lists/*
+# Configure PostgreSQL
+RUN mkdir -p /var/run/postgresql && \
+    chown -R postgres:postgres /var/run/postgresql && \
+    chmod 2777 /var/run/postgresql
 
-USER $USERNAME
+# Give vscode user sudo access for postgres commands
+RUN echo "vscode ALL=(postgres) NOPASSWD: ALL" >> /etc/sudoers.d/vscode && \
+    chmod 0440 /etc/sudoers.d/vscode
 
 # Expose Postgres default port
 EXPOSE 5432

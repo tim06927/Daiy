@@ -1,17 +1,21 @@
 {
   "name": "Node + Python + Playwright + Postgres DevContainer",
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "Dockerfile",
+    "context": "."
   },
   "customizations": {
     "vscode": {
       "settings": {
-        "terminal.integrated.shell.linux": "/bin/bash"
-      }
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ]
     }
   },
-  "postCreateCommand": "pip3 install --upgrade pip",
+  "postCreateCommand": "pip3 install --upgrade pip && if [ -f requirements.txt ]; then pip3 install -r requirements.txt; fi",
   "forwardPorts": [5432],
-  "features": {},
   "remoteUser": "vscode"
 }
