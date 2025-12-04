@@ -1,75 +1,14 @@
-# --- OS cruft ---
-.DS_Store
-Thumbs.db
-.Spotlight-V100
-.Trashes
-
-# --- Node / Next.js ---
-node_modules/
-.next/
-out/
-.turbo/
-.vercel/
-.swc/
-.eslintcache
-.npmrc.local
-dist/
-*.tsbuildinfo
-# logs & coverage
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-coverage/
-.nyc_output/
-
-# --- Python / FastAPI / Scrapy ---
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
-.python-version
+*.pyd
+
+# Virtual env
 .venv/
-venv/
-env/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.ipynb_checkpoints/
-.cache/
-htmlcov/
-.coverage*
-.hypothesis/
-.pyre/
-.scrapy/
 
-# --- Playwright / test artifacts ---
-playwright-report/
-test-results/
-# (optional if you generate these)
-screenshots/
-videos/
+# VS Code settings
+.vscode/
 
-# --- Data (keep big/raw data out of git) ---
-data/tmp/
-data/raw/
-*.sqlite3
-*.db
-
-# --- Secrets & env (commit examples only) ---
-.env
-.env.*
-!.env.example
-!.env.sample
-.envrc
-
-# --- IDE / workspace ---
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-.idea/
-.fleet/
-*.code-workspace
-
-# --- Docker / local mounts (adjust if you want these versioned) ---
-docker-data/
-*.pid
+# OS junk
+.DS_Store
