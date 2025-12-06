@@ -1,0 +1,10 @@
+Scope	Category (bike-components)	URL
+Primary drivetrain	Cassettes	https://www.bike-components.de/en/components/drivetrain/cassettes/
+	Chains	https://www.bike-components.de/en/components/drivetrain/chains/
+	Chainrings (optional)	https://www.bike-components.de/en/components/drivetrain/chainrings/
+Tools	Drivetrain tools	https://www.bike-components.de/en/tools-maintenance/tools-by-category/drivetrains/
+	Shifter & derailleur tools (optional)	https://www.bike-components.de/en/tools-maintenance/tools-by-category/shifters-derailleurs/
+Protection / apparel	MTB gloves (example)	https://www.bike-components.de/en/apparel/mountain-bike-apparel/gloves/
+	Protectors – overview (optional alternative zu Gloves)	https://www.bike-components.de/en/apparel/protectors/
+	Chest & back protectors (optional, enger)	https://www.bike-components.de/en/apparel/protectors/chest-back-protectors/
+Navigation only	Drivetrain landing page	https://www.bike-components.de/en/components/drivetrain/
