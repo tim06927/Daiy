@@ -51,11 +51,18 @@ def call_llm(prompt: str) -> str:
     Adapt 'model' to whatever you have access to.
     """
     resp = client.responses.create(
-        model="gpt-5.1-mini",  # change to another text model if you like
+        model="gpt-5-nano",  # change to another text model if you like
         input=prompt,
     )
     # extract text (Responses API format)
-    return resp.output[0].content[0].text
+    # The response contains a reasoning item first, then the actual message
+    # Find the message with content (not the reasoning item)
+    for item in resp.output:
+        if hasattr(item, "content") and item.content is not None:
+            return item.content[0].text
+    
+    # Fallback: if no content found, raise an error
+    raise ValueError("No content found in response")
 
 
 def run_demo():
