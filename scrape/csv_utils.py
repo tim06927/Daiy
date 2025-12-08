@@ -4,7 +4,7 @@ import csv
 import json
 import os
 from dataclasses import asdict
-from typing import Iterable, List, Dict, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from scrape.models import Product
 
@@ -20,7 +20,7 @@ def load_existing_products(path: str) -> Tuple[List[Dict[str, str]], List[str]]:
     with open(path, "r", newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         rows = list(reader)
-        fieldnames = reader.fieldnames or []
+        fieldnames = list(reader.fieldnames) if reader.fieldnames else []
     return rows, fieldnames
 
 
@@ -35,8 +35,8 @@ def product_to_row(product: Product) -> Dict[str, str]:
 def save_products_to_csv(
     products: Iterable[Product],
     path: str,
-    existing_rows: List[Dict[str, str]] | None = None,
-    fieldnames: List[str] | None = None,
+    existing_rows: Optional[List[Dict[str, str]]] = None,
+    fieldnames: Optional[List[str]] = None,
 ) -> None:
     """Save products to CSV, preserving existing rows when provided."""
 

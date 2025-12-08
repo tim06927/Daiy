@@ -1,29 +1,41 @@
 """Core scraping logic."""
 
-import time
 import random
-from typing import List, Set
+import time
+from typing import List, Optional, Set
 
-import requests
+import requests  # type: ignore[import-untyped]
 from bs4 import BeautifulSoup
 
-from scrape.config import BASE_URL, HEADERS, REQUEST_TIMEOUT, DELAY_MIN, DELAY_MAX
-from scrape.models import Product
+from scrape.config import BASE_URL, DELAY_MAX, DELAY_MIN, HEADERS, REQUEST_TIMEOUT
 from scrape.html_utils import (
-    extract_sku,
     extract_breadcrumbs,
     extract_description_and_specs,
+    extract_sku,
     is_product_url,
     map_chain_specs,
 )
+from scrape.models import Product
 
 
 def fetch_html(url: str) -> str:
     """Polite HTTP GET with basic error handling and random sleep."""
-    resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
-    resp.raise_for_status()
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        raise ValueError(
+            f"Invalid URL in scrape/config.py: {url}\n"
+            f"HTTP Error {e.response.status_code}: {e.response.reason}\n"
+            f"Please verify the URL is correct and accessible."
+        ) from e
+    except requests.exceptions.RequestException as e:
+        raise ValueError(
+            f"Failed to fetch {url}: {e}\n"
+            f"Please check your internet connection and the URL in scrape/config.py"
+        ) from e
     time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))  # polite delay
-    return resp.text
+    return str(resp.text)
 
 
 def extract_product_links(html: str) -> List[str]:
@@ -38,7 +50,7 @@ def extract_product_links(html: str) -> List[str]:
 
     for a in soup.select("a[href^='/en/']"):
         href = a.get("href")
-        if not href:
+        if not href or not isinstance(href, str):
             continue
         if is_product_url(href):
             full_url = BASE_URL + href
@@ -64,15 +76,18 @@ def parse_product_page(category_key: str, html: str, url: str) -> Product:
     name = name_el.get_text(strip=True) if name_el else ""
 
     # Brand: from manufacturer block if present, else first word of title
-    brand = None
+    brand: Optional[str] = None
     brand_img = soup.select_one(".manufacturer img[alt]")
-    if brand_img and brand_img.get("alt"):
-        brand = brand_img["alt"].strip()
-    elif name:
+    if brand_img:
+        alt_val = brand_img.get("alt")
+        if alt_val and isinstance(alt_val, str):
+            brand = alt_val.strip()
+    if brand is None and name:
         brand = name.split()[0]
 
     # Price
     price_el = soup.select_one('[data-test="product-price"]')
+    price_text: Optional[str] = None
     if price_el is not None:
         price_text = price_el.get_text(strip=True)
     else:
@@ -119,7 +134,7 @@ def parse_product_page(category_key: str, html: str, url: str) -> Product:
 def scrape_category(
     category_key: str,
     url: str,
-    existing_urls: Set[str] | None = None,
+    existing_urls: Optional[Set[str]] = None,
     force_refresh: bool = False,
 ) -> List[Product]:
     """Scrape all products from a category page.

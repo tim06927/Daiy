@@ -1,24 +1,35 @@
-import os
+"""Flask web app for grounded AI product recommendations.
+
+Provides a user interface for bike component upgrade recommendations using
+LLM-powered suggestions grounded in real product inventory.
+"""
+
 import json
 import re
-
 from dataclasses import dataclass
-from typing import Optional, Dict, List
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
-from flask import Flask, render_template, request, jsonify
+from config import (
+    CSV_PATH,
+    DEFAULT_BIKE_SPEED,
+    DEFAULT_USE_CASE,
+    FLASK_DEBUG,
+    FLASK_HOST,
+    FLASK_PORT,
+    LLM_MODEL,
+    MAX_CASSETTES,
+    MAX_CHAINS,
+)
+from flask import Flask, Response, jsonify, render_template, request
 from openai import OpenAI
 
-from config import CSV_PATH, LLM_MODEL, FLASK_HOST, FLASK_PORT, FLASK_DEBUG
-from config import DEFAULT_BIKE_SPEED, DEFAULT_USE_CASE, MAX_CASSETTES, MAX_CHAINS
-
-# Set OPENAI_API_KEY in your environment before running
 client = OpenAI()
-
 app = Flask(__name__)
 
 
 # ---------- DATA MODEL & CATALOG LOADING ----------
+
 
 @dataclass
 class Product:
@@ -32,31 +43,51 @@ class Product:
     specs: Dict
 
 
-def _parse_specs(s: str) -> Dict:
+def _parse_specs(s: str) -> Dict[str, Any]:
+    """Parse JSON specs string, handling common CSV encoding issues.
+
+    Args:
+        s: JSON string, possibly with doubled quotes from CSV export.
+
+    Returns:
+        Parsed dict or empty dict if parsing fails.
+    """
     if not isinstance(s, str) or not s.strip():
         return {}
     try:
-        return json.loads(s)
+        result = json.loads(s)
+        return dict(result) if isinstance(result, dict) else {}
     except json.JSONDecodeError:
-        # common CSV pattern: doubled quotes
+        # Handle doubled quotes from CSV export
         s2 = s.replace('""', '"')
         try:
-            return json.loads(s2)
-        except Exception:
+            result = json.loads(s2)
+            return dict(result) if isinstance(result, dict) else {}
+        except json.JSONDecodeError:
             return {}
 
 
 def load_catalog(path: str = CSV_PATH) -> pd.DataFrame:
+    """Load and parse product catalog from CSV.
+
+    Derives speed and application fields from raw data.
+
+    Args:
+        path: Path to product CSV file.
+
+    Returns:
+        DataFrame with parsed specs, derived speed, and application.
+    """
     df = pd.read_csv(path)
 
-    # specs JSON
+    # Parse specs JSON
     if "specs" in df.columns:
         df["specs_dict"] = df["specs"].apply(_parse_specs)
     else:
         df["specs_dict"] = [{} for _ in range(len(df))]
 
-    # derive speed
-    def derive_speed(row):
+    # Derive speed from chain gearing or specs
+    def derive_speed(row: pd.Series) -> Optional[int]:
         cg = row.get("chain_gearing")
         if isinstance(cg, str):
             m = re.search(r"\d+", cg)
@@ -73,8 +104,8 @@ def load_catalog(path: str = CSV_PATH) -> pd.DataFrame:
 
     df["speed"] = df.apply(derive_speed, axis=1)
 
-    # derive application
-    def derive_application(row):
+    # Derive application from chain application or specs
+    def derive_application(row: pd.Series) -> Optional[str]:
         ca = row.get("chain_application")
         if isinstance(ca, str):
             return ca
@@ -93,11 +124,24 @@ CATALOG_DF = load_catalog()
 
 # ---------- CANDIDATE SELECTION & CONTEXT BUILDING ----------
 
-def select_candidates(df: pd.DataFrame, bike_speed: int, use_case_substring: str) -> Dict[str, List[Dict]]:
-    """
-    Very simple selector:
-    - cassettes: same speed & application contains use_case_substring
-    - chains: same speed
+
+def select_candidates(
+    df: pd.DataFrame, bike_speed: int, use_case_substring: str
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Filter products by speed and use case to create a candidate pool.
+
+    Selects cassettes and chains from the inventory that match the bike's speed
+    and intended use case. This narrowing is essential for grounding - it ensures
+    the LLM can only recommend real products actually in stock.
+
+    Args:
+        df: Product catalog DataFrame with columns: speed, category, application, etc.
+        bike_speed: Number of gears (e.g., 11 for 11-speed drivetrain).
+        use_case_substring: Text to match in application field (e.g., "Road", "gravel").
+
+    Returns:
+        Dict with 'cassettes' and 'chains' keys, each containing a list of products.
+        Each product is a dict with: name, url, brand, price, application, speed, specs.
     """
     cassettes = df[
         (df["category"] == "cassettes")
@@ -105,12 +149,9 @@ def select_candidates(df: pd.DataFrame, bike_speed: int, use_case_substring: str
         & df["application"].fillna("").str.contains(use_case_substring, case=False)
     ].head(MAX_CASSETTES)
 
-    chains = df[
-        (df["category"] == "chains")
-        & (df["speed"] == bike_speed)
-    ].head(MAX_CHAINS)
+    chains = df[(df["category"] == "chains") & (df["speed"] == bike_speed)].head(MAX_CHAINS)
 
-    def df_to_list(subdf: pd.DataFrame) -> List[Dict]:
+    def df_to_list(subdf: pd.DataFrame) -> List[Dict[str, Any]]:
         out: List[Dict] = []
         for _, row in subdf.iterrows():
             out.append(
@@ -132,11 +173,24 @@ def select_candidates(df: pd.DataFrame, bike_speed: int, use_case_substring: str
     }
 
 
-def build_grounding_context(problem_text: str) -> Dict:
-    """
-    Builds the JSON context for the LLM.
-    For now we hard-code an 11-speed road-ish upgrade scenario.
-    The user's problem_text is included for flavour.
+def build_grounding_context(problem_text: str) -> Dict[str, Any]:
+    """Build the grounding context for LLM recommendation generation.
+
+    Creates a structured JSON context that includes the user's project description,
+    the current bike state, and a filtered pool of real products the LLM can recommend.
+    Currently hard-coded for 11-speed road/gravel upgrades (future: make dynamic).
+
+    The context structure guides the LLM to:
+    1. Understand the user's specific constraints and goals
+    2. Select only from real, available products (prevents hallucination)
+    3. Provide product URLs and detailed reasoning
+
+    Args:
+        problem_text: User's description of their bike and upgrade goals.
+
+    Returns:
+        Dict with keys: 'project' (string), 'user_bike' (dict with constraints),
+        'candidates' (dict with 'cassettes' and 'chains' lists).
     """
     bike_state = {
         "drivetrain_speed": DEFAULT_BIKE_SPEED,
@@ -149,7 +203,9 @@ def build_grounding_context(problem_text: str) -> Dict:
         ],
     }
 
-    candidates = select_candidates(CATALOG_DF, bike_speed=DEFAULT_BIKE_SPEED, use_case_substring=DEFAULT_USE_CASE)
+    candidates = select_candidates(
+        CATALOG_DF, bike_speed=DEFAULT_BIKE_SPEED, use_case_substring=DEFAULT_USE_CASE
+    )
 
     return {
         "project": "Upgrade to wider 11-speed road cassette",
@@ -160,7 +216,26 @@ def build_grounding_context(problem_text: str) -> Dict:
 
 # ---------- LLM CALL ----------
 
+
 def make_prompt(context: dict) -> str:
+    """Format the grounding context into a prompt for the LLM.
+
+    Constructs a detailed prompt that instructs the LLM to:
+    1. Act as an experienced bike mechanic
+    2. Consider the user's specific goals and constraints
+    3. Choose ONE cassette and ONE chain from the provided candidates
+    4. Provide detailed reasoning (3-5 bullet points)
+    5. Output a machine-readable JSON summary with product URLs
+
+    The prompt explicitly forbids inventing products or using sources outside
+    the provided candidate list.
+
+    Args:
+        context: Dict from build_grounding_context() with user_bike, candidates, etc.
+
+    Returns:
+        Formatted prompt string ready for LLM API submission.
+    """
     return f"""
 You are an experienced bike mechanic.
 
@@ -197,55 +272,87 @@ Answer in English.
 
 
 def call_llm(prompt: str) -> str:
+    """Call the OpenAI gpt-5-nano model with extended thinking (Responses API).
+
+    Submits a prompt to the LLM and extracts the text response, handling the
+    Responses API's special output format which includes reasoning blocks.
+    The model may return multiple output items - we filter for the first one
+    with actual content (skipping reasoning-only items).
+
+    Args:
+        prompt: The prompt string to send to the LLM.
+
+    Returns:
+        The text response from the LLM (excluding reasoning blocks).
+
+    Raises:
+        ValueError: If the response contains no actual content.
+    """
     resp = client.responses.create(
         model=LLM_MODEL,
         input=prompt,
     )
-    # Handle responses with reasoning blocks
+    # Handle responses with reasoning blocks from gpt-5-nano
     for item in resp.output:
         if hasattr(item, "content") and item.content is not None:
-            return item.content[0].text
+            return item.content[0].text  # type: ignore[union-attr]
     raise ValueError("No content found in response")
 
 
-def extract_json_summary(answer_text: str) -> Optional[Dict]:
+def extract_json_summary(answer_text: str) -> Optional[Dict[str, Any]]:
+    """Extract the JSON summary from the end of the LLM response.
+
+    Looks for a JSON object containing cassette_url and chain_url fields.
+
+    Args:
+        answer_text: Full LLM response text.
+
+    Returns:
+        Parsed JSON dict if found, None otherwise.
     """
-    Extract the JSON summary from the end of the LLM response.
-    Returns the JSON object if found, None otherwise.
-    """
-    # Look for JSON pattern at the end of the response
-    import re
     match = re.search(r'\{[^{}]*"cassette_url"[^{}]*"chain_url"[^{}]*\}', answer_text, re.DOTALL)
     if match:
         try:
-            return json.loads(match.group())
+            result = json.loads(match.group())
+            return dict(result) if isinstance(result, dict) else None
         except json.JSONDecodeError:
             return None
     return None
 
 
 def remove_json_summary(answer_text: str) -> str:
+    """Remove the machine-readable JSON summary from the answer text.
+
+    Strips the JSON object from the end of the response.
+
+    Args:
+        answer_text: Full LLM response text.
+
+    Returns:
+        Answer text without the JSON summary.
     """
-    Remove the machine-readable JSON summary from the answer text.
-    """
-    # Remove the JSON object from the end
-    import re
-    return re.sub(r'\n*\{[^{}]*"cassette_url"[^{}]*"chain_url"[^{}]*\}$', '', answer_text, flags=re.DOTALL).strip()
+    return re.sub(
+        r'\n*\{[^{}]*"cassette_url"[^{}]*"chain_url"[^{}]*\}$', "", answer_text, flags=re.DOTALL
+    ).strip()
 
 
 # ---------- FLASK ROUTES ----------
 
+
 @app.route("/", methods=["GET"])
-def index():
+def index() -> str:
+    """Render the main recommendation page."""
     return render_template("index.html")
 
 
 @app.route("/api/recommend", methods=["POST"])
-def api_recommend():
-    """
-    Expects JSON: { "problem_text": "..." }
-    Ignores any image for now (dummy upload).
-    Returns: { "answer": "...", "products": [ {name, url, brand, price}, ... ] }
+def api_recommend() -> Union[tuple[Response, int], Response]:
+    """Generate AI recommendation for bike component upgrade.
+
+    Request JSON: {"problem_text": "..."}
+
+    Returns:
+        JSON response with recommendation text, product candidates, and summary.
     """
     data = request.get_json(force=True)
     problem_text = data.get("problem_text", "").strip()

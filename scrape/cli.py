@@ -3,18 +3,18 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import List, Set
+from typing import Dict, List, Set
 
 # Add parent directory to path to allow imports when run as script
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scrape.config import CATEGORY_URLS, OUTPUT_PATH
-from scrape.models import Product
-from scrape.scraper import scrape_category
 from scrape.csv_utils import (
     load_existing_products,
     save_products_to_csv,
 )
+from scrape.models import Product
+from scrape.scraper import scrape_category
 
 
 def scrape_all(existing_urls: Set[str], force_refresh: bool) -> List[Product]:
@@ -55,12 +55,13 @@ def main() -> None:
     args = parse_args()
     force_refresh = args.mode == "full"
 
-    existing_rows, existing_fieldnames = ([], [])
+    existing_rows: List[Dict[str, str]] = []
+    existing_fieldnames: List[str] = []
     existing_urls: Set[str] = set()
 
     if not force_refresh:
         existing_rows, existing_fieldnames = load_existing_products(args.output)
-        existing_urls = {row.get("url") for row in existing_rows if row.get("url")}
+        existing_urls = {row["url"] for row in existing_rows if "url" in row and row["url"]}
 
     new_products = scrape_all(existing_urls, force_refresh)
 

@@ -10,6 +10,7 @@ CATEGORY_URLS: Dict[str, str] = {
     "chains": "https://www.bike-components.de/en/components/drivetrain/chains/",
     "drivetrain_tools": "https://www.bike-components.de/en/tools-maintenance/tools-by-category/drivetrains/",
     "mtb_gloves": "https://www.bike-components.de/en/apparel/mountain-bike-apparel/gloves/",
+    "shifters_derailleurs": "https://www.bike-components.de/en/tools-maintenance/tools-by-category/shifters-derailleurs/",
 }
 
 # HTTP headers for polite scraping

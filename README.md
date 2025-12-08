@@ -4,6 +4,10 @@
 
 An startup that aims to help every DIYler to find the right parts and tools using multimodal AI.
 
+## Vibe Coding and PoC Disclaimer
+
+Large parts of this project are vibe-coded using Github Copilot, ChatGPT and more. Further, this is a proof of concept and not a production ready project. Parts of this repo (CODING_STANDARDS, somewhat excessive documentation, ...) exist to make the AI do a good job and not to put an overbearing burden on humans. Proceed with fun and care when using.
+
 ## Daiy PoC
 
 This repository contains a proof of concept (PoC) for Daiy that demonstrates:
@@ -34,8 +38,8 @@ This repository contains a proof of concept (PoC) for Daiy that demonstrates:
 │   └── README.md       # Web app documentation
 ├── data/               # Product data
 │   ├── bc_products_sample.csv  # Scraped bike components
-│   └── sampleData/     # Additional sample data
-├── scripts/            # Database & setup scripts
+│   └── sampleData/     # Additional sample data (archived)
+├── scripts/            # Database & setup scripts (archived)
 └── README.md          # This file
 ```
 
@@ -92,7 +96,6 @@ python daiy_web/app.py
 ### Prerequisites
 - Python 3.8+
 - OpenAI API key (for AI features)
-- PostgreSQL (optional, for persistent storage)
 
 ### Quick Start
 
@@ -130,10 +133,11 @@ Product data is sourced from bike-components.de via the scraper. Data includes:
 - Product URLs
 - Category classification
 
-The CSV output format allows easy import into:
-- PostgreSQL (schema in `data/schema.sql`)
-- Other databases
-- Analysis tools
+**Current approach:** CSV-first, lightweight, and easy to use.
+- Scraped products are saved to `data/bc_products_sample.csv`
+- The web app and demo load directly from CSV
+
+**Archived for later:** Database setup (99spokes dataset, PostgreSQL schemas) have been archived. These can be restored when needed for persistent storage or advanced queries.
 
 ## Workflow
 
@@ -168,7 +172,6 @@ Output from grounded demo:
 - **[Scraper README](scrape/README.md)** - Detailed scraping configuration, usage, and extension
 - **[Grounded Demo README](grounded_demo/README.md)** - AI recommendation pattern and customization
 - **[Web App README](daiy_web/README.md)** - Flask app setup, API, and customization
-- **[Scripts README](scripts/README.md)** - Database setup and utilities
 
 ## Architecture Decisions
 
