@@ -49,6 +49,8 @@ Key functions:
 - `build_grounding_context()` - Create LLM context
 - `make_prompt()` - Format prompt with instructions
 - `call_llm()` - Call OpenAI API
+- `extract_json_summary()` - Parse machine-readable JSON from LLM response
+- `remove_json_summary()` - Strip JSON from user-facing text
 
 ### `config.py`
 Centralized settings:
@@ -115,9 +117,16 @@ Response:
       "url": "https://bike-components.de/..."
     },
     ...
-  ]
+  ],
+  "summary": {
+    "cassette_url": "https://bike-components.de/...",
+    "chain_url": "https://bike-components.de/...",
+    "notes": ["Both 11-speed compatible", "Wider range for climbing", ...]
+  }
 }
 ```
+
+**Note:** The `answer` field contains only the human-readable explanation. The machine-readable JSON summary is extracted and returned separately in the `summary` field, but not displayed to the user in the main answer text.
 
 ## Configuration
 
@@ -169,14 +178,32 @@ This ensures:
 
 ## LLM Response Handling
 
-The app handles responses with reasoning blocks:
+The app handles responses with reasoning blocks and extracts structured data:
+
 ```python
+# 1. Call LLM
 for item in resp.output:
     if hasattr(item, "content") and item.content is not None:
         return item.content[0].text
 ```
 
 This works with gpt-5-nano's extended thinking capability.
+
+```python
+# 2. Extract machine-readable JSON
+json_summary = extract_json_summary(answer_text)
+# Example: {"cassette_url": "...", "chain_url": "...", "notes": [...]}
+
+# 3. Remove JSON from user-facing text
+answer_text_clean = remove_json_summary(answer_text)
+# Clean text without the JSON block at the end
+```
+
+The LLM generates both:
+- **Human-readable explanation** - Shown to the user
+- **Machine-readable JSON** - Parsed and returned separately in the API response
+
+This separation ensures users see clean, natural language recommendations while the frontend can still access structured data for highlighting specific products or other UI features.
 
 ## Extending the App
 
