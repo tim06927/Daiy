@@ -1,13 +1,13 @@
 """Data models for products."""
 
 from dataclasses import dataclass
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 
 @dataclass
 class Product:
     """Represents a single product scraped from bike-components.de"""
-    
+
     category: str
     name: str
     url: str

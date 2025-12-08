@@ -4,6 +4,10 @@
 
 An startup that aims to help every DIYler to find the right parts and tools using multimodal AI.
 
+## Vibe Coding and PoC Disclaimer
+
+Large parts of this project are vibe-coded using Github Copilot, ChatGPT and more. Further, this is a proof of concept and not a production ready project. Parts of this repo (CODING_STANDARDS, somewhat excessive documentation, ...) exist to make the AI do a good job and not to put an overbearing burden on humans. Proceed with fun and care when using.
+
 ## Daiy PoC
 
 This repository contains a proof of concept (PoC) for Daiy that demonstrates:

@@ -1,7 +1,7 @@
 """HTML parsing and extraction utilities."""
 
 import re
-from typing import Optional, Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from bs4 import BeautifulSoup
 
@@ -33,7 +33,9 @@ def extract_breadcrumbs(soup: BeautifulSoup) -> Optional[str]:
     nav = soup.find("nav", attrs={"aria-label": "breadcrumb"})
     if not nav:
         return None
-    parts = [el.get_text(strip=True) for el in nav.find_all(["a", "span"]) if el.get_text(strip=True)]
+    parts = [
+        el.get_text(strip=True) for el in nav.find_all(["a", "span"]) if el.get_text(strip=True)
+    ]
     return " > ".join(parts) if parts else None
 
 
