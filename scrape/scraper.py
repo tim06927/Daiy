@@ -2,7 +2,7 @@
 
 import time
 import random
-from typing import List
+from typing import List, Set
 
 import requests
 from bs4 import BeautifulSoup
@@ -116,8 +116,17 @@ def parse_product_page(category_key: str, html: str, url: str) -> Product:
     )
 
 
-def scrape_category(category_key: str, url: str) -> List[Product]:
-    """Scrape all products from a category page."""
+def scrape_category(
+    category_key: str,
+    url: str,
+    existing_urls: Set[str] | None = None,
+    force_refresh: bool = False,
+) -> List[Product]:
+    """Scrape all products from a category page.
+
+    If force_refresh is False, any product URLs already present in ``existing_urls``
+    are skipped to avoid re-scraping the same items.
+    """
     print(f"Scraping category {category_key}: {url}")
     html = fetch_html(url)
 
@@ -128,12 +137,19 @@ def scrape_category(category_key: str, url: str) -> List[Product]:
     # To add pagination later, inspect the "next page" link and loop.
 
     products: List[Product] = []
+    seen_urls = existing_urls if existing_urls is not None else set()
+
     for i, product_url in enumerate(product_links, start=1):
+        if not force_refresh and product_url in seen_urls:
+            print(f"    [{i}/{len(product_links)}] SKIP (already in output): {product_url}")
+            continue
+
         print(f"    [{i}/{len(product_links)}] {product_url}")
         try:
             product_html = fetch_html(product_url)
             product = parse_product_page(category_key, product_html, product_url)
             products.append(product)
+            seen_urls.add(product_url)
         except Exception as e:
             print(f"      ERROR fetching/parsing {product_url}: {e}")
     return products

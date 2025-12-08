@@ -1,29 +1,58 @@
-"""CSV export utilities."""
+"""CSV export and import utilities."""
 
 import csv
 import json
+import os
 from dataclasses import asdict
-from typing import Iterable
+from typing import Iterable, List, Dict, Tuple
 
 from scrape.models import Product
 
 
-def save_products_to_csv(products: Iterable[Product], path: str) -> None:
-    """Save products to a CSV file."""
-    products_list = list(products)
-    if not products_list:
+def load_existing_products(path: str) -> Tuple[List[Dict[str, str]], List[str]]:
+    """Load existing products from CSV if present.
+
+    Returns a tuple of (rows, fieldnames).
+    """
+    if not os.path.exists(path):
+        return [], []
+
+    with open(path, "r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+        fieldnames = reader.fieldnames or []
+    return rows, fieldnames
+
+
+def product_to_row(product: Product) -> Dict[str, str]:
+    """Convert Product dataclass into a CSV-ready row."""
+    row = asdict(product)
+    if row.get("specs") is not None:
+        row["specs"] = json.dumps(row["specs"], ensure_ascii=False)
+    return row
+
+
+def save_products_to_csv(
+    products: Iterable[Product],
+    path: str,
+    existing_rows: List[Dict[str, str]] | None = None,
+    fieldnames: List[str] | None = None,
+) -> None:
+    """Save products to CSV, preserving existing rows when provided."""
+
+    rows: List[Dict[str, str]] = list(existing_rows or [])
+    new_rows = [product_to_row(p) for p in products]
+    rows.extend(new_rows)
+
+    if not rows:
         print("No products to save.")
         return
 
-    fieldnames = list(asdict(products_list[0]).keys())
+    active_fieldnames = fieldnames or list(rows[0].keys())
     with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=active_fieldnames)
         writer.writeheader()
-        for p in products_list:
-            row = asdict(p)
-            # specs is a dict → serialise to JSON
-            if row.get("specs") is not None:
-                row["specs"] = json.dumps(row["specs"], ensure_ascii=False)
+        for row in rows:
             writer.writerow(row)
 
-    print(f"Saved {len(products_list)} products to {path}")
+    print(f"Saved {len(rows)} total products to {path} ({len(new_rows)} new)")
