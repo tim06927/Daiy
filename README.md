@@ -23,10 +23,15 @@ This repository contains a proof of concept (PoC) for Daiy that demonstrates:
 │   ├── csv_utils.py    # CSV export/import
 │   ├── cli.py          # Command-line interface
 │   └── README.md       # Scraper documentation
-├── grounded_demo/      # AI recommendation demo
+├── grounded_demo/      # AI recommendation demo (CLI)
 │   ├── demo.py         # Main demo script
 │   ├── catalog.py      # Product context building
 │   └── README.md       # Demo documentation
+├── daiy_web/           # Flask web app for recommendations
+│   ├── app.py          # Flask application
+│   ├── config.py       # Configuration
+│   ├── templates/      # HTML templates
+│   └── README.md       # Web app documentation
 ├── data/               # Product data
 │   ├── bc_products_sample.csv  # Scraped bike components
 │   └── sampleData/     # Additional sample data
@@ -65,6 +70,23 @@ LLM-powered recommendations grounded in real product data:
 python grounded_demo/demo.py
 ```
 
+### Web App (`daiy_web/`)
+
+Flask web interface for AI recommendations:
+- **User-friendly form** - Describe your upgrade project
+- **Grounded results** - Real products from inventory
+- **Product tiles** - Browse candidates with pricing
+- **Direct links** - One-click to bike-components.de
+
+```bash
+# Make sure you have product data first
+python scrape/cli.py
+
+# Then run the web app
+python daiy_web/app.py
+# Visit http://127.0.0.1:5000
+```
+
 ## Setup
 
 ### Prerequisites
@@ -92,6 +114,12 @@ python grounded_demo/demo.py
    ```bash
    export OPENAI_API_KEY="sk-..."
    python grounded_demo/demo.py
+   ```
+
+4. **Or run the web app**
+   ```bash
+   python daiy_web/app.py
+   # Visit http://127.0.0.1:5000
    ```
 
 ## Sample Data and Database
@@ -139,6 +167,7 @@ Output from grounded demo:
 
 - **[Scraper README](scrape/README.md)** - Detailed scraping configuration, usage, and extension
 - **[Grounded Demo README](grounded_demo/README.md)** - AI recommendation pattern and customization
+- **[Web App README](daiy_web/README.md)** - Flask app setup, API, and customization
 - **[Scripts README](scripts/README.md)** - Database setup and utilities
 
 ## Architecture Decisions

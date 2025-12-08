@@ -9,10 +9,8 @@ import pandas as pd
 from flask import Flask, render_template, request, jsonify
 from openai import OpenAI
 
-
-# ---------- CONFIG ----------
-
-CSV_PATH = "bc_products_sample.csv"
+from config import CSV_PATH, LLM_MODEL, FLASK_HOST, FLASK_PORT, FLASK_DEBUG
+from config import DEFAULT_BIKE_SPEED, DEFAULT_USE_CASE, MAX_CASSETTES, MAX_CHAINS
 
 # Set OPENAI_API_KEY in your environment before running
 client = OpenAI()
@@ -105,12 +103,12 @@ def select_candidates(df: pd.DataFrame, bike_speed: int, use_case_substring: str
         (df["category"] == "cassettes")
         & (df["speed"] == bike_speed)
         & df["application"].fillna("").str.contains(use_case_substring, case=False)
-    ].head(5)
+    ].head(MAX_CASSETTES)
 
     chains = df[
         (df["category"] == "chains")
         & (df["speed"] == bike_speed)
-    ].head(5)
+    ].head(MAX_CHAINS)
 
     def df_to_list(subdf: pd.DataFrame) -> List[Dict]:
         out: List[Dict] = []
@@ -141,7 +139,7 @@ def build_grounding_context(problem_text: str) -> Dict:
     The user's problem_text is included for flavour.
     """
     bike_state = {
-        "drivetrain_speed": 11,
+        "drivetrain_speed": DEFAULT_BIKE_SPEED,
         "current_cassette": "11-32 road cassette (example)",
         "use_case": "Road / light gravel",
         "user_problem_text": problem_text,
@@ -151,7 +149,7 @@ def build_grounding_context(problem_text: str) -> Dict:
         ],
     }
 
-    candidates = select_candidates(CATALOG_DF, bike_speed=11, use_case_substring="Road")
+    candidates = select_candidates(CATALOG_DF, bike_speed=DEFAULT_BIKE_SPEED, use_case_substring=DEFAULT_USE_CASE)
 
     return {
         "project": "Upgrade to wider 11-speed road cassette",
@@ -200,10 +198,39 @@ Answer in English.
 
 def call_llm(prompt: str) -> str:
     resp = client.responses.create(
-        model="gpt-5.1-mini",  # change to a model you have access to
+        model=LLM_MODEL,
         input=prompt,
     )
-    return resp.output[0].content[0].text
+    # Handle responses with reasoning blocks
+    for item in resp.output:
+        if hasattr(item, "content") and item.content is not None:
+            return item.content[0].text
+    raise ValueError("No content found in response")
+
+
+def extract_json_summary(answer_text: str) -> Optional[Dict]:
+    """
+    Extract the JSON summary from the end of the LLM response.
+    Returns the JSON object if found, None otherwise.
+    """
+    # Look for JSON pattern at the end of the response
+    import re
+    match = re.search(r'\{[^{}]*"cassette_url"[^{}]*"chain_url"[^{}]*\}', answer_text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError:
+            return None
+    return None
+
+
+def remove_json_summary(answer_text: str) -> str:
+    """
+    Remove the machine-readable JSON summary from the answer text.
+    """
+    # Remove the JSON object from the end
+    import re
+    return re.sub(r'\n*\{[^{}]*"cassette_url"[^{}]*"chain_url"[^{}]*\}$', '', answer_text, flags=re.DOTALL).strip()
 
 
 # ---------- FLASK ROUTES ----------
@@ -230,8 +257,11 @@ def api_recommend():
     prompt = make_prompt(context)
     answer_text = call_llm(prompt)
 
-    # very simple extraction of URLs from the summary at the end (optional)
-    # we also just pass back the same candidate list so the frontend can show tiles
+    # Extract JSON summary and remove it from displayed text
+    json_summary = extract_json_summary(answer_text)
+    answer_text_clean = remove_json_summary(answer_text)
+
+    # Build product list for display
     products = []
 
     for cass in context["candidates"]["cassettes"]:
@@ -257,12 +287,13 @@ def api_recommend():
 
     return jsonify(
         {
-            "answer": answer_text,
+            "answer": answer_text_clean,
             "products": products,
+            "summary": json_summary,  # Include for frontend if needed, but not displayed in main answer
         }
     )
 
 
 if __name__ == "__main__":
     # For local demo use debug=True if you like
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(host=FLASK_HOST, port=FLASK_PORT, debug=FLASK_DEBUG)
