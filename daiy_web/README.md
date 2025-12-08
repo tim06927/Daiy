@@ -280,6 +280,7 @@ CATALOG_DF = pd.read_sql("SELECT * FROM products", conn)
 
 ## Future Ideas
 
+- [ ] make sure input is striped of PII and add a super simple consent layer
 - [ ] Multi-turn conversation (refine recommendations)
 - [ ] User authentication and saved recommendations
 - [ ] Image analysis of user's bike
