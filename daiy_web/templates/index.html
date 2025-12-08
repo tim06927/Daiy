@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>daiy – cassette upgrade demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #111827;
+      --accent: #22c55e;
+      --accent-soft: #22c55e22;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #1f2933;
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #111827 0, #020617 50%, #020617 100%);
+      color: var(--text);
+    }
+
+    .page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .shell {
+      width: 100%;
+      max-width: 768px;
+      margin: 0 auto;
+      padding: 1rem 1rem 4rem;
+    }
+
+    header {
+      padding: 1rem 0 1rem;
+    }
+
+    .logo {
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    h1 {
+      margin: 0.25rem 0 0.25rem;
+      font-size: 1.4rem;
+      color: #f9fafb;
+    }
+
+    header p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 1rem;
+      border: 1px solid var(--border);
+      padding: 1rem;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.6);
+    }
+
+    .input-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+
+    textarea,
+    input[type="file"] {
+      width: 100%;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border);
+      background: #020617;
+      color: var(--text);
+      padding: 0.75rem 0.9rem;
+      font-size: 0.95rem;
+      resize: vertical;
+    }
+
+    textarea:focus,
+    input[type="file"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+    }
+
+    .input-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .row-inline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin-top: 0.25rem;
+    }
+
+    .file-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 0.75rem 1.4rem;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.95rem;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #020617;
+      box-shadow: 0 18px 45px rgba(34, 197, 94, 0.35);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+      box-shadow: none;
+    }
+
+    .btn-text {
+      margin-left: 0.5rem;
+    }
+
+    .status {
+      font-size: 0.8rem;
+      color: var(--muted);
+      min-height: 1.2rem;
+      margin-top: 0.25rem;
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .answer-card {
+      margin-top: 1rem;
+    }
+
+    .answer-heading {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .answer-box {
+      font-size: 0.95rem;
+      line-height: 1.5;
+      padding: 0.75rem 0.9rem;
+      border-radius: 0.75rem;
+      background: #020617;
+      border: 1px solid var(--border);
+      white-space: pre-wrap;
+    }
+
+    .products-section {
+      margin-top: 1.25rem;
+    }
+
+    .products-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.5rem;
+    }
+
+    .products-header h2 {
+      font-size: 0.95rem;
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .products-header span {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .products-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.75rem;
+    }
+
+    @media (min-width: 640px) {
+      .products-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .product-card {
+      border-radius: 0.9rem;
+      border: 1px solid var(--border);
+      background: #020617;
+      padding: 0.75rem 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, border-color 0.08s;
+    }
+
+    .product-card a {
+      color: inherit;
+      text-decoration: none;
+      display: block;
+    }
+
+    .product-card:hover {
+      transform: translateY(-1px);
+      border-color: var(--accent);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.7);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.1rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .pill.cassette {
+      border-color: #38bdf8;
+      color: #38bdf8;
+    }
+
+    .pill.chain {
+      border-color: #f97316;
+      color: #f97316;
+    }
+
+    .product-name {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #e5e7eb;
+    }
+
+    .product-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .product-price {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin-top: 0.25rem;
+    }
+
+    .product-footer {
+      margin-top: 0.3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .product-footer span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="shell">
+      <header>
+        <div class="logo">daiy · demo</div>
+        <h1>Show-to-Cart · Cassette Upgrade</h1>
+        <p>Describe your bike + project, upload a photo (dummy for now), then get an AI kit and real parts from bike-components.de.</p>
+      </header>
+
+      <main>
+        <section class="card">
+          <div class="input-row">
+            <label class="input-label" for="problem">Describe your bike + project</label>
+            <textarea id="problem" rows="4" placeholder="Example: I have a Shimano 11-speed road bike with 11-32 cassette and want easier gears for steep climbs."></textarea>
+          </div>
+
+          <div class="input-row">
+            <div class="input-label">Photo (dummy upload)</div>
+            <div class="row-inline">
+              <input id="photo" type="file" accept="image/*" />
+              <span class="file-label">Not used yet – for UI only.</span>
+            </div>
+          </div>
+
+          <div class="row-inline">
+            <button id="ask-btn" class="btn">
+              <span>⚡</span>
+              <span class="btn-text">Ask AI</span>
+            </button>
+            <div id="status" class="status"></div>
+          </div>
+
+          <div class="answer-card">
+            <div class="answer-heading">AI answer</div>
+            <div id="answer" class="answer-box">No answer yet. Describe your project and tap “Ask AI”.</div>
+          </div>
+
+          <div class="products-section">
+            <div class="products-header">
+              <h2>Suggested parts</h2>
+              <span>From bike-components.de</span>
+            </div>
+            <div id="products" class="products-grid">
+              <!-- Product tiles injected here -->
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const askBtn = document.getElementById("ask-btn");
+    const statusEl = document.getElementById("status");
+    const answerEl = document.getElementById("answer");
+    const productsEl = document.getElementById("products");
+    const problemEl = document.getElementById("problem");
+
+    async function callBackend() {
+      const problemText = problemEl.value.trim();
+      if (!problemText) {
+        statusEl.textContent = "Please describe your bike and project first.";
+        statusEl.classList.add("error");
+        return;
+      }
+
+      statusEl.classList.remove("error");
+      statusEl.textContent = "Thinking…";
+      askBtn.disabled = true;
+
+      try {
+        const resp = await fetch("/api/recommend", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ problem_text: problemText })
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.error || `Server error (${resp.status})`);
+        }
+
+        const data = await resp.json();
+        answerEl.textContent = data.answer || "(No answer returned)";
+
+        // render products
+        productsEl.innerHTML = "";
+        (data.products || []).forEach((prod) => {
+          const card = document.createElement("article");
+          card.className = "product-card";
+
+          const a = document.createElement("a");
+          a.href = prod.url;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+
+          const pill = document.createElement("div");
+          pill.className = "pill " + (prod.type === "cassette" ? "cassette" : "chain");
+          pill.textContent = prod.type === "cassette" ? "Cassette" : "Chain";
+
+          const name = document.createElement("div");
+          name.className = "product-name";
+          name.textContent = prod.name;
+
+          const meta = document.createElement("div");
+          meta.className = "product-meta";
+          meta.textContent = [prod.brand, prod.application].filter(Boolean).join(" · ");
+
+          const price = document.createElement("div");
+          price.className = "product-price";
+          price.textContent = prod.price || "";
+
+          const footer = document.createElement("div");
+          footer.className = "product-footer";
+          footer.innerHTML = `<span>Open on bc.de ↗</span>`;
+
+          a.appendChild(pill);
+          a.appendChild(name);
+          a.appendChild(meta);
+          a.appendChild(price);
+          a.appendChild(footer);
+
+          card.appendChild(a);
+          productsEl.appendChild(card);
+        });
+
+        statusEl.textContent = "";
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = err.message || "Something went wrong.";
+        statusEl.classList.add("error");
+      } finally {
+        askBtn.disabled = false;
+      }
+    }
+
+    askBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      callBackend();
+    });
+  </script>
+</body>
+</html>
