@@ -722,12 +722,11 @@
   </main>
 
   <script>
-    // State
+    // ========== STATE & ELEMENTS ==========
     let currentMode = 'ai';
     let selectedSpeed = null;
     let selectedUseCase = null;
 
-    // Elements
     const searchInput = document.getElementById('search-input');
     const searchBtn = document.getElementById('search-btn');
     const statusEl = document.getElementById('status');
@@ -740,7 +739,7 @@
     const productRowsEl = document.getElementById('product-rows');
     let activeInsight = 'why';
 
-    // Switch between search and AI modes
+    // ========== MODE SWITCHING ==========
     function switchMode(mode) {
       if (mode === 'search') {
         // Search is dummy for now
@@ -762,7 +761,7 @@
       }
     }
 
-    // Handle search/AI request
+    // ========== SEARCH & API REQUEST ==========
     async function handleSearch() {
       const problemText = searchInput.value.trim();
       
@@ -822,7 +821,7 @@
       }
     }
 
-    // Render clarification options
+    // ========== CLARIFICATION OPTIONS ==========
     function renderClarification(options, missingKeys) {
       clarificationEl.classList.add('active');
       
@@ -891,7 +890,7 @@
       }
     }
 
-    // Select speed option
+    // ========== SPEED & USE CASE SELECTION ==========
     function selectSpeed(speed) {
       selectedSpeed = parseInt(speed);
       
@@ -921,6 +920,7 @@
       handleSearch();
     }
 
+    // ========== INSIGHT TABS & SECTIONS ==========
     function switchInsight(key) {
       activeInsight = key;
       const tabs = ['why', 'workflow', 'checklist'];
@@ -963,6 +963,7 @@
       switchInsight('why');
     }
 
+    // ========== PRODUCT ROW RENDERING ==========
     function renderProductRows(rows) {
       productRowsEl.innerHTML = '';
       if (!Array.isArray(rows) || rows.length === 0) {
@@ -1018,7 +1019,7 @@
       });
     }
 
-    // Show AI results
+    // ========== RESULTS & UI UPDATES ==========
     function showAIResults(data) {
       statusEl.textContent = "";
       clarificationEl.classList.remove('active');
@@ -1034,7 +1035,7 @@
       aiResultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // Create product card
+    // ========== PRODUCT CARD GENERATION ==========
     function createProductCard(prod, isBest = false) {
       const safeType = prod.type || 'cassette';
       const card = document.createElement("a");
@@ -1087,7 +1088,7 @@
       return card;
     }
 
-    // Load sample products on page load
+    // ========== SAMPLE PRODUCTS & INITIALIZATION ==========
     async function loadSampleProducts() {
       // This would normally fetch from your product API
       // For now, we'll leave it empty or you can add sample data
@@ -1115,7 +1116,7 @@
       });
     }
 
-    // Initialize
+    // ========== PAGE LOAD & EVENT LISTENERS ==========
     loadSampleProducts();
 
     // Allow Enter to submit (Shift+Enter for new line)

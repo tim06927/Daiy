@@ -19,146 +19,169 @@ def format_timestamp(ts: str) -> str:
     try:
         dt = datetime.fromisoformat(ts)
         return dt.strftime("%H:%M:%S")
-    except:
+    except ValueError:
         return ts
 
 
 def escape_html(text: str) -> str:
     """Escape HTML special characters."""
-    return (text
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace('"', "&quot;")
-            .replace("'", "&#39;"))
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&#39;")
+    )
 
 
 def format_event_html(event: Dict[str, Any]) -> str:
     """Format a single log event as HTML."""
     event_type = event.get("event_type", "unknown")
     timestamp = format_timestamp(event.get("timestamp", ""))
-    
+
     html_parts = [f'<div class="event event-{event_type}">']
     html_parts.append(f'<h3 class="event-header">[{timestamp}] {event_type.upper()}</h3>')
     html_parts.append('<div class="event-content">')
-    
+
     if event_type == "user_input":
-        html_parts.append(f'<p><strong>📝 User Input:</strong></p>')
+        html_parts.append("<p><strong>📝 User Input:</strong></p>")
         html_parts.append(f'<p><code>{escape_html(event.get("problem_text", ""))}</code></p>')
-        if event.get('selected_speed'):
+        if event.get("selected_speed"):
             html_parts.append(f'<p><strong>Selected Speed:</strong> {event["selected_speed"]}</p>')
-        if event.get('selected_use_case'):
-            html_parts.append(f'<p><strong>Selected Use Case:</strong> {event["selected_use_case"]}</p>')
-    
+        if event.get("selected_use_case"):
+            html_parts.append(
+                f'<p><strong>Selected Use Case:</strong> {event["selected_use_case"]}</p>'
+            )
+
     elif event_type == "regex_inference":
-        html_parts.append(f'<p><strong>🔍 Regex Inference:</strong></p>')
-        html_parts.append(f'<ul>')
-        html_parts.append(f'<li>Inferred Speed: <code>{event.get("inferred_speed", "None")}</code></li>')
-        html_parts.append(f'<li>Inferred Use Case: <code>{event.get("inferred_use_case", "None")}</code></li>')
+        html_parts.append("<p><strong>🔍 Regex Inference:</strong></p>")
+        html_parts.append("<ul>")
+        html_parts.append(
+            f'<li>Inferred Speed: <code>{event.get("inferred_speed", "None")}</code></li>'
+        )
+        html_parts.append(
+            f'<li>Inferred Use Case: <code>{event.get("inferred_use_case", "None")}</code></li>'
+        )
         html_parts.append(f'<li>Final Speed: <code>{event.get("final_speed", "None")}</code></li>')
-        html_parts.append(f'<li>Final Use Case: <code>{event.get("final_use_case", "None")}</code></li>')
-        html_parts.append(f'</ul>')
-    
+        html_parts.append(
+            f'<li>Final Use Case: <code>{event.get("final_use_case", "None")}</code></li>'
+        )
+        html_parts.append("</ul>")
+
     elif event_type == "llm_call_clarification":
-        html_parts.append(f'<p><strong>🤖 LLM Call (Clarification):</strong></p>')
-        html_parts.append(f'<ul>')
+        html_parts.append("<p><strong>🤖 LLM Call (Clarification):</strong></p>")
+        html_parts.append("<ul>")
         html_parts.append(f'<li>Model: <code>{event.get("model", "unknown")}</code></li>')
         html_parts.append(f'<li>Missing Keys: <code>{event.get("missing_keys", [])}</code></li>')
-        html_parts.append(f'</ul>')
-        html_parts.append(f'<details><summary>View Prompt</summary>')
-        prompt = escape_html(event.get('prompt', ''))
-        html_parts.append(f'<pre>{prompt}</pre>')
-        html_parts.append(f'</details>')
-    
+        html_parts.append("</ul>")
+        html_parts.append("<details><summary>View Prompt</summary>")
+        prompt = escape_html(event.get("prompt", ""))
+        html_parts.append(f"<pre>{prompt}</pre>")
+        html_parts.append("</details>")
+
     elif event_type == "llm_response_clarification":
-        html_parts.append(f'<p><strong>💬 LLM Response (Clarification):</strong></p>')
-        html_parts.append(f'<ul>')
+        html_parts.append("<p><strong>💬 LLM Response (Clarification):</strong></p>")
+        html_parts.append("<ul>")
         html_parts.append(f'<li>Model: <code>{event.get("model", "unknown")}</code></li>')
-        html_parts.append(f'</ul>')
-        html_parts.append(f'<details><summary>View Response</summary>')
-        response = escape_html(event.get('raw_response', ''))
-        html_parts.append(f'<pre>{response}</pre>')
-        html_parts.append(f'</details>')
-    
+        html_parts.append("</ul>")
+        html_parts.append("<details><summary>View Response</summary>")
+        response = escape_html(event.get("raw_response", ""))
+        html_parts.append(f"<pre>{response}</pre>")
+        html_parts.append("</details>")
+
     elif event_type == "llm_inference_result":
-        html_parts.append(f'<p><strong>✅ LLM Inference Result:</strong></p>')
-        html_parts.append(f'<ul>')
-        html_parts.append(f'<li>Inferred Speed: <code>{event.get("inferred_speed", "None")}</code></li>')
-        html_parts.append(f'<li>Inferred Use Case: <code>{event.get("inferred_use_case", "None")}</code></li>')
+        html_parts.append("<p><strong>✅ LLM Inference Result:</strong></p>")
+        html_parts.append("<ul>")
+        html_parts.append(
+            f'<li>Inferred Speed: <code>{event.get("inferred_speed", "None")}</code></li>'
+        )
+        html_parts.append(
+            f'<li>Inferred Use Case: <code>{event.get("inferred_use_case", "None")}</code></li>'
+        )
         html_parts.append(f'<li>Speed Options: <code>{event.get("speed_options", [])}</code></li>')
-        html_parts.append(f'<li>Use Case Options: <code>{event.get("use_case_options", [])}</code></li>')
-        html_parts.append(f'</ul>')
-    
+        html_parts.append(
+            f'<li>Use Case Options: <code>{event.get("use_case_options", [])}</code></li>'
+        )
+        html_parts.append("</ul>")
+
     elif event_type == "llm_call_recommendation":
-        html_parts.append(f'<p><strong>🤖 LLM Call (Recommendation):</strong></p>')
-        html_parts.append(f'<ul>')
+        html_parts.append("<p><strong>🤖 LLM Call (Recommendation):</strong></p>")
+        html_parts.append("<ul>")
         html_parts.append(f'<li>Model: <code>{event.get("model", "unknown")}</code></li>')
-        html_parts.append(f'</ul>')
-        html_parts.append(f'<details><summary>View Prompt</summary>')
-        prompt = escape_html(event.get('prompt', ''))
-        html_parts.append(f'<pre>{prompt}</pre>')
-        html_parts.append(f'</details>')
-    
+        html_parts.append("</ul>")
+        html_parts.append("<details><summary>View Prompt</summary>")
+        prompt = escape_html(event.get("prompt", ""))
+        html_parts.append(f"<pre>{prompt}</pre>")
+        html_parts.append("</details>")
+
     elif event_type == "llm_response_recommendation":
-        html_parts.append(f'<p><strong>💬 LLM Response (Recommendation):</strong></p>')
-        html_parts.append(f'<ul>')
+        html_parts.append("<p><strong>💬 LLM Response (Recommendation):</strong></p>")
+        html_parts.append("<ul>")
         html_parts.append(f'<li>Model: <code>{event.get("model", "unknown")}</code></li>')
-        html_parts.append(f'</ul>')
-        html_parts.append(f'<details><summary>View Response</summary>')
-        response = escape_html(event.get('raw_response', ''))
-        html_parts.append(f'<pre>{response}</pre>')
-        html_parts.append(f'</details>')
-    
+        html_parts.append("</ul>")
+        html_parts.append("<details><summary>View Response</summary>")
+        response = escape_html(event.get("raw_response", ""))
+        html_parts.append(f"<pre>{response}</pre>")
+        html_parts.append("</details>")
+
     elif event_type == "llm_parse_error":
-        html_parts.append(f'<p><strong>❌ LLM Parse Error:</strong></p>')
-        html_parts.append(f'<ul>')
-        html_parts.append(f'<li>Error: <code>{escape_html(event.get("error", "unknown"))}</code></li>')
-        html_parts.append(f'<li>Raw: <code>{escape_html(event.get("raw", "")[:200])}</code>...</li>')
-        html_parts.append(f'</ul>')
-    
+        html_parts.append("<p><strong>❌ LLM Parse Error:</strong></p>")
+        html_parts.append("<ul>")
+        html_parts.append(
+            f'<li>Error: <code>{escape_html(event.get("error", "unknown"))}</code></li>'
+        )
+        html_parts.append(
+            f'<li>Raw: <code>{escape_html(event.get("raw", "")[:200])}</code>...</li>'
+        )
+        html_parts.append("</ul>")
+
     elif event_type == "user_selection":
-        html_parts.append(f'<p><strong>🎯 User Selection:</strong></p>')
-        if event.get('selected_speed'):
+        html_parts.append("<p><strong>🎯 User Selection:</strong></p>")
+        if event.get("selected_speed"):
             html_parts.append(f'<p><strong>Selected Speed:</strong> {event["selected_speed"]}</p>')
-        if event.get('selected_use_case'):
-            html_parts.append(f'<p><strong>Selected Use Case:</strong> {event["selected_use_case"]}</p>')
-    
+        if event.get("selected_use_case"):
+            html_parts.append(
+                f'<p><strong>Selected Use Case:</strong> {event["selected_use_case"]}</p>'
+            )
+
     else:
         # Generic handler
-        html_parts.append(f'<p><strong>Event Data:</strong></p>')
-        html_parts.append('<ul>')
+        html_parts.append("<p><strong>Event Data:</strong></p>")
+        html_parts.append("<ul>")
         for key, value in event.items():
-            if key not in ['event_type', 'timestamp']:
+            if key not in ["event_type", "timestamp"]:
                 value_str = str(value)[:200]
-                html_parts.append(f'<li><strong>{key}:</strong> <code>{escape_html(value_str)}</code></li>')
-        html_parts.append('</ul>')
-    
-    html_parts.append('</div></div>')
-    return '\n'.join(html_parts)
+                html_parts.append(
+                    f"<li><strong>{key}:</strong> <code>{escape_html(value_str)}</code></li>"
+                )
+        html_parts.append("</ul>")
+
+    html_parts.append("</div></div>")
+    return "\n".join(html_parts)
 
 
 def group_events_by_session(events: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
     """Group events by user interaction sessions.
-    
+
     A new session starts only with user_input events (when user enters a new problem).
     user_selection events (button clicks during clarification) are grouped with the current session.
     """
     sessions = []
     current_session = None
-    
+
     for event in events:
-        if event.get('event_type') == 'user_input':
+        if event.get("event_type") == "user_input":
             # Start a new session only on fresh problem input
             current_session = {
-                'start_time': event.get('timestamp'),
-                'user_text': event.get('problem_text', ''),
-                'events': [event]
+                "start_time": event.get("timestamp"),
+                "user_text": event.get("problem_text", ""),
+                "events": [event],
             }
             sessions.append(current_session)
         elif current_session is not None:
             # Add all other events to current session (including user_selection)
-            current_session['events'].append(event)
-    
+            current_session["events"].append(event)
+
     return sessions
 
 
@@ -166,11 +189,11 @@ def create_html_log(log_file: Path) -> str:
     """Create an HTML representation of the log file grouped by sessions."""
     log_file_name = log_file.name
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     # Read and group events
     events = []
     if log_file.exists():
-        with open(log_file, 'r', encoding='utf-8') as f:
+        with open(log_file, "r", encoding="utf-8") as f:
             for line in f:
                 if line.strip():
                     try:
@@ -178,17 +201,17 @@ def create_html_log(log_file: Path) -> str:
                         events.append(event)
                     except json.JSONDecodeError:
                         pass
-    
+
     sessions = group_events_by_session(events)
-    
+
     # Build HTML with sessions
     session_html = ""
     for i, session in enumerate(sessions, 1):
-        session_time = format_timestamp(session['start_time'])
-        user_text = escape_html(session['user_text'][:80])
-        if len(session['user_text']) > 80:
+        session_time = format_timestamp(session["start_time"])
+        user_text = escape_html(session["user_text"][:80])
+        if len(session["user_text"]) > 80:
             user_text += "..."
-        
+
         session_html += f"""
         <div class="session">
             <div class="session-header">
@@ -202,15 +225,15 @@ def create_html_log(log_file: Path) -> str:
             </div>
             <div class="session-events">
 """
-        
-        for event in session['events']:
+
+        for event in session["events"]:
             session_html += format_event_html(event)
-        
+
         session_html += """
             </div>
         </div>
 """
-    
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -223,7 +246,7 @@ def create_html_log(log_file: Path) -> str:
             padding: 0;
             box-sizing: border-box;
         }}
-        
+
         body {{
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background: #0f172a;
@@ -231,24 +254,24 @@ def create_html_log(log_file: Path) -> str:
             padding: 2rem;
             line-height: 1.6;
         }}
-        
+
         .container {{
             max-width: 1400px;
             margin: 0 auto;
         }}
-        
+
         header {{
             margin-bottom: 2rem;
             border-bottom: 2px solid #334155;
             padding-bottom: 1rem;
         }}
-        
+
         h1 {{
             font-size: 2rem;
             margin-bottom: 0.5rem;
             color: #60a5fa;
         }}
-        
+
         .log-info {{
             display: flex;
             gap: 2rem;
@@ -257,7 +280,7 @@ def create_html_log(log_file: Path) -> str:
             flex-wrap: wrap;
             margin-top: 0.5rem;
         }}
-        
+
         .stats {{
             margin-top: 1rem;
             padding: 1rem;
@@ -265,12 +288,12 @@ def create_html_log(log_file: Path) -> str:
             border-radius: 0.5rem;
             border-left: 3px solid #60a5fa;
         }}
-        
+
         .stats p {{
             margin: 0.25rem 0;
             font-size: 0.95rem;
         }}
-        
+
         .session {{
             margin-bottom: 2rem;
             border: 2px solid #475569;
@@ -279,7 +302,7 @@ def create_html_log(log_file: Path) -> str:
             overflow: hidden;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         }}
-        
+
         .session-header {{
             background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
             padding: 1.5rem;
@@ -291,15 +314,15 @@ def create_html_log(log_file: Path) -> str:
             justify-content: space-between;
             align-items: flex-start;
         }}
-        
+
         .session-header:hover {{
             background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
         }}
-        
+
         .session-header-content {{
             flex: 1;
         }}
-        
+
         .session-header h2 {{
             font-size: 1.2rem;
             color: #60a5fa;
@@ -308,18 +331,18 @@ def create_html_log(log_file: Path) -> str:
             align-items: center;
             gap: 0.5rem;
         }}
-        
+
         .session-header p {{
             color: #cbd5e1;
             margin: 0.25rem 0;
             font-size: 0.9rem;
         }}
-        
+
         .session-time {{
             color: #94a3b8;
             font-size: 0.85rem;
         }}
-        
+
         .session-toggle {{
             display: inline-block;
             transition: transform 0.3s;
@@ -327,23 +350,23 @@ def create_html_log(log_file: Path) -> str:
             color: #60a5fa;
             margin-left: 1rem;
         }}
-        
+
         .session.collapsed .session-toggle {{
             transform: rotate(-90deg);
         }}
-        
+
         .session-events {{
             padding: 1rem;
             max-height: 3000px;
             overflow: hidden;
             transition: max-height 0.3s ease-out, padding 0.3s;
         }}
-        
+
         .session.collapsed .session-events {{
             max-height: 0;
             padding: 0 1rem;
         }}
-        
+
         .event {{
             margin-bottom: 1rem;
             border: 1px solid #334155;
@@ -351,11 +374,11 @@ def create_html_log(log_file: Path) -> str:
             background: #1e293b;
             overflow: hidden;
         }}
-        
+
         .event:last-child {{
             margin-bottom: 0;
         }}
-        
+
         .event-header {{
             background: #0f172a;
             padding: 0.75rem 1rem;
@@ -367,12 +390,12 @@ def create_html_log(log_file: Path) -> str:
             user-select: none;
             font-weight: 600;
         }}
-        
+
         .event-content {{
             padding: 0.75rem 1rem;
             font-size: 0.9rem;
         }}
-        
+
         .event-user_input .event-header {{ border-left: 4px solid #10b981; }}
         .event-user_selection .event-header {{ border-left: 4px solid #06b6d4; }}
         .event-regex_inference .event-header {{ border-left: 4px solid #8b5cf6; }}
@@ -382,21 +405,21 @@ def create_html_log(log_file: Path) -> str:
         .event-llm_call_recommendation .event-header {{ border-left: 4px solid #f59e0b; }}
         .event-llm_response_recommendation .event-header {{ border-left: 4px solid #f59e0b; }}
         .event-llm_parse_error .event-header {{ border-left: 4px solid #ef4444; }}
-        
+
         .event-content p {{
             margin: 0.3rem 0;
         }}
-        
+
         .event-content ul {{
             list-style: none;
             padding-left: 1.5rem;
             margin: 0.3rem 0;
         }}
-        
+
         .event-content li {{
             margin: 0.2rem 0;
         }}
-        
+
         code {{
             background: #0f172a;
             padding: 0.2rem 0.4rem;
@@ -405,7 +428,7 @@ def create_html_log(log_file: Path) -> str:
             font-size: 0.85em;
             color: #a8e6cf;
         }}
-        
+
         pre {{
             background: #0f172a;
             padding: 0.75rem;
@@ -416,12 +439,12 @@ def create_html_log(log_file: Path) -> str:
             border-left: 3px solid #334155;
             line-height: 1.4;
         }}
-        
+
         details {{
             margin-top: 0.3rem;
             cursor: pointer;
         }}
-        
+
         details summary {{
             color: #60a5fa;
             user-select: none;
@@ -431,15 +454,15 @@ def create_html_log(log_file: Path) -> str:
             transition: background 0.2s;
             font-size: 0.85rem;
         }}
-        
+
         details summary:hover {{
             background: #1e293b;
         }}
-        
+
         details[open] summary {{
             margin-bottom: 0.3rem;
         }}
-        
+
         .filter-controls {{
             margin-bottom: 2rem;
             padding: 1rem;
@@ -449,7 +472,7 @@ def create_html_log(log_file: Path) -> str:
             gap: 1rem;
             flex-wrap: wrap;
         }}
-        
+
         .filter-controls label {{
             display: flex;
             align-items: center;
@@ -457,11 +480,11 @@ def create_html_log(log_file: Path) -> str:
             cursor: pointer;
             font-size: 0.9rem;
         }}
-        
+
         .filter-controls input[type="checkbox"] {{
             cursor: pointer;
         }}
-        
+
         footer {{
             margin-top: 3rem;
             padding-top: 1rem;
@@ -484,7 +507,7 @@ def create_html_log(log_file: Path) -> str:
                 <p><strong>Sessions:</strong> {len(sessions)} | <strong>Total Events:</strong> {len(events)}</p>
             </div>
         </header>
-        
+
         <div class="filter-controls">
             <label><input type="checkbox" class="filter" data-event-type="user_input" checked> User Input</label>
             <label><input type="checkbox" class="filter" data-event-type="user_selection" checked> User Selection</label>
@@ -494,14 +517,14 @@ def create_html_log(log_file: Path) -> str:
             <label><input type="checkbox" class="filter" data-event-type="llm_call_recommendation" checked> Recommendations</label>
             <label><input type="checkbox" class="filter" data-event-type="llm_parse_error" checked> Errors</label>
         </div>
-        
+
         {session_html}
-        
+
         <footer>
             <p>Generated on {current_time}</p>
         </footer>
     </div>
-    
+
     <script>
         // Toggle session collapse
         document.querySelectorAll('.session-header').forEach(header => {{
@@ -510,7 +533,7 @@ def create_html_log(log_file: Path) -> str:
                 session.classList.toggle('collapsed');
             }});
         }});
-        
+
         // Filter functionality
         document.querySelectorAll('.filter').forEach(checkbox => {{
             checkbox.addEventListener('change', () => {{
@@ -525,7 +548,7 @@ def create_html_log(log_file: Path) -> str:
 </body>
 </html>
 """
-    
+
     return html
 
 
@@ -536,22 +559,22 @@ def main():
         log_file = Path(sys.argv[1])
     else:
         # Use today's log file (logs directory is in web/)
-        today = datetime.now().strftime('%Y%m%d')
+        today = datetime.now().strftime("%Y%m%d")
         log_file = Path(__file__).parent / f"logs/llm_interactions_{today}.jsonl"
-    
+
     # Generate HTML
     html_content = create_html_log(log_file)
-    
+
     # Write to temporary HTML file
     output_file = Path(__file__).parent / "logs" / "view_logs.html"
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(output_file, 'w', encoding='utf-8') as f:
+
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write(html_content)
-    
+
     print(f"✅ Log viewer created: {output_file}")
-    print(f"📖 Opening in browser...")
-    
+    print("📖 Opening in browser...")
+
     # Open in browser
     webbrowser.open(f"file://{output_file.absolute()}")
 

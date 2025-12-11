@@ -5,7 +5,7 @@ LLM-powered suggestions grounded in real product inventory.
 """
 
 import json
-import logging
+import os
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -14,13 +14,14 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 from dotenv import load_dotenv
-import os
+from flask import Flask, Response, jsonify, render_template, request
+from openai import OpenAI
 
 # Load environment variables from .env file (explicitly specify path)
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-from config import (
+from config import (  # noqa: E402
     CSV_PATH,
     FLASK_DEBUG,
     FLASK_HOST,
@@ -29,8 +30,6 @@ from config import (
     MAX_CASSETTES,
     MAX_CHAINS,
 )
-from flask import Flask, Response, jsonify, render_template, request
-from openai import OpenAI
 
 # Initialize OpenAI client with API key from environment
 api_key = os.getenv("OPENAI_API_KEY")
@@ -47,16 +46,12 @@ LOG_FILE = LOG_DIR / f"llm_interactions_{datetime.now().strftime('%Y%m%d')}.json
 
 def log_interaction(event_type: str, data: Dict[str, Any]) -> None:
     """Log LLM interactions to a structured JSONL file.
-    
+
     Args:
         event_type: Type of event (user_input, regex_inference, llm_call, llm_response, etc.)
         data: Event-specific data to log
     """
-    log_entry = {
-        "timestamp": datetime.now().isoformat(),
-        "event_type": event_type,
-        **data
-    }
+    log_entry = {"timestamp": datetime.now().isoformat(), "event_type": event_type, **data}
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
 
@@ -150,6 +145,8 @@ def load_catalog(path: str = CSV_PATH) -> pd.DataFrame:
 
     return df
 
+
+# ---------- CATALOG INITIALIZATION ----------
 
 # load once at startup
 CATALOG_DF = load_catalog()
@@ -258,6 +255,9 @@ def _infer_bike_attributes(problem_text: str) -> Tuple[Optional[int], Optional[s
     return speed, use_case
 
 
+# ---------- BIKE ATTRIBUTE INFERENCE & PARSING ----------
+
+
 def _parse_selected_speed(value: Any) -> Optional[int]:
     """Parse user-provided speed (int or string like '11-speed')."""
     if value is None:
@@ -311,30 +311,39 @@ def _request_clarification_options(problem_text: str, missing: List[str]) -> Dic
         "- Use lowercase for use_case values: 'road', 'gravel', 'mtb', 'commute', 'touring', etc.\n"
     )
 
-    log_interaction("llm_call_clarification", {
-        "model": LLM_MODEL,
-        "prompt": prompt,
-        "missing_keys": missing,
-        "user_text": problem_text
-    })
+    log_interaction(
+        "llm_call_clarification",
+        {"model": LLM_MODEL, "prompt": prompt, "missing_keys": missing, "user_text": problem_text},
+    )
 
     resp = client.responses.create(model=LLM_MODEL, input=prompt)
     for item in resp.output:
         if hasattr(item, "content") and item.content is not None:
             raw = item.content[0].text  # type: ignore[union-attr]
-            
-            log_interaction("llm_response_clarification", {
-                "model": LLM_MODEL,
-                "raw_response": raw,
-            })
-            
+
+            log_interaction(
+                "llm_response_clarification",
+                {
+                    "model": LLM_MODEL,
+                    "raw_response": raw,
+                },
+            )
+
             try:
                 parsed = json.loads(raw)
                 result = {
                     "inferred_speed": parsed.get("inferred_speed"),
                     "inferred_use_case": parsed.get("inferred_use_case"),
-                    "speed_options": parsed.get("speed_options", []) if isinstance(parsed.get("speed_options"), list) else [],
-                    "use_case_options": parsed.get("use_case_options", []) if isinstance(parsed.get("use_case_options"), list) else [],
+                    "speed_options": (
+                        parsed.get("speed_options", [])
+                        if isinstance(parsed.get("speed_options"), list)
+                        else []
+                    ),
+                    "use_case_options": (
+                        parsed.get("use_case_options", [])
+                        if isinstance(parsed.get("use_case_options"), list)
+                        else []
+                    ),
                 }
                 log_interaction("llm_inference_result", result)
                 return result
@@ -342,25 +351,34 @@ def _request_clarification_options(problem_text: str, missing: List[str]) -> Dic
                 log_interaction("llm_parse_error", {"error": str(e), "raw": raw})
                 # Fallback to asking with default options
                 return {
-                    "inferred_speed": parsed.get("inferred_speed"),
-                    "inferred_use_case": parsed.get("inferred_use_case"),
-                    "speed_options": parsed.get("speed_options", []) if isinstance(parsed.get("speed_options"), list) else [],
-                    "use_case_options": parsed.get("use_case_options", []) if isinstance(parsed.get("use_case_options"), list) else [],
-                }
-            except json.JSONDecodeError:
-                # Fallback to asking with default options
-                return {
                     "inferred_speed": None,
                     "inferred_use_case": None,
-                    "speed_options": ["8-speed", "9-speed", "10-speed", "11-speed", "12-speed"] if "drivetrain_speed" in missing else [],
-                    "use_case_options": ["road", "gravel", "mtb", "commute", "touring"] if "use_case" in missing else [],
+                    "speed_options": (
+                        ["8-speed", "9-speed", "10-speed", "11-speed", "12-speed"]
+                        if "drivetrain_speed" in missing
+                        else []
+                    ),
+                    "use_case_options": (
+                        ["road", "gravel", "mtb", "commute", "touring"]
+                        if "use_case" in missing
+                        else []
+                    ),
                 }
     return {
         "inferred_speed": None,
         "inferred_use_case": None,
-        "speed_options": ["8-speed", "9-speed", "10-speed", "11-speed", "12-speed"] if "drivetrain_speed" in missing else [],
-        "use_case_options": ["road", "gravel", "mtb", "commute", "touring"] if "use_case" in missing else [],
+        "speed_options": (
+            ["8-speed", "9-speed", "10-speed", "11-speed", "12-speed"]
+            if "drivetrain_speed" in missing
+            else []
+        ),
+        "use_case_options": (
+            ["road", "gravel", "mtb", "commute", "touring"] if "use_case" in missing else []
+        ),
     }
+
+
+# ---------- CONTEXT & GROUNDING BUILDING ----------
 
 
 def build_grounding_context(problem_text: str, bike_speed: int, use_case: str) -> Dict[str, Any]:
@@ -431,7 +449,7 @@ def make_prompt(context: dict) -> str:
 
     return (
         "You are an experienced bike mechanic. Recommend ONE cassette and ONE chain from the provided candidates only.\n\n"
-        f"User description:\n\"\"\"{user_text}\"\"\"\n\n"
+        f'User description:\n"""{user_text}"""\n\n'
         f"Detected drivetrain speed: {context['user_bike']['drivetrain_speed']}-speed.\n"
         f"Detected use case: {context['user_bike'].get('use_case', 'unspecified')}.\n\n"
         "Candidate products (do NOT invent anything else):\n"
@@ -439,14 +457,14 @@ def make_prompt(context: dict) -> str:
         f"{chain_block}\n\n"
         "RESPONSE FORMAT (return JSON ONLY, no prose):\n"
         "{\n"
-        "  \"sections\": {\n"
-        "    \"why_it_fits\": [\"bullet 1\", \"bullet 2\", \"bullet 3\"],\n"
-        "    \"suggested_workflow\": [\"step 1\", \"step 2\", \"step 3\"],\n"
-        "    \"checklist\": [\"tool 1\", \"part 1\", \"consumable 1\"]\n"
+        '  "sections": {\n'
+        '    "why_it_fits": ["bullet 1", "bullet 2", "bullet 3"],\n'
+        '    "suggested_workflow": ["step 1", "step 2", "step 3"],\n'
+        '    "checklist": ["tool 1", "part 1", "consumable 1"]\n'
         "  },\n"
-        "  \"product_ranking\": {\n"
-        "    \"cassettes\": {\"best_index\": 0, \"alternatives\": [1,2]},\n"
-        "    \"chains\": {\"best_index\": 0, \"alternatives\": [1,2]}\n"
+        '  "product_ranking": {\n'
+        '    "cassettes": {"best_index": 0, "alternatives": [1,2]},\n'
+        '    "chains": {"best_index": 0, "alternatives": [1,2]}\n'
         "  }\n"
         "}\n\n"
         "RULES:\n"
@@ -464,10 +482,13 @@ def call_llm(prompt: str) -> Dict[str, Any]:
 
     Returns a dict with sections + product_ranking. Falls back to empty dict on failure.
     """
-    log_interaction("llm_call_recommendation", {
-        "model": LLM_MODEL,
-        "prompt": prompt,
-    })
+    log_interaction(
+        "llm_call_recommendation",
+        {
+            "model": LLM_MODEL,
+            "prompt": prompt,
+        },
+    )
 
     resp = client.responses.create(
         model=LLM_MODEL,
@@ -478,10 +499,13 @@ def call_llm(prompt: str) -> Dict[str, Any]:
         if hasattr(item, "content") and item.content is not None:
             raw = item.content[0].text  # type: ignore[union-attr]
 
-            log_interaction("llm_response_recommendation", {
-                "model": LLM_MODEL,
-                "raw_response": raw,
-            })
+            log_interaction(
+                "llm_response_recommendation",
+                {
+                    "model": LLM_MODEL,
+                    "raw_response": raw,
+                },
+            )
 
             try:
                 parsed = json.loads(raw)
@@ -563,28 +587,37 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
     # Only log "user_input" event if this is a NEW problem (no selections made yet)
     # This way, selections during clarification don't start a new session
     if selected_speed is None and selected_use_case is None:
-        log_interaction("user_input", {
-            "problem_text": problem_text,
-        })
+        log_interaction(
+            "user_input",
+            {
+                "problem_text": problem_text,
+            },
+        )
     else:
         # Log user selections separately (not as a new session)
-        log_interaction("user_selection", {
-            "problem_text": problem_text,
-            "selected_speed": selected_speed,
-            "selected_use_case": selected_use_case,
-        })
+        log_interaction(
+            "user_selection",
+            {
+                "problem_text": problem_text,
+                "selected_speed": selected_speed,
+                "selected_use_case": selected_use_case,
+            },
+        )
 
     # Inference: only if user hasn't already selected via button
     inferred_speed, inferred_use_case = _infer_bike_attributes(problem_text)
     bike_speed = selected_speed or inferred_speed
     use_case = selected_use_case or inferred_use_case
 
-    log_interaction("regex_inference", {
-        "inferred_speed": inferred_speed,
-        "inferred_use_case": inferred_use_case,
-        "final_speed": bike_speed,
-        "final_use_case": use_case,
-    })
+    log_interaction(
+        "regex_inference",
+        {
+            "inferred_speed": inferred_speed,
+            "inferred_use_case": inferred_use_case,
+            "final_speed": bike_speed,
+            "final_use_case": use_case,
+        },
+    )
 
     # Debug logging
     print(f"[DEBUG] Inference: speed={inferred_speed}, use_case={inferred_use_case}")
@@ -602,18 +635,18 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
     if missing_keys and selected_speed is None and selected_use_case is None:
         # First time - try LLM inference before asking user
         llm_result = _request_clarification_options(problem_text, missing_keys)
-        
+
         # Use LLM's inferred values if available
         if llm_result.get("inferred_speed") is not None and "drivetrain_speed" in missing_keys:
             bike_speed = llm_result["inferred_speed"]
             missing_keys.remove("drivetrain_speed")
             print(f"[DEBUG] LLM inferred speed: {bike_speed}")
-        
+
         if llm_result.get("inferred_use_case") is not None and "use_case" in missing_keys:
             use_case = llm_result["inferred_use_case"]
             missing_keys.remove("use_case")
             print(f"[DEBUG] LLM inferred use_case: {use_case}")
-        
+
         # If there are STILL missing values after LLM inference, ask user to select from options
         if missing_keys:
             options = {
@@ -696,8 +729,12 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
     ranking_raw = llm_payload.get("product_ranking", {}) if isinstance(llm_payload, dict) else {}
 
     sections = _default_sections()
-    sections["why_it_fits"] = _coerce_str_list(sections_raw.get("why_it_fits"), sections["why_it_fits"])
-    sections["suggested_workflow"] = _coerce_str_list(sections_raw.get("suggested_workflow"), sections["suggested_workflow"])
+    sections["why_it_fits"] = _coerce_str_list(
+        sections_raw.get("why_it_fits"), sections["why_it_fits"]
+    )
+    sections["suggested_workflow"] = _coerce_str_list(
+        sections_raw.get("suggested_workflow"), sections["suggested_workflow"]
+    )
     sections["checklist"] = _coerce_str_list(sections_raw.get("checklist"), sections["checklist"])
 
     # Build products with best + alternatives per category
