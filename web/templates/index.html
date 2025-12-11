@@ -8,15 +8,15 @@
   <style>
     :root {
       --bg: #ffffff;
-      --header-bg: #f8f9fa;
-      --card-bg: #ffffff;
-      --accent: #22c55e;
-      --accent-hover: #16a34a;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --border: #e5e7eb;
-      --search-bg: #f9fafb;
-      --shadow: rgba(0, 0, 0, 0.1);
+      --surface: #f8f8f8;
+      --accent: #000000;
+      --accent-hover: #333333;
+      --text: #111111;
+      --text-secondary: #666666;
+      --border: #e0e0e0;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+      --shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
     }
 
     * {
@@ -26,28 +26,28 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.6;
+      line-height: 1.5;
     }
 
     /* Header */
     .header {
-      background: var(--header-bg);
+      background: var(--bg);
       border-bottom: 1px solid var(--border);
-      padding: 0.75rem 0 1rem;
+      padding: 1rem 0;
       position: sticky;
       top: 0;
       z-index: 100;
-      backdrop-filter: blur(10px);
-      background: rgba(248, 249, 250, 0.95);
+      backdrop-filter: blur(8px);
+      background: rgba(255, 255, 255, 0.98);
     }
 
     .header-content {
-      max-width: 1200px;
+      max-width: 1280px;
       margin: 0 auto;
-      padding: 0 1.5rem;
+      padding: 0 2rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -56,194 +56,296 @@
     }
 
     .logo {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--accent);
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text);
       text-decoration: none;
       white-space: nowrap;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.4rem;
+      letter-spacing: -0.5px;
     }
 
     .logo-text {
       display: inline-flex;
       align-items: baseline;
-      gap: 0.35rem;
+      gap: 0.3rem;
       flex-wrap: wrap;
     }
 
     .header-title {
-      font-size: 1.45rem;
-      font-weight: 700;
+      font-size: 1.2rem;
+      font-weight: 600;
       color: var(--text);
-      line-height: 1.2;
+      line-height: 1.3;
     }
 
     .header-subtitle {
-      font-size: 0.95rem;
-      color: var(--muted);
-      line-height: 1.2;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.3;
     }
 
     .nav {
       display: flex;
-      gap: 1.25rem;
+      gap: 1.5rem;
       list-style: none;
       flex-wrap: wrap;
     }
 
     .nav a {
-      color: var(--text);
+      color: var(--text-secondary);
       text-decoration: none;
       font-weight: 500;
-      transition: color 0.2s;
+      font-size: 0.95rem;
+      transition: color 0.15s;
     }
 
     .nav a:hover {
-      color: var(--accent);
+      color: var(--text);
     }
 
     /* Hero Search Section */
     .hero {
-      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
-      padding: 1.5rem 1.5rem 1.25rem;
+      background: linear-gradient(to bottom, var(--bg), var(--surface));
+      padding: 1.5rem 2rem 1rem;
       border-bottom: 1px solid var(--border);
     }
 
     .hero-content {
-      max-width: 980px;
+      max-width: 1280px;
       margin: 0 auto;
     }
 
-    /* Search Mode Tabs on bar */
+    .hero-subtitle {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.3px;
+    }
+
+    /* Search Mode Tabs */
     .search-modes-inline {
       position: absolute;
-      left: 0.6rem;
+      left: 0.8rem;
       top: 0.5rem;
       display: flex;
-      gap: 0.4rem;
+      gap: 0.3rem;
       z-index: 2;
     }
 
     .mode-tab {
-      padding: 0.2rem 0.65rem;
-      border: 1px solid var(--border);
-      background: #f8fafc;
-      color: var(--text);
-      font-size: 0.82rem;
-      font-weight: 600;
-      border-radius: 0.75rem;
+      padding: 0.4rem 0.8rem;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-weight: 500;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: color 0.15s;
       line-height: 1.2;
+      position: relative;
+      outline: 2px solid transparent;
+      outline-offset: 2px;
+    }
+
+    .mode-tab:focus {
+      outline-color: var(--accent);
+      border-radius: 4px;
     }
 
     .mode-tab:hover {
-      border-color: var(--accent);
+      color: var(--text);
     }
 
     .mode-tab.active {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
-      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .mode-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--text);
     }
 
     .mode-tab.disabled {
-      opacity: 0.55;
+      opacity: 0.4;
       cursor: not-allowed;
     }
 
     /* Search Container */
     .search-container {
       position: relative;
-      max-width: 900px;
+      max-width: 920px;
       margin: 0 auto;
     }
 
     .search-wrapper {
       position: relative;
       background: white;
-      border: 2px solid var(--border);
-      border-radius: 2rem;
-      box-shadow: 0 4px 18px var(--shadow);
-      transition: all 0.2s ease;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      transition: all 0.15s ease;
       display: flex;
       align-items: center;
-      padding-right: 0.35rem;
-      padding-left: 6.5rem; /* space for tabs */
+      padding-right: 0.5rem;
+      padding-left: 4.5rem;
     }
 
     .search-wrapper:focus-within {
       border-color: var(--accent);
-      box-shadow: 0 4px 30px rgba(34, 197, 94, 0.2);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .search-wrapper:has(.search-input:focus) {
+      outline: 2px solid var(--accent);
+      outline-offset: 0px;
     }
 
     .search-input {
       flex: 1;
       border: none;
       outline: none;
-      padding: 0.9rem 1.25rem;
-      font-size: 0.98rem;
+      padding: 1rem 1.25rem 1rem 3.25rem;
+      font-size: 1rem;
       background: transparent;
       resize: none;
       overflow: hidden;
       font-family: inherit;
       line-height: 1.5;
+      color: var(--text);
+      min-height: auto;
+      max-height: 200px;
+    }
+
+    .upload-input {
+      display: none;
+    }
+
+    .upload-btn {
+      position: absolute;
+      left: 1.25rem;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      transition: all 0.15s;
+      z-index: 2;
+    }
+
+    .upload-btn:hover {
+      background: var(--bg);
+      color: var(--text);
+      border-color: var(--accent);
+    }
+
+    .upload-status {
+      margin-top: 0.35rem;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      min-height: 1rem;
+    }
+
+    .search-input::placeholder {
+      color: var(--text-secondary);
     }
 
     .search-input.multi-line {
-      min-height: 3.6rem;
+      min-height: 1.5rem;
+      padding: 0.9rem 1.25rem;
     }
 
     .search-button {
-      width: 2.7rem;
-      height: 2.7rem;
-      border-radius: 50%;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 6px;
       background: var(--accent);
       border: none;
       color: white;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.2s;
+      transition: all 0.15s;
       flex-shrink: 0;
+      margin-right: 0.25rem;
+      position: relative;
+      outline: 2px solid transparent;
+      outline-offset: 2px;
+    }
+
+    .search-button:focus {
+      outline-color: var(--accent);
+    }
+
+    .search-button.loading {
+      color: transparent;
+    }
+
+    .search-button.loading::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      top: 50%;
+      left: 50%;
+      margin-left: -8px;
+      margin-top: -8px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     .search-button:hover {
       background: var(--accent-hover);
-      transform: scale(1.05);
     }
 
     .search-button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
-      transform: scale(1);
     }
 
     /* Status Message */
     .status-message {
       text-align: center;
-      margin-top: 1rem;
-      color: var(--muted);
-      font-size: 0.9rem;
-      min-height: 1.5rem;
+      margin-top: 0.5rem;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      min-height: 1.2rem;
     }
 
     .status-message.error {
-      color: #ef4444;
+      color: #dc2626;
     }
 
     /* Clarification Section */
     .clarification {
-      background: #fffbeb;
-      border: 2px solid #fbbf24;
-      border-radius: 1rem;
-      padding: 1.5rem;
-      margin-top: 1.5rem;
+      background: #fafafa;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-top: 0.75rem;
       display: none;
     }
 
@@ -254,7 +356,8 @@
     .clarification-title {
       font-weight: 600;
       margin-bottom: 1rem;
-      color: #92400e;
+      color: var(--text);
+      font-size: 0.95rem;
     }
 
     .clarification-section {
@@ -266,10 +369,11 @@
     }
 
     .clarification-label {
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       font-weight: 500;
-      color: #78350f;
-      margin-bottom: 0.5rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.6rem;
+      display: block;
     }
 
     .clarification-options {
@@ -280,39 +384,39 @@
 
     .option-btn {
       padding: 0.5rem 1rem;
-      border: 2px solid #fbbf24;
+      border: 1px solid var(--border);
       background: white;
-      color: #92400e;
-      border-radius: 0.5rem;
+      color: var(--text);
+      border-radius: 6px;
       cursor: pointer;
       font-size: 0.9rem;
       font-weight: 500;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
 
     .option-btn:hover {
-      background: #fef3c7;
-      border-color: #f59e0b;
+      background: var(--surface);
+      border-color: var(--accent);
     }
 
     .option-selected {
       padding: 0.5rem 1rem;
-      color: #15803d;
+      color: var(--text);
       font-size: 0.9rem;
       font-weight: 500;
     }
 
     /* Main Content */
     .main-content {
-      max-width: 1200px;
+      max-width: 1280px;
       margin: 0 auto;
-      padding: 1.5rem 1.25rem;
+      padding: 1.25rem 2rem;
     }
 
     /* AI Results Section */
     .ai-results {
       display: none;
-      margin-bottom: 1rem;
+      margin-bottom: 1.25rem;
     }
 
     .ai-results.active {
@@ -321,37 +425,50 @@
 
     .insight-tabs {
       display: flex;
-      gap: 0.35rem;
-      margin-bottom: 0.6rem;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 0.25rem;
+      gap: 0;
+      margin-bottom: 0.75rem;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0;
     }
 
     .insight-tab {
-      border: 1px solid var(--border);
-      background: #f8fafc;
-      color: var(--text);
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
       font-size: 0.9rem;
-      font-weight: 600;
-      border-radius: 0.6rem;
-      padding: 0.45rem 0.75rem;
+      font-weight: 500;
+      border-radius: 0;
+      padding: 0.75rem 1rem;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .insight-tab:hover {
+      color: var(--text);
     }
 
     .insight-tab.active {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
-      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .insight-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--text);
     }
 
     .insight-panels {
-      background: #f9fafb;
-      border: 1px solid var(--border);
-      border-radius: 0.65rem;
-      padding: 0.9rem 1rem;
-      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.05);
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0.75rem 0;
+      box-shadow: none;
     }
 
     .insight-panel {
@@ -363,52 +480,60 @@
     }
 
     .info-title {
-      font-weight: 700;
-      margin-bottom: 0.35rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
       color: var(--text);
       display: flex;
       align-items: center;
-      gap: 0.35rem;
+      gap: 0.4rem;
+      font-size: 0.95rem;
     }
 
     .info-list {
-      margin: 0.25rem 0 0;
-      padding-left: 1.1rem;
-      color: var(--muted);
+      margin: 0.3rem 0 0;
+      padding-left: 1.25rem;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    .info-list li {
+      margin-bottom: 0.2rem;
     }
 
     .pill {
       display: inline-flex;
       align-items: center;
-      gap: 0.35rem;
-      padding: 0.25rem 0.6rem;
-      background: #ecfdf3;
-      color: #15803d;
-      border-radius: 999px;
+      gap: 0.3rem;
+      padding: 0.35rem 0.75rem;
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 4px;
       font-size: 0.8rem;
-      font-weight: 600;
+      font-weight: 500;
     }
 
     /* Product Rows */
     .products-section {
-      margin-top: 1.5rem;
+      margin-top: 0.75rem;
     }
 
     .section-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
+      margin-top: 1rem;
     }
 
     .section-title {
-      font-size: 1.5rem;
-      font-weight: 700;
+      font-size: 1.3rem;
+      font-weight: 600;
       color: var(--text);
+      letter-spacing: -0.5px;
     }
 
     .section-subtitle {
-      color: var(--muted);
+      color: var(--text-secondary);
       font-size: 0.9rem;
     }
 
@@ -420,54 +545,70 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 0.75rem;
+      margin-bottom: 1rem;
     }
 
     .category-name {
-      font-size: 1.2rem;
-      font-weight: 700;
+      font-size: 1.15rem;
+      font-weight: 600;
       color: var(--text);
     }
 
     .product-row {
       display: grid;
-      grid-template-columns: minmax(240px, 300px) 1fr;
+      grid-template-columns: 1fr 1.2fr;
       gap: 0.8rem;
       align-items: stretch;
     }
 
     .best-card {
-      border: 2px solid var(--accent);
-      box-shadow: 0 8px 20px rgba(34, 197, 94, 0.16);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-lg);
       position: relative;
     }
 
     .best-badge {
       position: absolute;
-      top: 10px;
-      right: 10px;
+      top: 1rem;
+      right: 1rem;
       background: var(--accent);
       color: white;
-      font-size: 0.75rem;
-      padding: 0.3rem 0.6rem;
-      border-radius: 999px;
-      font-weight: 700;
+      font-size: 0.7rem;
+      padding: 0.35rem 0.7rem;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .alternatives-scroll {
       overflow-x: auto;
-      padding-bottom: 0.25rem;
+      padding-bottom: 0;
+      scroll-behavior: smooth;
+    }
+
+    .alternatives-scroll::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .alternatives-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .alternatives-scroll::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
     }
 
     .alternatives-list {
       display: flex;
-      gap: 0.65rem;
+      gap: 0.75rem;
       min-height: 100%;
     }
 
     .alt-card {
-      min-width: 230px;
-      max-width: 300px;
+      min-width: 220px;
+      max-width: 280px;
       flex: 0 0 auto;
     }
 
@@ -480,9 +621,9 @@
     .product-card {
       background: white;
       border: 1px solid var(--border);
-      border-radius: 0.75rem;
+      border-radius: 8px;
       overflow: hidden;
-      transition: all 0.2s;
+      transition: all 0.15s;
       text-decoration: none;
       color: inherit;
       display: block;
@@ -490,53 +631,55 @@
     }
 
     .product-card:hover {
-      box-shadow: 0 8px 24px var(--shadow);
-      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
       border-color: var(--accent);
     }
 
     .product-image {
       width: 100%;
-      height: 200px;
-      background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+      height: 180px;
+      background: var(--surface);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--muted);
-      font-size: 3rem;
+      color: var(--text-secondary);
+      font-size: 2.5rem;
+      border-bottom: 1px solid var(--border);
     }
 
     .product-body {
-      padding: 1rem;
+      padding: 1.25rem;
     }
 
     .product-category {
       display: inline-block;
-      padding: 0.25rem 0.75rem;
-      background: #dbeafe;
-      color: #1e40af;
-      border-radius: 1rem;
-      font-size: 0.75rem;
+      padding: 0.3rem 0.6rem;
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 0.7rem;
       font-weight: 600;
       text-transform: uppercase;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.5px;
     }
 
     .product-category.chain {
-      background: #fed7aa;
-      color: #9a3412;
+      color: var(--text-secondary);
     }
 
     .product-name {
       font-weight: 600;
-      font-size: 1rem;
+      font-size: 0.95rem;
       margin-bottom: 0.5rem;
       line-height: 1.4;
+      color: var(--text);
     }
 
     .product-meta {
-      font-size: 0.85rem;
-      color: var(--muted);
+      font-size: 0.8rem;
+      color: var(--text-secondary);
       margin-bottom: 0.75rem;
     }
 
@@ -549,48 +692,41 @@
     }
 
     .product-price {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--accent);
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
     }
 
     .product-link {
-      color: var(--accent);
-      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
       font-weight: 500;
       display: flex;
       align-items: center;
       gap: 0.25rem;
+      transition: color 0.15s;
     }
 
-    /* Sample Products Section */
-    .sample-products {
-      display: block;
-    }
-
-    .sample-products.hidden {
-      display: none;
-    }
-
-    .category-section {
-      margin-bottom: 2rem;
-    }
-
-    .category-title {
-      font-size: 1.15rem;
-      font-weight: 600;
-      margin-bottom: 0.75rem;
+    .product-link:hover {
       color: var(--text);
     }
 
     /* Responsive */
     @media (max-width: 768px) {
-      .hero-title {
-        font-size: 1.8rem;
+      .header-content {
+        padding: 0 1rem;
       }
 
       .nav {
         display: none;
+      }
+
+      .main-content {
+        padding: 1.5rem 1rem;
+      }
+
+      .hero {
+        padding: 1.5rem 1rem;
       }
 
       .products-grid {
@@ -602,13 +738,17 @@
         grid-template-columns: 1fr;
       }
 
-      .search-modes {
-        flex-direction: column;
-        align-items: stretch;
+      .search-wrapper {
+        padding-left: 4.5rem;
       }
 
-      .mode-tab {
-        text-align: center;
+      .section-title {
+        font-size: 1.25rem;
+      }
+
+      .insight-tab {
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
       }
     }
   </style>
@@ -621,7 +761,7 @@
         🚴
         <span class="logo-text">
           <span class="header-title">BikeShop</span>
-          <span class="header-subtitle">AI fit & catalog</span>
+          <span class="header-subtitle">A Snap-to-Cart bike shop. Translate your job into workflow and shopping cart.</span>
         </span>
       </a>
       <nav>
@@ -639,11 +779,14 @@
     <div class="hero-content">
       <!-- Search Container -->
       <div class="search-container">
+        <div class="search-modes-inline">
+          <button class="mode-tab disabled" id="search-tab" onclick="switchMode('search')">Search</button>
+          <button class="mode-tab active" id="ai-tab" onclick="switchMode('ai')">AI</button>
+        </div>
+        <p class="hero-subtitle">AI-powered bike component matching, currently only: replacing bike drivetrains/cassetts.</p>
         <div class="search-wrapper">
-          <div class="search-modes-inline">
-            <button class="mode-tab disabled" id="search-tab" onclick="switchMode('search')">Search</button>
-            <button class="mode-tab active" id="ai-tab" onclick="switchMode('ai')">AI</button>
-          </div>
+          <input id="upload-input" class="upload-input" type="file" accept="image/*" />
+          <button id="upload-btn" class="upload-btn" type="button" onclick="triggerUpload()">📎</button>
           <textarea 
             id="search-input" 
             class="search-input multi-line" 
@@ -655,6 +798,7 @@
           </button>
         </div>
         <div id="status" class="status-message"></div>
+        <div id="upload-status" class="upload-status"></div>
 
         <!-- Clarification Section -->
         <div id="clarification" class="clarification">
@@ -707,18 +851,6 @@
       <div id="product-rows"></div>
     </div>
 
-    <!-- Sample Products (shown by default) -->
-    <div id="sample-products" class="sample-products">
-      <div class="category-section">
-        <h3 class="category-title">🔧 Featured Cassettes</h3>
-        <div class="products-grid" id="sample-cassettes"></div>
-      </div>
-
-      <div class="category-section">
-        <h3 class="category-title">⛓️ Popular Chains</h3>
-        <div class="products-grid" id="sample-chains"></div>
-      </div>
-    </div>
   </main>
 
   <script>
@@ -730,14 +862,16 @@
     const searchInput = document.getElementById('search-input');
     const searchBtn = document.getElementById('search-btn');
     const statusEl = document.getElementById('status');
+    const uploadInput = document.getElementById('upload-input');
+    const uploadStatus = document.getElementById('upload-status');
     const clarificationEl = document.getElementById('clarification');
     const aiResultsEl = document.getElementById('ai-results');
-    const sampleProductsEl = document.getElementById('sample-products');
     const whyBody = document.getElementById('why-body');
     const workflowList = document.getElementById('workflow-list');
     const checklistList = document.getElementById('checklist-list');
     const productRowsEl = document.getElementById('product-rows');
     let activeInsight = 'why';
+    let compressedImage = null;
 
     // ========== MODE SWITCHING ==========
     function switchMode(mode) {
@@ -772,8 +906,9 @@
       }
 
       statusEl.classList.remove('error');
-      statusEl.textContent = "Thinking...";
+      statusEl.textContent = "";
       searchBtn.disabled = true;
+      searchBtn.classList.add('loading');
 
       const finalSpeed = selectedSpeed;
       const finalUseCase = selectedUseCase;
@@ -786,6 +921,7 @@
             problem_text: problemText,
             selected_speed: finalSpeed,
             selected_use_case: finalUseCase,
+            image_base64: compressedImage,
           }),
         });
 
@@ -818,6 +954,7 @@
         statusEl.classList.add('error');
       } finally {
         searchBtn.disabled = false;
+        searchBtn.classList.remove('loading');
       }
     }
 
@@ -986,8 +1123,14 @@
         const descriptor = document.createElement('span');
         descriptor.className = 'section-subtitle';
         descriptor.textContent = 'Best pick + alternatives';
+        const expandToggle = document.createElement('button');
+        expandToggle.className = 'expand-toggle collapsed';
+        expandToggle.setAttribute('aria-label', 'Toggle alternatives');
+        expandToggle.textContent = '▼';
+        expandToggle.type = 'button';
         head.appendChild(title);
         head.appendChild(descriptor);
+        head.appendChild(expandToggle);
         wrapper.appendChild(head);
 
         const rowContainer = document.createElement('div');
@@ -1011,6 +1154,13 @@
           altList.appendChild(card);
         });
 
+        // Attach expand/collapse handler
+        expandToggle.addEventListener('click', (e) => {
+          e.preventDefault();
+          expandToggle.classList.toggle('collapsed');
+          altList.classList.toggle('expanded');
+        });
+
         altScroll.appendChild(altList);
         rowContainer.appendChild(altScroll);
         wrapper.appendChild(rowContainer);
@@ -1024,8 +1174,7 @@
       statusEl.textContent = "";
       clarificationEl.classList.remove('active');
       
-      // Hide sample products, show AI results
-      sampleProductsEl.classList.add('hidden');
+      // Show AI results
       aiResultsEl.classList.add('active');
 
       renderSections(data.sections || {});
@@ -1046,14 +1195,26 @@
 
       const image = document.createElement("div");
       image.className = "product-image";
-      image.textContent = safeType === 'cassette' ? '⚙️' : '⛓️';
+      if (safeType === 'cassette') {
+        image.textContent = '⚙️';
+      } else if (safeType === 'chain') {
+        image.textContent = '⛓️';
+      } else {
+        image.textContent = '🛠️';
+      }
 
       const body = document.createElement("div");
       body.className = "product-body";
 
       const category = document.createElement("span");
       category.className = `product-category ${safeType}`;
-      category.textContent = safeType === 'cassette' ? 'Cassette' : 'Chain';
+      if (safeType === 'cassette') {
+        category.textContent = 'Cassette';
+      } else if (safeType === 'chain') {
+        category.textContent = 'Chain';
+      } else {
+        category.textContent = 'Tool';
+      }
 
       const name = document.createElement("div");
       name.className = "product-name";
@@ -1088,36 +1249,79 @@
       return card;
     }
 
-    // ========== SAMPLE PRODUCTS & INITIALIZATION ==========
-    async function loadSampleProducts() {
-      // This would normally fetch from your product API
-      // For now, we'll leave it empty or you can add sample data
-      const sampleCassettes = [
-        { name: "Shimano 105 CS-R7000 11-speed", brand: "Shimano", price: "from 44.99€", type: "cassette", url: "#", application: "Road, Gravel" },
-        { name: "SRAM XG-1275 12-speed", brand: "SRAM", price: "from 189.99€", type: "cassette", url: "#", application: "MTB" },
-        { name: "Shimano Ultegra CS-R8000 11-speed", brand: "Shimano", price: "from 38.99€", type: "cassette", url: "#", application: "Road" },
-      ];
+    // ========== PAGE LOAD & EVENT LISTENERS ==========
+    function triggerUpload() {
+      uploadInput.click();
+    }
 
-      const sampleChains = [
-        { name: "Shimano CN-HG701-11 11-speed", brand: "Shimano", price: "from 24.99€", type: "chain", url: "#", application: "Road, MTB" },
-        { name: "SRAM PC-1230 12-speed", brand: "SRAM", price: "from 39.99€", type: "chain", url: "#", application: "MTB" },
-        { name: "KMC X11SL DLC 11-speed", brand: "KMC", price: "from 54.99€", type: "chain", url: "#", application: "Road, MTB" },
-      ];
+    document.getElementById('upload-btn').addEventListener('click', triggerUpload);
 
-      const cassettesContainer = document.getElementById('sample-cassettes');
-      const chainsContainer = document.getElementById('sample-chains');
+    function setUploadStatus(text) {
+      uploadStatus.textContent = text || '';
+    }
 
-      sampleCassettes.forEach(prod => {
-        cassettesContainer.appendChild(createProductCard(prod));
-      });
-
-      sampleChains.forEach(prod => {
-        chainsContainer.appendChild(createProductCard(prod));
+    async function compressImage(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxSize = 960;
+            let { width, height } = img;
+            if (width > height && width > maxSize) {
+              height *= maxSize / width;
+              width = maxSize;
+            } else if (height > maxSize) {
+              width *= maxSize / height;
+              height = maxSize;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return reject(new Error('Canvas not supported'));
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) return reject(new Error('Compression failed'));
+                const fr = new FileReader();
+                fr.onloadend = () => {
+                  const base64 = (fr.result || '').toString();
+                  resolve(base64.replace(/^data:image\\/[^;]+;base64,/, ''));
+                };
+                fr.onerror = reject;
+                fr.readAsDataURL(blob);
+              },
+              'image/jpeg',
+              0.7
+            );
+          };
+          img.onerror = () => reject(new Error('Could not read image'));
+          img.src = event.target?.result?.toString() || '';
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
     }
 
-    // ========== PAGE LOAD & EVENT LISTENERS ==========
-    loadSampleProducts();
+    uploadInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        setUploadStatus('Please choose an image file.');
+        compressedImage = null;
+        return;
+      }
+      setUploadStatus('Compressing photo...');
+      try {
+        compressedImage = await compressImage(file);
+        setUploadStatus(`Attached: ${file.name}`);
+      } catch (err) {
+        console.error(err);
+        compressedImage = null;
+        setUploadStatus('Upload failed. Try a different image.');
+      }
+    });
 
     // Allow Enter to submit (Shift+Enter for new line)
     searchInput.addEventListener('keydown', (e) => {

@@ -14,3 +14,4 @@ FLASK_DEBUG = True
 # Candidate selection limits
 MAX_CASSETTES = 5
 MAX_CHAINS = 5
+MAX_TOOLS = 5

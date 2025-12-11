@@ -29,6 +29,7 @@ from config import (  # noqa: E402
     LLM_MODEL,
     MAX_CASSETTES,
     MAX_CHAINS,
+    MAX_TOOLS,
 )
 
 # Initialize OpenAI client with API key from environment
@@ -160,9 +161,9 @@ def select_candidates(
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Filter products by speed and use case to create a candidate pool.
 
-    Selects cassettes and chains from the inventory that match the bike's speed
-    and intended use case. This narrowing is essential for grounding - it ensures
-    the LLM can only recommend real products actually in stock.
+    Selects cassettes, chains, and drivetrain tools from the inventory that match
+    the bike's speed and intended use case. This narrowing is essential for grounding
+    - it ensures the LLM can only recommend real products actually in stock.
 
     Args:
         df: Product catalog DataFrame with columns: speed, category, application, etc.
@@ -170,8 +171,9 @@ def select_candidates(
         use_case_substring: Text to match in application field (e.g., "Road", "gravel").
 
     Returns:
-        Dict with 'cassettes' and 'chains' keys, each containing a list of products.
-        Each product is a dict with: name, url, brand, price, application, speed, specs.
+        Dict with 'cassettes', 'chains', and 'drivetrain_tools' keys, each containing
+        a list of products. Each product is a dict with: name, url, brand, price,
+        application, speed, specs.
     """
     cassettes = df[
         (df["category"] == "cassettes")
@@ -181,17 +183,32 @@ def select_candidates(
 
     chains = df[(df["category"] == "chains") & (df["speed"] == bike_speed)].head(MAX_CHAINS)
 
+    tools = df[df["category"] == "drivetrain_tools"]
+    if use_case_substring:
+        filtered_tools = tools[
+            tools["application"].fillna("").str.contains(use_case_substring, case=False)
+        ]
+        if not filtered_tools.empty:
+            tools = filtered_tools
+    tools = tools.head(MAX_TOOLS)
+
+    def _clean(value: Any) -> Any:
+        try:
+            return None if pd.isna(value) else value
+        except TypeError:
+            return value
+
     def df_to_list(subdf: pd.DataFrame) -> List[Dict[str, Any]]:
         out: List[Dict] = []
         for _, row in subdf.iterrows():
             out.append(
                 {
-                    "name": row["name"],
-                    "url": row["url"],
-                    "brand": row.get("brand"),
-                    "price": row.get("price_text"),
-                    "application": row.get("application"),
-                    "speed": row.get("speed"),
+                    "name": _clean(row["name"]),
+                    "url": _clean(row["url"]),
+                    "brand": _clean(row.get("brand")),
+                    "price": _clean(row.get("price_text")),
+                    "application": _clean(row.get("application")),
+                    "speed": _clean(row.get("speed")),
                     "specs": row.get("specs_dict", {}),
                 }
             )
@@ -200,6 +217,7 @@ def select_candidates(
     return {
         "cassettes": df_to_list(cassettes),
         "chains": df_to_list(chains),
+        "drivetrain_tools": df_to_list(tools),
     }
 
 
@@ -381,11 +399,14 @@ def _request_clarification_options(problem_text: str, missing: List[str]) -> Dic
 # ---------- CONTEXT & GROUNDING BUILDING ----------
 
 
-def build_grounding_context(problem_text: str, bike_speed: int, use_case: str) -> Dict[str, Any]:
+def build_grounding_context(
+    problem_text: str, bike_speed: int, use_case: str, image_base64: Optional[str] = None
+) -> Dict[str, Any]:
     """Build the grounding context for LLM recommendation generation.
 
     Creates a structured JSON context that includes the user's project description,
     the current bike state, and a filtered pool of real products the LLM can recommend.
+    Optionally includes a compressed photo provided by the user.
 
     The context structure guides the LLM to:
     1. Understand the user's specific constraints and goals
@@ -399,7 +420,8 @@ def build_grounding_context(problem_text: str, bike_speed: int, use_case: str) -
 
     Returns:
         Dict with keys: 'project' (string), 'user_bike' (dict with constraints),
-        'candidates' (dict with 'cassettes' and 'chains' lists).
+        'candidates' (dict with cassettes, chains, drivetrain_tools lists), and
+        optional 'image_base64'.
     """
     bike_state = {
         "drivetrain_speed": bike_speed,
@@ -414,9 +436,10 @@ def build_grounding_context(problem_text: str, bike_speed: int, use_case: str) -
     candidates = select_candidates(CATALOG_DF, bike_speed=bike_speed, use_case_substring=use_case)
 
     return {
-        "project": "Cassette + chain upgrade",
+        "project": "Drivetrain upgrade (cassette, chain, tools)",
         "user_bike": bike_state,
         "candidates": candidates,
+        "image_base64": image_base64,
     }
 
 
@@ -445,16 +468,30 @@ def make_prompt(context: dict) -> str:
 
     cassette_block = _fmt_products("Cassettes", context["candidates"].get("cassettes", []))
     chain_block = _fmt_products("Chains", context["candidates"].get("chains", []))
+    tools_block = _fmt_products(
+        "Drivetrain Tools", context["candidates"].get("drivetrain_tools", [])
+    )
     user_text = context["user_bike"]["user_problem_text"]
+    image_note = ""
+    img_b64 = context.get("image_base64")
+    if isinstance(img_b64, str) and img_b64.strip():
+        truncated = img_b64.strip()[:4000]
+        image_note = (
+            "\nUser uploaded a compressed bike photo (JPEG base64, truncated to 4000 chars). "
+            "Consider visual cues (drivetrain components, mounts, spacing) if relevant.\n"
+            f"Photo base64 (truncated):\n{truncated}\n"
+        )
 
     return (
-        "You are an experienced bike mechanic. Recommend ONE cassette and ONE chain from the provided candidates only.\n\n"
+        "You are an experienced bike mechanic. Recommend ONE cassette, ONE chain, and at least ONE drivetrain tool from the provided candidates only.\n\n"
         f'User description:\n"""{user_text}"""\n\n'
         f"Detected drivetrain speed: {context['user_bike']['drivetrain_speed']}-speed.\n"
-        f"Detected use case: {context['user_bike'].get('use_case', 'unspecified')}.\n\n"
+        f"Detected use case: {context['user_bike'].get('use_case', 'unspecified')}.\n"
+        f"{image_note}\n"
         "Candidate products (do NOT invent anything else):\n"
         f"{cassette_block}\n"
-        f"{chain_block}\n\n"
+        f"{chain_block}\n"
+        f"{tools_block}\n\n"
         "RESPONSE FORMAT (return JSON ONLY, no prose):\n"
         "{\n"
         '  "sections": {\n'
@@ -464,12 +501,13 @@ def make_prompt(context: dict) -> str:
         "  },\n"
         '  "product_ranking": {\n'
         '    "cassettes": {"best_index": 0, "alternatives": [1,2]},\n'
-        '    "chains": {"best_index": 0, "alternatives": [1,2]}\n'
+        '    "chains": {"best_index": 0, "alternatives": [1,2]},\n'
+        '    "drivetrain_tools": {"best_index": 0, "alternatives": [1,2]}\n'
         "  }\n"
         "}\n\n"
         "RULES:\n"
         "- Use 0-based indices that exist in the candidate lists above.\n"
-        "- Choose exactly one best_index per category; alternatives are optional and must be unique.\n"
+        "- Choose exactly one best_index per category (cassettes, chains, drivetrain_tools); alternatives are optional and must be unique.\n"
         "- Keep bullets concise (max ~15 words each), 3-5 bullets for why_it_fits.\n"
         "- Provide 3-6 workflow steps, actionable and ordered.\n"
         "- Provide a checklist of 5-10 concise items (tools/parts/consumables).\n"
@@ -581,6 +619,12 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
     else:
         selected_use_case = None
 
+    raw_image_b64 = data.get("image_base64")
+    image_base64 = raw_image_b64.strip() if isinstance(raw_image_b64, str) else None
+    if image_base64 and len(image_base64) > 120_000:
+        # safety: limit payload size, keep the head
+        image_base64 = image_base64[:120_000]
+
     if not problem_text:
         return jsonify({"error": "problem_text is required"}), 400
 
@@ -677,7 +721,9 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
 
     assert bike_speed is not None and use_case is not None
 
-    context = build_grounding_context(problem_text, bike_speed=bike_speed, use_case=use_case)
+    context = build_grounding_context(
+        problem_text, bike_speed=bike_speed, use_case=use_case, image_base64=image_base64
+    )
     prompt = make_prompt(context)
 
     def _default_sections() -> Dict[str, List[str]]:
@@ -709,14 +755,20 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
         return fallback
 
     def _simplify_product(prod: Dict[str, Any], prod_type: str) -> Dict[str, Any]:
+        def _clean(value: Any) -> Any:
+            try:
+                return None if pd.isna(value) else value
+            except TypeError:
+                return value
+
         return {
             "type": prod_type,
-            "name": prod.get("name"),
-            "brand": prod.get("brand"),
-            "price": prod.get("price"),
-            "url": prod.get("url"),
-            "application": prod.get("application"),
-            "speed": prod.get("speed"),
+            "name": _clean(prod.get("name")),
+            "brand": _clean(prod.get("brand")),
+            "price": _clean(prod.get("price")),
+            "url": _clean(prod.get("url")),
+            "application": _clean(prod.get("application")),
+            "speed": _clean(prod.get("speed")),
         }
 
     # Call LLM and parse structured content
@@ -761,7 +813,12 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
         remaining = [i for i in range(len(candidates)) if i not in alt_indices and i != best_idx]
         alt_indices = alt_indices + remaining
 
-        prod_type = "cassette" if key == "cassettes" else "chain"
+        prod_type_map = {
+            "cassettes": "cassette",
+            "chains": "chain",
+            "drivetrain_tools": "tool",
+        }
+        prod_type = prod_type_map.get(key, "product")
         best_prod = _simplify_product(candidates[best_idx], prod_type=prod_type)
         alt_prods = [_simplify_product(candidates[i], prod_type=prod_type) for i in alt_indices]
 
@@ -775,6 +832,7 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
 
     _build_row("cassettes", "Cassettes")
     _build_row("chains", "Chains")
+    _build_row("drivetrain_tools", "Drivetrain tools")
 
     if not products_by_category:
         return (
