@@ -105,20 +105,20 @@ Before submitting a pull request, ensure:
 
 ```bash
 pytest tests/
-pytest --cov=scrape,grounded_demo,daiy_web  # with coverage
+pytest --cov=scrape,grounded_demo,web  # with coverage
 ```
 
 ### Code Quality Tools
 
 ```bash
 # Format code with Black
-black scrape/ grounded_demo/ daiy_web/
+black scrape/ grounded_demo/ web/
 
 # Lint with Ruff
-ruff check scrape/ grounded_demo/ daiy_web/
+ruff check scrape/ grounded_demo/ web/
 
 # Type checking
-mypy scrape/ grounded_demo/ daiy_web/
+mypy scrape/ grounded_demo/ web/
 ```
 
 ## Project Structure
@@ -138,7 +138,7 @@ daiy/
 │   ├── demo.py
 │   ├── catalog.py
 │   └── README.md
-├── daiy_web/           # Flask web application
+├── web/           # Flask web application
 │   ├── app.py
 │   ├── config.py
 │   ├── templates/

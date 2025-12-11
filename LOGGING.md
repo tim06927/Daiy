@@ -4,7 +4,7 @@ This project includes comprehensive logging of all LLM interactions to help with
 
 ## Log Format
 
-Logs are stored in `daiy_web/logs/llm_interactions_YYYYMMDD.jsonl` as JSON Lines (one JSON object per line).
+Logs are stored in `web/logs/llm_interactions_YYYYMMDD.jsonl` as JSON Lines (one JSON object per line).
 
 Each log entry has the following structure:
 ```json
@@ -128,10 +128,10 @@ Logs any JSON parsing errors.
 ### Option 1: Use the log viewer script (Recommended)
 ```bash
 # View today's log in browser
-python daiy_web/view_logs.py
+python web/view_logs.py
 
 # View specific log file in browser
-python daiy_web/view_logs.py daiy_web/logs/llm_interactions_20251211.jsonl
+python web/view_logs.py web/logs/llm_interactions_20251211.jsonl
 ```
 
 The viewer opens an interactive HTML file with:
@@ -153,25 +153,25 @@ Each user interaction session consists of:
 ### Option 2: Manual inspection with jq
 ```bash
 # View all events of a specific type
-cat daiy_web/logs/llm_interactions_*.jsonl | jq 'select(.event_type=="llm_call_clarification")'
+cat web/logs/llm_interactions_*.jsonl | jq 'select(.event_type=="llm_call_clarification")'
 
 # Count events by type
-cat daiy_web/logs/llm_interactions_*.jsonl | jq -r '.event_type' | sort | uniq -c
+cat web/logs/llm_interactions_*.jsonl | jq -r '.event_type' | sort | uniq -c
 
 # Extract all user inputs
-cat daiy_web/logs/llm_interactions_*.jsonl | jq 'select(.event_type=="user_input") | .problem_text'
+cat web/logs/llm_interactions_*.jsonl | jq 'select(.event_type=="user_input") | .problem_text'
 
 # View inference results
-cat daiy_web/logs/llm_interactions_*.jsonl | jq 'select(.event_type=="llm_inference_result")'
+cat web/logs/llm_interactions_*.jsonl | jq 'select(.event_type=="llm_inference_result")'
 ```
 
 ### Option 3: Grep for specific content
 ```bash
 # Find all sessions mentioning "gravel"
-grep -i "gravel" daiy_web/logs/llm_interactions_*.jsonl
+grep -i "gravel" web/logs/llm_interactions_*.jsonl
 
 # Find errors
-grep "llm_parse_error" daiy_web/logs/llm_interactions_*.jsonl
+grep "llm_parse_error" web/logs/llm_interactions_*.jsonl
 ```
 
 ## Use Cases
@@ -179,31 +179,31 @@ grep "llm_parse_error" daiy_web/logs/llm_interactions_*.jsonl
 ### 1. Debugging inference issues
 Track how regex and LLM inference work together:
 ```bash
-python daiy_web/view_logs.py | grep -A5 "regex_inference"
+python web/view_logs.py | grep -A5 "regex_inference"
 ```
 
 ### 2. Understanding LLM behavior
 See exactly what prompts are sent and how the LLM responds:
 ```bash
-python daiy_web/view_logs.py | grep -A20 "llm_call"
+python web/view_logs.py | grep -A20 "llm_call"
 ```
 
 ### 3. Analyzing user patterns
 Extract all unique user inputs:
 ```bash
-cat daiy_web/logs/*.jsonl | jq -r 'select(.event_type=="user_input") | .problem_text' | sort | uniq
+cat web/logs/*.jsonl | jq -r 'select(.event_type=="user_input") | .problem_text' | sort | uniq
 ```
 
 ### 4. Performance analysis
 Count how many LLM calls are made per session (should be 1-2 max):
 ```bash
-cat daiy_web/logs/*.jsonl | jq -r '.event_type' | grep "llm_call" | wc -l
+cat web/logs/*.jsonl | jq -r '.event_type' | grep "llm_call" | wc -l
 ```
 
 ### 5. Error tracking
 Find all parsing errors:
 ```bash
-cat daiy_web/logs/*.jsonl | jq 'select(.event_type=="llm_parse_error")'
+cat web/logs/*.jsonl | jq 'select(.event_type=="llm_parse_error")'
 ```
 
 ## Log Rotation
@@ -213,7 +213,7 @@ Logs are automatically rotated daily (file name includes date). Old logs are kep
 To clean up old logs:
 ```bash
 # Delete logs older than 7 days
-find daiy_web/logs/ -name "*.jsonl" -mtime +7 -delete
+find web/logs/ -name "*.jsonl" -mtime +7 -delete
 ```
 
 ## Privacy & Security

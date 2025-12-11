@@ -30,7 +30,7 @@ ENV/
 *.log
 
 # LLM interaction logs
-daiy_web/logs/
+web/logs/
 *.jsonl
 
 # Testing

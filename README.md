@@ -31,7 +31,7 @@ This repository contains a proof of concept (PoC) for Daiy that demonstrates:
 │   ├── demo.py         # Main demo script
 │   ├── catalog.py      # Product context building
 │   └── README.md       # Demo documentation
-├── daiy_web/           # Flask web app for recommendations
+├── web/           # Flask web app for recommendations
 │   ├── app.py          # Flask application
 │   ├── config.py       # Configuration
 │   ├── templates/      # HTML templates
@@ -74,7 +74,7 @@ LLM-powered recommendations grounded in real product data:
 python grounded_demo/demo.py
 ```
 
-### Web App (`daiy_web/`)
+### Web App (`web/`)
 
 Flask web interface for AI recommendations:
 - **User-friendly form** - Describe your upgrade project
@@ -87,7 +87,7 @@ Flask web interface for AI recommendations:
 python scrape/cli.py
 
 # Then run the web app
-python daiy_web/app.py
+python web/app.py
 # Visit http://127.0.0.1:5000
 ```
 
@@ -121,7 +121,7 @@ python daiy_web/app.py
 
 4. **Or run the web app**
    ```bash
-   python daiy_web/app.py
+   python web/app.py
    # Visit http://127.0.0.1:5000
    ```
 
@@ -171,7 +171,7 @@ Output from grounded demo:
 
 - **[Scraper README](scrape/README.md)** - Detailed scraping configuration, usage, and extension
 - **[Grounded Demo README](grounded_demo/README.md)** - AI recommendation pattern and customization
-- **[Web App README](daiy_web/README.md)** - Flask app setup, API, and customization
+- **[Web App README](web/README.md)** - Flask app setup, API, and customization
 
 ## Architecture Decisions
 

@@ -535,7 +535,7 @@ def main():
         # Use provided log file
         log_file = Path(sys.argv[1])
     else:
-        # Use today's log file (logs directory is in daiy_web/)
+        # Use today's log file (logs directory is in web/)
         today = datetime.now().strftime('%Y%m%d')
         log_file = Path(__file__).parent / f"logs/llm_interactions_{today}.jsonl"
     
