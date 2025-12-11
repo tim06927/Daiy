@@ -325,6 +325,19 @@
             <div id="status" class="status"></div>
           </div>
 
+          <div id="clarification" class="card" style="display:none; margin-top:0.75rem; background:#0b1222; border:1px dashed var(--border);">
+            <div class="answer-heading" style="margin-bottom:0.5rem;">Select options to continue</div>
+            <div id="clarification-hint" class="status" style="margin-bottom:0.5rem;"></div>
+            <div class="input-row" id="speed-options" style="display:none;">
+              <div class="input-label">Select drivetrain speed</div>
+              <div class="row-inline" id="speed-buttons"></div>
+            </div>
+            <div class="input-row" id="usecase-options" style="display:none;">
+              <div class="input-label">Select use case</div>
+              <div class="row-inline" id="usecase-buttons"></div>
+            </div>
+          </div>
+
           <div class="answer-card">
             <div class="answer-heading">AI answer</div>
             <div id="answer" class="answer-box">No answer yet. Describe your project and tap “Ask AI”.</div>
@@ -350,8 +363,66 @@
     const answerEl = document.getElementById("answer");
     const productsEl = document.getElementById("products");
     const problemEl = document.getElementById("problem");
+    const clarificationCard = document.getElementById("clarification");
+    const clarificationHint = document.getElementById("clarification-hint");
+    const speedOptionsEl = document.getElementById("speed-options");
+    const speedButtonsEl = document.getElementById("speed-buttons");
+    const usecaseOptionsEl = document.getElementById("usecase-options");
+    const usecaseButtonsEl = document.getElementById("usecase-buttons");
 
-    async function callBackend() {
+    let selectedSpeed = null;
+    let selectedUseCase = null;
+
+    function hideClarification() {
+      clarificationCard.style.display = "none";
+      speedOptionsEl.style.display = "none";
+      usecaseOptionsEl.style.display = "none";
+      speedButtonsEl.innerHTML = "";
+      usecaseButtonsEl.innerHTML = "";
+      selectedSpeed = null;
+      selectedUseCase = null;
+    }
+
+    function renderOptions(options, missingKeys) {
+      clarificationCard.style.display = "block";
+      clarificationHint.textContent = "Pick one option to continue.";
+
+      if (missingKeys.includes("drivetrain_speed")) {
+        speedOptionsEl.style.display = "block";
+        speedButtonsEl.innerHTML = "";
+        (options.speed_options || []).forEach((opt) => {
+          const btn = document.createElement("button");
+          btn.className = "btn";
+          btn.type = "button";
+          btn.textContent = opt;
+          btn.style.padding = "0.5rem 1rem";
+          btn.onclick = () => {
+            selectedSpeed = opt;
+            callBackend(opt, selectedUseCase);
+          };
+          speedButtonsEl.appendChild(btn);
+        });
+      }
+
+      if (missingKeys.includes("use_case")) {
+        usecaseOptionsEl.style.display = "block";
+        usecaseButtonsEl.innerHTML = "";
+        (options.use_case_options || []).forEach((opt) => {
+          const btn = document.createElement("button");
+          btn.className = "btn";
+          btn.type = "button";
+          btn.textContent = opt;
+          btn.style.padding = "0.5rem 1rem";
+          btn.onclick = () => {
+            selectedUseCase = opt;
+            callBackend(selectedSpeed, opt);
+          };
+          usecaseButtonsEl.appendChild(btn);
+        });
+      }
+    }
+
+    async function callBackend(speedOpt = null, useCaseOpt = null) {
       const problemText = problemEl.value.trim();
       if (!problemText) {
         statusEl.textContent = "Please describe your bike and project first.";
@@ -362,6 +433,7 @@
       statusEl.classList.remove("error");
       statusEl.textContent = "Thinking…";
       askBtn.disabled = true;
+      hideClarification();
 
       try {
         const resp = await fetch("/api/recommend", {
@@ -369,7 +441,11 @@
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ problem_text: problemText })
+          body: JSON.stringify({
+            problem_text: problemText,
+            selected_speed: speedOpt,
+            selected_use_case: useCaseOpt,
+          }),
         });
 
         if (!resp.ok) {
@@ -378,6 +454,12 @@
         }
 
         const data = await resp.json();
+
+        if (data.need_clarification) {
+          statusEl.textContent = "Select an option to continue.";
+          renderOptions(data.options || {}, data.missing || []);
+          return;
+        }
         answerEl.textContent = data.answer || "(No answer returned)";
 
         // render products
