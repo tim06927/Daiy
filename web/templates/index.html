@@ -2,503 +2,770 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>daiy – cassette upgrade demo</title>
+  <title>Bike Components Shop – AI Recommendations</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <style>
     :root {
-      --bg: #0f172a;
-      --card-bg: #111827;
+      --bg: #ffffff;
+      --header-bg: #f8f9fa;
+      --card-bg: #ffffff;
       --accent: #22c55e;
-      --accent-soft: #22c55e22;
-      --text: #e5e7eb;
-      --muted: #9ca3af;
-      --border: #1f2933;
-      --danger: #ef4444;
+      --accent-hover: #16a34a;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --search-bg: #f9fafb;
+      --shadow: rgba(0, 0, 0, 0.1);
     }
 
     * {
       box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
 
     body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #111827 0, #020617 50%, #020617 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
       color: var(--text);
+      line-height: 1.6;
     }
 
-    .page {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+    /* Header */
+    .header {
+      background: var(--header-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+      background: rgba(248, 249, 250, 0.95);
     }
 
-    .shell {
-      width: 100%;
-      max-width: 768px;
+    .header-content {
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 1rem 1rem 4rem;
-    }
-
-    header {
-      padding: 1rem 0 1rem;
+      padding: 0 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
     .logo {
+      font-size: 1.5rem;
       font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      font-size: 0.75rem;
-      color: var(--muted);
+      color: var(--accent);
+      text-decoration: none;
     }
 
-    h1 {
-      margin: 0.25rem 0 0.25rem;
-      font-size: 1.4rem;
-      color: #f9fafb;
+    .nav {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
     }
 
-    header p {
-      margin: 0;
-      font-size: 0.9rem;
-      color: var(--muted);
-    }
-
-    .card {
-      background: var(--card-bg);
-      border-radius: 1rem;
-      border: 1px solid var(--border);
-      padding: 1rem;
-      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.6);
-    }
-
-    .input-label {
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      margin-bottom: 0.25rem;
-    }
-
-    textarea,
-    input[type="file"] {
-      width: 100%;
-      border-radius: 0.75rem;
-      border: 1px solid var(--border);
-      background: #020617;
+    .nav a {
       color: var(--text);
-      padding: 0.75rem 0.9rem;
-      font-size: 0.95rem;
-      resize: vertical;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
     }
 
-    textarea:focus,
-    input[type="file"]:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 1px var(--accent-soft);
+    .nav a:hover {
+      color: var(--accent);
     }
 
-    .input-row {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      margin-bottom: 0.75rem;
+    /* Hero Search Section */
+    .hero {
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+      padding: 3rem 1.5rem 2rem;
+      border-bottom: 1px solid var(--border);
     }
 
-    .row-inline {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      align-items: center;
-      margin-top: 0.25rem;
+    .hero-content {
+      max-width: 900px;
+      margin: 0 auto;
     }
 
-    .file-label {
-      font-size: 0.8rem;
+    .hero-title {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+
+    .hero-subtitle {
+      font-size: 1.1rem;
       color: var(--muted);
+      margin-bottom: 2rem;
+      text-align: center;
     }
 
-    .btn {
-      display: inline-flex;
+    /* Search Mode Tabs */
+    .search-modes {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .mode-tab {
+      padding: 0.6rem 1.5rem;
+      border: 2px solid var(--border);
+      background: white;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-weight: 500;
+      border-radius: 2rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mode-tab:hover {
+      border-color: var(--accent);
+    }
+
+    .mode-tab.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    .mode-tab.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Search Container */
+    .search-container {
+      position: relative;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .search-wrapper {
+      position: relative;
+      background: white;
+      border: 2px solid var(--border);
+      border-radius: 3rem;
+      box-shadow: 0 4px 20px var(--shadow);
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      padding-right: 0.5rem;
+    }
+
+    .search-wrapper:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 4px 30px rgba(34, 197, 94, 0.2);
+    }
+
+    .search-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      padding: 1rem 1.5rem;
+      font-size: 1rem;
+      background: transparent;
+      resize: none;
+      overflow: hidden;
+      font-family: inherit;
+      line-height: 1.5;
+    }
+
+    .search-input.multi-line {
+      min-height: 4.5rem;
+    }
+
+    .search-button {
+      width: 3rem;
+      height: 3rem;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      color: white;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 999px;
-      padding: 0.75rem 1.4rem;
-      border: none;
-      font-weight: 600;
-      cursor: pointer;
-      font-size: 0.95rem;
-      background: linear-gradient(135deg, #22c55e, #16a34a);
-      color: #020617;
-      box-shadow: 0 18px 45px rgba(34, 197, 94, 0.35);
+      transition: all 0.2s;
+      flex-shrink: 0;
     }
 
-    .btn:disabled {
-      opacity: 0.6;
-      cursor: default;
-      box-shadow: none;
+    .search-button:hover {
+      background: var(--accent-hover);
+      transform: scale(1.05);
     }
 
-    .btn-text {
-      margin-left: 0.5rem;
+    .search-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: scale(1);
     }
 
-    .status {
-      font-size: 0.8rem;
-      color: var(--muted);
-      min-height: 1.2rem;
-      margin-top: 0.25rem;
-    }
-
-    .status.error {
-      color: var(--danger);
-    }
-
-    .answer-card {
+    /* Status Message */
+    .status-message {
+      text-align: center;
       margin-top: 1rem;
-    }
-
-    .answer-heading {
+      color: var(--muted);
       font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      margin-bottom: 0.25rem;
+      min-height: 1.5rem;
     }
 
-    .answer-box {
-      font-size: 0.95rem;
-      line-height: 1.5;
-      padding: 0.75rem 0.9rem;
-      border-radius: 0.75rem;
-      background: #020617;
-      border: 1px solid var(--border);
-      white-space: pre-wrap;
+    .status-message.error {
+      color: #ef4444;
     }
 
-    .products-section {
-      margin-top: 1.25rem;
+    /* Clarification Section */
+    .clarification {
+      background: #fffbeb;
+      border: 2px solid #fbbf24;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+      display: none;
     }
 
-    .products-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 0.5rem;
-    }
-
-    .products-header h2 {
-      font-size: 0.95rem;
-      margin: 0;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-    }
-
-    .products-header span {
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-
-    .products-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 0.75rem;
-    }
-
-    @media (min-width: 640px) {
-      .products-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
-    .product-card {
-      border-radius: 0.9rem;
-      border: 1px solid var(--border);
-      background: #020617;
-      padding: 0.75rem 0.85rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-      transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, border-color 0.08s;
-    }
-
-    .product-card a {
-      color: inherit;
-      text-decoration: none;
+    .clarification.active {
       display: block;
     }
 
-    .product-card:hover {
-      transform: translateY(-1px);
-      border-color: var(--accent);
-      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.7);
+    .clarification-title {
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: #92400e;
+    }
+
+    .clarification-section {
+      margin-bottom: 1rem;
+    }
+
+    .clarification-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .clarification-label {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #78350f;
+      margin-bottom: 0.5rem;
+    }
+
+    .clarification-options {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .option-btn {
+      padding: 0.5rem 1rem;
+      border: 2px solid #fbbf24;
+      background: white;
+      color: #92400e;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .option-btn:hover {
+      background: #fef3c7;
+      border-color: #f59e0b;
+    }
+
+    .option-selected {
+      padding: 0.5rem 1rem;
+      color: #15803d;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    /* Main Content */
+    .main-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* AI Results Section */
+    .ai-results {
+      display: none;
+      margin-bottom: 2rem;
+    }
+
+    .ai-results.active {
+      display: block;
+    }
+
+    .insight-sections {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .info-card,
+    .accordion {
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+    }
+
+    .info-title {
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .info-list {
+      margin: 0.25rem 0 0;
+      padding-left: 1.1rem;
+      color: var(--muted);
+    }
+
+    .accordion-toggle {
+      width: 100%;
+      background: transparent;
+      border: none;
+      text-align: left;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      color: var(--text);
+    }
+
+    .accordion-body {
+      margin-top: 0.75rem;
+      display: none;
+    }
+
+    .accordion-body.active {
+      display: block;
     }
 
     .pill {
       display: inline-flex;
       align-items: center;
-      padding: 0.1rem 0.5rem;
+      gap: 0.35rem;
+      padding: 0.25rem 0.6rem;
+      background: #ecfdf3;
+      color: #15803d;
       border-radius: 999px;
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      border: 1px solid var(--border);
-      color: var(--muted);
-    }
-
-    .pill.cassette {
-      border-color: #38bdf8;
-      color: #38bdf8;
-    }
-
-    .pill.chain {
-      border-color: #f97316;
-      color: #f97316;
-    }
-
-    .product-name {
-      font-size: 0.9rem;
-      font-weight: 500;
-      color: #e5e7eb;
-    }
-
-    .product-meta {
       font-size: 0.8rem;
-      color: var(--muted);
-    }
-
-    .product-price {
-      font-size: 0.95rem;
       font-weight: 600;
-      color: var(--accent);
-      margin-top: 0.25rem;
     }
 
-    .product-footer {
-      margin-top: 0.3rem;
+    /* Product Rows */
+    .products-section {
+      margin-top: 2rem;
+    }
+
+    .section-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.8rem;
-      color: var(--muted);
+      margin-bottom: 1.5rem;
     }
 
-    .product-footer span {
-      display: inline-flex;
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .section-subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .category-row {
+      margin-bottom: 2rem;
+    }
+
+    .category-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .category-name {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .product-row {
+      display: grid;
+      grid-template-columns: minmax(260px, 320px) 1fr;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .best-card {
+      border: 2px solid var(--accent);
+      box-shadow: 0 10px 25px rgba(34, 197, 94, 0.18);
+      position: relative;
+    }
+
+    .best-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: var(--accent);
+      color: white;
+      font-size: 0.75rem;
+      padding: 0.3rem 0.6rem;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+
+    .alternatives-scroll {
+      overflow-x: auto;
+      padding-bottom: 0.25rem;
+    }
+
+    .alternatives-list {
+      display: flex;
+      gap: 0.75rem;
+      min-height: 100%;
+    }
+
+    .alt-card {
+      min-width: 260px;
+      max-width: 320px;
+      flex: 0 0 auto;
+    }
+
+    .products-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .product-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      transition: all 0.2s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      position: relative;
+    }
+
+    .product-card:hover {
+      box-shadow: 0 8px 24px var(--shadow);
+      transform: translateY(-2px);
+      border-color: var(--accent);
+    }
+
+    .product-image {
+      width: 100%;
+      height: 200px;
+      background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 3rem;
+    }
+
+    .product-body {
+      padding: 1rem;
+    }
+
+    .product-category {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      background: #dbeafe;
+      color: #1e40af;
+      border-radius: 1rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    .product-category.chain {
+      background: #fed7aa;
+      color: #9a3412;
+    }
+
+    .product-name {
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+      line-height: 1.4;
+    }
+
+    .product-meta {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .product-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .product-price {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .product-link {
+      color: var(--accent);
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: flex;
       align-items: center;
       gap: 0.25rem;
+    }
+
+    /* Sample Products Section */
+    .sample-products {
+      display: block;
+    }
+
+    .sample-products.hidden {
+      display: none;
+    }
+
+    .category-section {
+      margin-bottom: 3rem;
+    }
+
+    .category-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero-title {
+        font-size: 1.8rem;
+      }
+
+      .nav {
+        display: none;
+      }
+
+      .products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+      }
+
+      .product-row {
+        grid-template-columns: 1fr;
+      }
+
+      .search-modes {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .mode-tab {
+        text-align: center;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <div class="shell">
-      <header>
-        <div class="logo">daiy · demo</div>
-        <h1>Show-to-Cart · Cassette Upgrade</h1>
-        <p>Describe your bike + project, upload a photo (dummy for now), then get an AI kit and real parts from bike-components.de.</p>
-      </header>
-
-      <main>
-        <section class="card">
-          <div class="input-row">
-            <label class="input-label" for="problem">Describe your bike + project</label>
-            <textarea id="problem" rows="4" placeholder="Example: I have a Shimano 11-speed road bike with 11-32 cassette and want easier gears for steep climbs."></textarea>
-          </div>
-
-          <div class="input-row">
-            <div class="input-label">Photo (dummy upload)</div>
-            <div class="row-inline">
-              <input id="photo" type="file" accept="image/*" />
-              <span class="file-label">Not used yet – for UI only.</span>
-            </div>
-          </div>
-
-          <div class="row-inline">
-            <button id="ask-btn" class="btn">
-              <span>⚡</span>
-              <span class="btn-text">Ask AI</span>
-            </button>
-            <div id="status" class="status"></div>
-          </div>
-
-          <div id="clarification" class="card" style="display:none; margin-top:0.75rem; background:#0b1222; border:1px dashed var(--border);">
-            <div class="answer-heading" style="margin-bottom:0.5rem;">Select options to continue</div>
-            <div id="clarification-hint" class="status" style="margin-bottom:0.5rem;"></div>
-            <div class="input-row" id="speed-options" style="display:none;">
-              <div class="input-label">Select drivetrain speed</div>
-              <div class="row-inline" id="speed-buttons"></div>
-            </div>
-            <div class="input-row" id="usecase-options" style="display:none;">
-              <div class="input-label">Select use case</div>
-              <div class="row-inline" id="usecase-buttons"></div>
-            </div>
-          </div>
-
-          <div class="answer-card">
-            <div class="answer-heading">AI answer</div>
-            <div id="answer" class="answer-box">No answer yet. Describe your project and tap “Ask AI”.</div>
-          </div>
-
-          <div class="products-section">
-            <div class="products-header">
-              <h2>Suggested parts</h2>
-              <span>From bike-components.de</span>
-            </div>
-            <div id="products" class="products-grid">
-              <!-- Product tiles injected here -->
-            </div>
-          </div>
-        </section>
-      </main>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <a href="/" class="logo">🚴 BikeShop</a>
+      <nav>
+        <ul class="nav">
+          <li><a href="#products">Products</a></li>
+          <li><a href="#categories">Categories</a></li>
+          <li><a href="#support">Support</a></li>
+        </ul>
+      </nav>
     </div>
-  </div>
+  </header>
+
+  <!-- Hero Search Section -->
+  <section class="hero">
+    <div class="hero-content">
+      <h1 class="hero-title">Find Your Perfect Bike Components</h1>
+      <p class="hero-subtitle">Browse our catalog or get AI-powered recommendations</p>
+
+      <!-- Search Mode Tabs -->
+      <div class="search-modes">
+        <button class="mode-tab disabled" id="search-tab" onclick="switchMode('search')">
+          🔍 Search
+        </button>
+        <button class="mode-tab active" id="ai-tab" onclick="switchMode('ai')">
+          ✨ AI Recommendation
+        </button>
+      </div>
+
+      <!-- Search Container -->
+      <div class="search-container">
+        <div class="search-wrapper">
+          <textarea 
+            id="search-input" 
+            class="search-input multi-line" 
+            placeholder="Describe your bike and what you need... (e.g., 'I have a Shimano 11-speed gravel bike and need easier gears for climbs')"
+            rows="1"
+          ></textarea>
+          <button id="search-btn" class="search-button" onclick="handleSearch()">
+            →
+          </button>
+        </div>
+        <div id="status" class="status-message"></div>
+
+        <!-- Clarification Section -->
+        <div id="clarification" class="clarification">
+          <div class="clarification-title" id="clarification-hint">Please select the missing information:</div>
+          
+          <div id="speed-section" class="clarification-section" style="display:none;">
+            <div class="clarification-label">Drivetrain Speed:</div>
+            <div id="speed-options" class="clarification-options"></div>
+          </div>
+
+          <div id="usecase-section" class="clarification-section" style="display:none;">
+            <div class="clarification-label">Use Case:</div>
+            <div id="usecase-options" class="clarification-options"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- AI Results (hidden by default) -->
+    <div id="ai-results" class="ai-results">
+      <div class="insight-sections">
+        <div class="accordion" id="why-card">
+          <button class="accordion-toggle" type="button" onclick="toggleWhy()">
+            <span>Why it fits</span>
+            <span id="why-toggle-indicator">▼</span>
+          </button>
+          <div id="why-body" class="accordion-body"></div>
+        </div>
+
+        <div class="info-card">
+          <div class="info-title">🛠️ Suggested workflow</div>
+          <ol id="workflow-list" class="info-list"></ol>
+        </div>
+
+        <div class="info-card">
+          <div class="info-title">✅ Checklist</div>
+          <ul id="checklist-list" class="info-list"></ul>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Recommended Products</h2>
+          <p class="section-subtitle">Based on your requirements</p>
+        </div>
+      </div>
+      <div id="product-rows"></div>
+    </div>
+
+    <!-- Sample Products (shown by default) -->
+    <div id="sample-products" class="sample-products">
+      <div class="category-section">
+        <h3 class="category-title">🔧 Featured Cassettes</h3>
+        <div class="products-grid" id="sample-cassettes"></div>
+      </div>
+
+      <div class="category-section">
+        <h3 class="category-title">⛓️ Popular Chains</h3>
+        <div class="products-grid" id="sample-chains"></div>
+      </div>
+    </div>
+  </main>
 
   <script>
-    const askBtn = document.getElementById("ask-btn");
-    const statusEl = document.getElementById("status");
-    const answerEl = document.getElementById("answer");
-    const productsEl = document.getElementById("products");
-    const problemEl = document.getElementById("problem");
-    const clarificationCard = document.getElementById("clarification");
-    const clarificationHint = document.getElementById("clarification-hint");
-    const speedOptionsEl = document.getElementById("speed-options");
-    const speedButtonsEl = document.getElementById("speed-buttons");
-    const usecaseOptionsEl = document.getElementById("usecase-options");
-    const usecaseButtonsEl = document.getElementById("usecase-buttons");
-
+    // State
+    let currentMode = 'ai';
     let selectedSpeed = null;
     let selectedUseCase = null;
 
-    function hideClarification() {
-      clarificationCard.style.display = "none";
-      speedOptionsEl.style.display = "none";
-      usecaseOptionsEl.style.display = "none";
-      speedButtonsEl.innerHTML = "";
-      usecaseButtonsEl.innerHTML = "";
-      selectedSpeed = null;
-      selectedUseCase = null;
-    }
+    // Elements
+    const searchInput = document.getElementById('search-input');
+    const searchBtn = document.getElementById('search-btn');
+    const statusEl = document.getElementById('status');
+    const clarificationEl = document.getElementById('clarification');
+    const aiResultsEl = document.getElementById('ai-results');
+    const sampleProductsEl = document.getElementById('sample-products');
+    const whyBody = document.getElementById('why-body');
+    const workflowList = document.getElementById('workflow-list');
+    const checklistList = document.getElementById('checklist-list');
+    const productRowsEl = document.getElementById('product-rows');
+    let whyExpanded = false;
 
-    function renderOptions(options, missingKeys) {
-      clarificationCard.style.display = "block";
+    // Switch between search and AI modes
+    function switchMode(mode) {
+      if (mode === 'search') {
+        // Search is dummy for now
+        return;
+      }
       
-      // Update hint based on how many questions remain
-      const stillMissing = missingKeys.filter(key => {
-        if (key === "drivetrain_speed") return !selectedSpeed;
-        if (key === "use_case") return !selectedUseCase;
-        return true;
-      });
+      currentMode = mode;
+      document.getElementById('search-tab').classList.toggle('active', mode === 'search');
+      document.getElementById('ai-tab').classList.toggle('active', mode === 'ai');
       
-      if (stillMissing.length > 1) {
-        clarificationHint.textContent = "Please select both options to continue.";
+      if (mode === 'ai') {
+        searchInput.classList.add('multi-line');
+        searchInput.placeholder = "Describe your bike and what you need... (e.g., 'I have a Shimano 11-speed gravel bike and need easier gears for climbs')";
+        searchInput.rows = 3;
       } else {
-        clarificationHint.textContent = "Pick one option to continue.";
-      }
-
-      if (missingKeys.includes("drivetrain_speed")) {
-        speedOptionsEl.style.display = "block";
-        speedButtonsEl.innerHTML = "";
-        
-        // If already selected, show which one
-        if (selectedSpeed) {
-          const selected = document.createElement("div");
-          selected.style.padding = "0.5rem 1rem";
-          selected.style.color = "var(--accent)";
-          selected.textContent = `✓ Selected: ${selectedSpeed}`;
-          speedButtonsEl.appendChild(selected);
-        } else {
-          (options.speed_options || []).forEach((opt) => {
-            const btn = document.createElement("button");
-            btn.className = "btn";
-            btn.type = "button";
-            btn.textContent = opt;
-            btn.style.padding = "0.5rem 1rem";
-            btn.onclick = () => {
-              selectedSpeed = opt;
-              // Immediately lock the selection in the UI so it can't be pressed again
-              speedButtonsEl.innerHTML = "";
-              const selected = document.createElement("div");
-              selected.style.padding = "0.5rem 1rem";
-              selected.style.color = "var(--accent)";
-              selected.textContent = `✓ Selected: ${selectedSpeed}`;
-              speedButtonsEl.appendChild(selected);
-              // Pass current selections - speed just selected, use case from previous selection if any
-              callBackend(opt, selectedUseCase);
-            };
-            speedButtonsEl.appendChild(btn);
-          });
-        }
-      }
-
-      if (missingKeys.includes("use_case")) {
-        usecaseOptionsEl.style.display = "block";
-        usecaseButtonsEl.innerHTML = "";
-        
-        // If already selected, show which one
-        if (selectedUseCase) {
-          const selected = document.createElement("div");
-          selected.style.padding = "0.5rem 1rem";
-          selected.style.color = "var(--accent)";
-          selected.textContent = `✓ Selected: ${selectedUseCase}`;
-          usecaseButtonsEl.appendChild(selected);
-        } else {
-          (options.use_case_options || []).forEach((opt) => {
-            const btn = document.createElement("button");
-            btn.className = "btn";
-            btn.type = "button";
-            btn.textContent = opt;
-            btn.style.padding = "0.5rem 1rem";
-            btn.onclick = () => {
-              selectedUseCase = opt;
-              // Immediately lock the selection in the UI so it can't be pressed again
-              usecaseButtonsEl.innerHTML = "";
-              const selected = document.createElement("div");
-              selected.style.padding = "0.5rem 1rem";
-              selected.style.color = "var(--accent)";
-              selected.textContent = `✓ Selected: ${selectedUseCase}`;
-              usecaseButtonsEl.appendChild(selected);
-              // Pass current selections - use case just selected, speed from previous selection if any
-              callBackend(selectedSpeed, opt);
-            };
-            usecaseButtonsEl.appendChild(btn);
-          });
-        }
+        searchInput.classList.remove('multi-line');
+        searchInput.placeholder = "Search for components...";
+        searchInput.rows = 1;
       }
     }
 
-    async function callBackend(speedOpt = null, useCaseOpt = null) {
-      const problemText = problemEl.value.trim();
+    // Handle search/AI request
+    async function handleSearch() {
+      const problemText = searchInput.value.trim();
+      
       if (!problemText) {
         statusEl.textContent = "Please describe your bike and project first.";
-        statusEl.classList.add("error");
+        statusEl.classList.add('error');
         return;
       }
 
-      statusEl.classList.remove("error");
-      statusEl.textContent = "Thinking…";
-      askBtn.disabled = true;
-      
-      // Important: capture selected values BEFORE hiding clarification
-      const finalSpeed = speedOpt || selectedSpeed;
-      const finalUseCase = useCaseOpt || selectedUseCase;
-      
-      // Only hide clarification UI if we have both values
-      // This allows the user to answer both questions when both are shown
-      const hasBothValues = finalSpeed && finalUseCase;
-      if (hasBothValues) {
-        hideClarification();
-      }
+      statusEl.classList.remove('error');
+      statusEl.textContent = "Thinking...";
+      searchBtn.disabled = true;
+
+      const finalSpeed = selectedSpeed;
+      const finalUseCase = selectedUseCase;
 
       try {
         const resp = await fetch("/api/recommend", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             problem_text: problemText,
             selected_speed: finalSpeed,
@@ -522,66 +789,330 @@
         }
 
         if (data.need_clarification) {
-          statusEl.textContent = "Select an option to continue.";
-          renderOptions(data.options || {}, data.missing || []);
+          statusEl.textContent = "Please select the missing information below.";
+          renderClarification(data.options || {}, data.missing || []);
           return;
         }
-        answerEl.textContent = data.answer || "(No answer returned)";
 
-        // render products
-        productsEl.innerHTML = "";
-        (data.products || []).forEach((prod) => {
-          const card = document.createElement("article");
-          card.className = "product-card";
+        // Show AI results
+        showAIResults(data);
 
-          const a = document.createElement("a");
-          a.href = prod.url;
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
-
-          const pill = document.createElement("div");
-          pill.className = "pill " + (prod.type === "cassette" ? "cassette" : "chain");
-          pill.textContent = prod.type === "cassette" ? "Cassette" : "Chain";
-
-          const name = document.createElement("div");
-          name.className = "product-name";
-          name.textContent = prod.name;
-
-          const meta = document.createElement("div");
-          meta.className = "product-meta";
-          meta.textContent = [prod.brand, prod.application].filter(Boolean).join(" · ");
-
-          const price = document.createElement("div");
-          price.className = "product-price";
-          price.textContent = prod.price || "";
-
-          const footer = document.createElement("div");
-          footer.className = "product-footer";
-          footer.innerHTML = `<span>Open on bc.de ↗</span>`;
-
-          a.appendChild(pill);
-          a.appendChild(name);
-          a.appendChild(meta);
-          a.appendChild(price);
-          a.appendChild(footer);
-
-          card.appendChild(a);
-          productsEl.appendChild(card);
-        });
-
-        statusEl.textContent = "";
-      } catch (err) {
-        console.error(err);
-        statusEl.textContent = err.message || "Something went wrong.";
-        statusEl.classList.add("error");
+      } catch (error) {
+        statusEl.textContent = "Error: " + error.message;
+        statusEl.classList.add('error');
       } finally {
-        askBtn.disabled = false;
+        searchBtn.disabled = false;
       }
     }
 
-    askBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      callBackend();
+    // Render clarification options
+    function renderClarification(options, missingKeys) {
+      clarificationEl.classList.add('active');
+      
+      const speedSection = document.getElementById('speed-section');
+      const usecaseSection = document.getElementById('usecase-section');
+      const speedOptions = document.getElementById('speed-options');
+      const usecaseOptions = document.getElementById('usecase-options');
+
+      // Update hint
+      const stillMissing = missingKeys.filter(key => {
+        if (key === "drivetrain_speed") return !selectedSpeed;
+        if (key === "use_case") return !selectedUseCase;
+        return true;
+      });
+      
+      if (stillMissing.length > 1) {
+        document.getElementById('clarification-hint').textContent = "Please select both options to continue:";
+      } else {
+        document.getElementById('clarification-hint').textContent = "Please select one option to continue:";
+      }
+
+      // Speed options
+      if (missingKeys.includes("drivetrain_speed")) {
+        speedSection.style.display = 'block';
+        speedOptions.innerHTML = '';
+        
+        if (selectedSpeed) {
+          const selected = document.createElement("div");
+          selected.className = "option-selected";
+          selected.textContent = `✓ Selected: ${selectedSpeed}-speed`;
+          speedOptions.appendChild(selected);
+        } else {
+          (options.speed_options || []).forEach((opt) => {
+            const btn = document.createElement("button");
+            btn.className = "option-btn";
+            btn.textContent = opt;
+            btn.onclick = () => selectSpeed(opt);
+            speedOptions.appendChild(btn);
+          });
+        }
+      } else {
+        speedSection.style.display = 'none';
+      }
+
+      // Use case options
+      if (missingKeys.includes("use_case")) {
+        usecaseSection.style.display = 'block';
+        usecaseOptions.innerHTML = '';
+        
+        if (selectedUseCase) {
+          const selected = document.createElement("div");
+          selected.className = "option-selected";
+          selected.textContent = `✓ Selected: ${selectedUseCase}`;
+          usecaseOptions.appendChild(selected);
+        } else {
+          (options.use_case_options || []).forEach((opt) => {
+            const btn = document.createElement("button");
+            btn.className = "option-btn";
+            btn.textContent = opt;
+            btn.onclick = () => selectUseCase(opt);
+            usecaseOptions.appendChild(btn);
+          });
+        }
+      } else {
+        usecaseSection.style.display = 'none';
+      }
+    }
+
+    // Select speed option
+    function selectSpeed(speed) {
+      selectedSpeed = parseInt(speed);
+      
+      // Lock in the selection visually
+      const speedOptions = document.getElementById('speed-options');
+      speedOptions.innerHTML = '';
+      const selected = document.createElement("div");
+      selected.className = "option-selected";
+      selected.textContent = `✓ Selected: ${selectedSpeed}-speed`;
+      speedOptions.appendChild(selected);
+      
+      handleSearch();
+    }
+
+    // Select use case option
+    function selectUseCase(useCase) {
+      selectedUseCase = useCase;
+      
+      // Lock in the selection visually
+      const usecaseOptions = document.getElementById('usecase-options');
+      usecaseOptions.innerHTML = '';
+      const selected = document.createElement("div");
+      selected.className = "option-selected";
+      selected.textContent = `✓ Selected: ${selectedUseCase}`;
+      usecaseOptions.appendChild(selected);
+      
+      handleSearch();
+    }
+
+    function toggleWhy() {
+      whyExpanded = !whyExpanded;
+      whyBody.classList.toggle('active', whyExpanded);
+      const indicator = document.getElementById('why-toggle-indicator');
+      if (indicator) {
+        indicator.textContent = whyExpanded ? '▲' : '▼';
+      }
+    }
+
+    function renderSections(sections) {
+      const whyList = Array.isArray(sections.why_it_fits) ? sections.why_it_fits : [];
+      const workflow = Array.isArray(sections.suggested_workflow) ? sections.suggested_workflow : [];
+      const checklist = Array.isArray(sections.checklist) ? sections.checklist : [];
+
+      // Reset accordion to collapsed by default on each render
+      whyExpanded = false;
+      const indicator = document.getElementById('why-toggle-indicator');
+      if (indicator) indicator.textContent = '▼';
+
+      // Why (collapsed by default)
+      whyBody.innerHTML = '';
+      const whyUl = document.createElement('ul');
+      whyUl.className = 'info-list';
+      whyList.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        whyUl.appendChild(li);
+      });
+      whyBody.appendChild(whyUl);
+      whyBody.classList.toggle('active', whyExpanded);
+
+      // Workflow
+      workflowList.innerHTML = '';
+      workflow.forEach(step => {
+        const li = document.createElement('li');
+        li.textContent = step;
+        workflowList.appendChild(li);
+      });
+
+      // Checklist
+      checklistList.innerHTML = '';
+      checklist.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        checklistList.appendChild(li);
+      });
+    }
+
+    function renderProductRows(rows) {
+      productRowsEl.innerHTML = '';
+      if (!Array.isArray(rows) || rows.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'status-message';
+        empty.textContent = 'No products returned.';
+        productRowsEl.appendChild(empty);
+        return;
+      }
+
+      rows.forEach(row => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'category-row';
+
+        const head = document.createElement('div');
+        head.className = 'category-head';
+        const title = document.createElement('div');
+        title.className = 'category-name';
+        title.textContent = row.category || 'Category';
+        const descriptor = document.createElement('span');
+        descriptor.className = 'section-subtitle';
+        descriptor.textContent = 'Best pick + alternatives';
+        head.appendChild(title);
+        head.appendChild(descriptor);
+        wrapper.appendChild(head);
+
+        const rowContainer = document.createElement('div');
+        rowContainer.className = 'product-row';
+
+        const bestCard = createProductCard(row.best || {}, true);
+        const badge = document.createElement('span');
+        badge.className = 'best-badge';
+        badge.textContent = 'Best option';
+        bestCard.appendChild(badge);
+        rowContainer.appendChild(bestCard);
+
+        const altScroll = document.createElement('div');
+        altScroll.className = 'alternatives-scroll';
+        const altList = document.createElement('div');
+        altList.className = 'alternatives-list';
+
+        (row.alternatives || []).forEach(prod => {
+          const card = createProductCard(prod, false);
+          card.classList.add('alt-card');
+          altList.appendChild(card);
+        });
+
+        altScroll.appendChild(altList);
+        rowContainer.appendChild(altScroll);
+        wrapper.appendChild(rowContainer);
+
+        productRowsEl.appendChild(wrapper);
+      });
+    }
+
+    // Show AI results
+    function showAIResults(data) {
+      statusEl.textContent = "";
+      clarificationEl.classList.remove('active');
+      
+      // Hide sample products, show AI results
+      sampleProductsEl.classList.add('hidden');
+      aiResultsEl.classList.add('active');
+
+      renderSections(data.sections || {});
+      renderProductRows(data.products_by_category || []);
+
+      // Scroll to results
+      aiResultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Create product card
+    function createProductCard(prod, isBest = false) {
+      const safeType = prod.type || 'cassette';
+      const card = document.createElement("a");
+      card.className = "product-card" + (isBest ? " best-card" : "");
+      card.href = prod.url || "#";
+      card.target = "_blank";
+      card.rel = "noopener noreferrer";
+
+      const image = document.createElement("div");
+      image.className = "product-image";
+      image.textContent = safeType === 'cassette' ? '⚙️' : '⛓️';
+
+      const body = document.createElement("div");
+      body.className = "product-body";
+
+      const category = document.createElement("span");
+      category.className = `product-category ${safeType}`;
+      category.textContent = safeType === 'cassette' ? 'Cassette' : 'Chain';
+
+      const name = document.createElement("div");
+      name.className = "product-name";
+      name.textContent = prod.name || 'Product';
+
+      const meta = document.createElement("div");
+      meta.className = "product-meta";
+      meta.textContent = [prod.brand, prod.application].filter(Boolean).join(" · ");
+
+      const footer = document.createElement("div");
+      footer.className = "product-footer";
+
+      const price = document.createElement("div");
+      price.className = "product-price";
+      price.textContent = prod.price || "";
+
+      const link = document.createElement("span");
+      link.className = "product-link";
+      link.innerHTML = "View →";
+
+      footer.appendChild(price);
+      footer.appendChild(link);
+
+      body.appendChild(category);
+      body.appendChild(name);
+      body.appendChild(meta);
+      body.appendChild(footer);
+
+      card.appendChild(image);
+      card.appendChild(body);
+
+      return card;
+    }
+
+    // Load sample products on page load
+    async function loadSampleProducts() {
+      // This would normally fetch from your product API
+      // For now, we'll leave it empty or you can add sample data
+      const sampleCassettes = [
+        { name: "Shimano 105 CS-R7000 11-speed", brand: "Shimano", price: "from 44.99€", type: "cassette", url: "#", application: "Road, Gravel" },
+        { name: "SRAM XG-1275 12-speed", brand: "SRAM", price: "from 189.99€", type: "cassette", url: "#", application: "MTB" },
+        { name: "Shimano Ultegra CS-R8000 11-speed", brand: "Shimano", price: "from 38.99€", type: "cassette", url: "#", application: "Road" },
+      ];
+
+      const sampleChains = [
+        { name: "Shimano CN-HG701-11 11-speed", brand: "Shimano", price: "from 24.99€", type: "chain", url: "#", application: "Road, MTB" },
+        { name: "SRAM PC-1230 12-speed", brand: "SRAM", price: "from 39.99€", type: "chain", url: "#", application: "MTB" },
+        { name: "KMC X11SL DLC 11-speed", brand: "KMC", price: "from 54.99€", type: "chain", url: "#", application: "Road, MTB" },
+      ];
+
+      const cassettesContainer = document.getElementById('sample-cassettes');
+      const chainsContainer = document.getElementById('sample-chains');
+
+      sampleCassettes.forEach(prod => {
+        cassettesContainer.appendChild(createProductCard(prod));
+      });
+
+      sampleChains.forEach(prod => {
+        chainsContainer.appendChild(createProductCard(prod));
+      });
+    }
+
+    // Initialize
+    loadSampleProducts();
+
+    // Allow Enter to submit (Shift+Enter for new line)
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSearch();
+      }
     });
   </script>
 </body>

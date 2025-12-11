@@ -406,98 +406,90 @@ def build_grounding_context(problem_text: str, bike_speed: int, use_case: str) -
 
 
 def make_prompt(context: dict) -> str:
-    """Format the grounding context into a prompt for the LLM.
+    """Format the grounding context into a structured prompt for the LLM.
 
-    Constructs a detailed prompt that instructs the LLM to:
-    1. Act as an experienced bike mechanic
-    2. Consider the user's specific goals and constraints
-    3. Choose ONE cassette and ONE chain from the provided candidates
-    4. Provide detailed reasoning (3-5 bullet points)
-    5. Output a machine-readable JSON summary with product URLs
-
-    The prompt explicitly forbids inventing products or using sources outside
-    the provided candidate list.
-
-    Args:
-        context: Dict from build_grounding_context() with user_bike, candidates, etc.
-
-    Returns:
-        Formatted prompt string ready for LLM API submission.
+    Instructs the model to return *only* JSON with:
+    - why_it_fits: bullets
+    - suggested_workflow: ordered steps
+    - checklist: tools/parts
+    - product_ranking: best + alternative indices per category
     """
-    return f"""
-You are an experienced bike mechanic.
 
-A user described their situation / project as:
+    def _fmt_products(label: str, products: List[Dict[str, Any]]) -> str:
+        if not products:
+            return f"{label}: []"
+        lines = [f"{label} (0-based index, use only these):"]
+        for idx, p in enumerate(products):
+            lines.append(
+                f"  {idx}: {p.get('name')} | brand: {p.get('brand')} | speed: {p.get('speed')} | application: {p.get('application')} | url: {p.get('url')}"
+            )
+        return "\n".join(lines)
 
-\"\"\"{context["user_bike"]["user_problem_text"]}\"\"\"
+    cassette_block = _fmt_products("Cassettes", context["candidates"].get("cassettes", []))
+    chain_block = _fmt_products("Chains", context["candidates"].get("chains", []))
+    user_text = context["user_bike"]["user_problem_text"]
+
+    return (
+        "You are an experienced bike mechanic. Recommend ONE cassette and ONE chain from the provided candidates only.\n\n"
+        f"User description:\n\"\"\"{user_text}\"\"\"\n\n"
+        f"Detected drivetrain speed: {context['user_bike']['drivetrain_speed']}-speed.\n"
+        f"Detected use case: {context['user_bike'].get('use_case', 'unspecified')}.\n\n"
+        "Candidate products (do NOT invent anything else):\n"
+        f"{cassette_block}\n"
+        f"{chain_block}\n\n"
+        "RESPONSE FORMAT (return JSON ONLY, no prose):\n"
+        "{\n"
+        "  \"sections\": {\n"
+        "    \"why_it_fits\": [\"bullet 1\", \"bullet 2\", \"bullet 3\"],\n"
+        "    \"suggested_workflow\": [\"step 1\", \"step 2\", \"step 3\"],\n"
+        "    \"checklist\": [\"tool 1\", \"part 1\", \"consumable 1\"]\n"
+        "  },\n"
+        "  \"product_ranking\": {\n"
+        "    \"cassettes\": {\"best_index\": 0, \"alternatives\": [1,2]},\n"
+        "    \"chains\": {\"best_index\": 0, \"alternatives\": [1,2]}\n"
+        "  }\n"
+        "}\n\n"
+        "RULES:\n"
+        "- Use 0-based indices that exist in the candidate lists above.\n"
+        "- Choose exactly one best_index per category; alternatives are optional and must be unique.\n"
+        "- Keep bullets concise (max ~15 words each), 3-5 bullets for why_it_fits.\n"
+        "- Provide 3-6 workflow steps, actionable and ordered.\n"
+        "- Provide a checklist of 5-10 concise items (tools/parts/consumables).\n"
+        "- Do not include any text outside the JSON."
+    )
 
 
-They want to upgrade their cassette and chain.
-Detected drivetrain speed: {context["user_bike"]["drivetrain_speed"]}-speed.
-Detected use case: {context["user_bike"].get("use_case", "unspecified")}.
+def call_llm(prompt: str) -> Dict[str, Any]:
+    """Call the LLM and parse the structured JSON response.
 
-Here is the project and the available products from ONE shop.
-You MUST ONLY recommend products from the lists below.
-Do NOT invent other products or URLs.
-
-CONTEXT (JSON):
-{json.dumps(context, indent=2)}
-
-TASK:
-1. Choose ONE cassette and ONE matching chain from the candidates.
-2. Explain in 3–5 short bullet points why they fit the user's bike and project.
-   - cover speed compatibility
-   - cover use case (road / gravel / MTB)
-   - cover gear range (why this is better for climbing).
-3. At the very end, output a short machine-readable summary in JSON with this shape:
-
-{{
-  "cassette_url": "...",
-  "chain_url": "...",
-  "notes": ["...", "..."]
-}}
-
-Answer in English.
-""".strip()
-
-
-def call_llm(prompt: str) -> str:
-    """Call the OpenAI gpt-5-nano model with extended thinking (Responses API).
-
-    Submits a prompt to the LLM and extracts the text response, handling the
-    Responses API's special output format which includes reasoning blocks.
-    The model may return multiple output items - we filter for the first one
-    with actual content (skipping reasoning-only items).
-
-    Args:
-        prompt: The prompt string to send to the LLM.
-
-    Returns:
-        The text response from the LLM (excluding reasoning blocks).
-
-    Raises:
-        ValueError: If the response contains no actual content.
+    Returns a dict with sections + product_ranking. Falls back to empty dict on failure.
     """
     log_interaction("llm_call_recommendation", {
         "model": LLM_MODEL,
         "prompt": prompt,
     })
-    
+
     resp = client.responses.create(
         model=LLM_MODEL,
         input=prompt,
     )
-    # Handle responses with reasoning blocks from gpt-5-nano
+
     for item in resp.output:
         if hasattr(item, "content") and item.content is not None:
-            answer = item.content[0].text  # type: ignore[union-attr]
-            
+            raw = item.content[0].text  # type: ignore[union-attr]
+
             log_interaction("llm_response_recommendation", {
                 "model": LLM_MODEL,
-                "raw_response": answer,
+                "raw_response": raw,
             })
-            
-            return answer
+
+            try:
+                parsed = json.loads(raw)
+                return parsed if isinstance(parsed, dict) else {}
+            except json.JSONDecodeError as e:
+                log_interaction("llm_parse_error_recommendation", {"error": str(e), "raw": raw})
+                return {}
+
     raise ValueError("No content found in response")
 
 
@@ -654,37 +646,100 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
 
     context = build_grounding_context(problem_text, bike_speed=bike_speed, use_case=use_case)
     prompt = make_prompt(context)
-    answer_text = call_llm(prompt)
 
-    # Extract JSON summary and remove it from displayed text
-    json_summary = extract_json_summary(answer_text)
-    answer_text_clean = remove_json_summary(answer_text)
+    def _default_sections() -> Dict[str, List[str]]:
+        return {
+            "why_it_fits": [
+                f"Matches {bike_speed}-speed drivetrain without extra parts",
+                f"Optimized for {use_case} riding",
+                "Gearing chosen for better climbing while keeping flats comfortable",
+            ],
+            "suggested_workflow": [
+                "Confirm freehub body and drivetrain speed",
+                "Install cassette with proper torque and fresh grease",
+                "Size and install new chain, check shifting",
+                "Test ride and fine-tune indexing",
+            ],
+            "checklist": [
+                "Cassette lockring tool + torque wrench",
+                "Chain breaker or quick-link pliers",
+                "Grease + rags",
+                "Floor pump and stand",
+                "Gloves and eye protection",
+            ],
+        }
 
-    # Build product list for display
-    products = []
+    def _coerce_str_list(value: Any, fallback: List[str]) -> List[str]:
+        if isinstance(value, list):
+            out = [str(v).strip() for v in value if str(v).strip()]
+            return out if out else fallback
+        return fallback
 
-    for cass in context["candidates"]["cassettes"]:
-        products.append(
+    def _simplify_product(prod: Dict[str, Any], prod_type: str) -> Dict[str, Any]:
+        return {
+            "type": prod_type,
+            "name": prod.get("name"),
+            "brand": prod.get("brand"),
+            "price": prod.get("price"),
+            "url": prod.get("url"),
+            "application": prod.get("application"),
+            "speed": prod.get("speed"),
+        }
+
+    # Call LLM and parse structured content
+    try:
+        llm_payload = call_llm(prompt)
+    except ValueError:
+        llm_payload = {}
+
+    sections_raw = llm_payload.get("sections", {}) if isinstance(llm_payload, dict) else {}
+    ranking_raw = llm_payload.get("product_ranking", {}) if isinstance(llm_payload, dict) else {}
+
+    sections = _default_sections()
+    sections["why_it_fits"] = _coerce_str_list(sections_raw.get("why_it_fits"), sections["why_it_fits"])
+    sections["suggested_workflow"] = _coerce_str_list(sections_raw.get("suggested_workflow"), sections["suggested_workflow"])
+    sections["checklist"] = _coerce_str_list(sections_raw.get("checklist"), sections["checklist"])
+
+    # Build products with best + alternatives per category
+    products_by_category: List[Dict[str, Any]] = []
+
+    def _build_row(key: str, label: str) -> None:
+        candidates = context["candidates"].get(key, [])
+        if not candidates:
+            return
+
+        rank_info = ranking_raw.get(key, {}) if isinstance(ranking_raw, dict) else {}
+        best_idx = rank_info.get("best_index", 0)
+        if not isinstance(best_idx, int) or best_idx < 0 or best_idx >= len(candidates):
+            best_idx = 0
+
+        alt_indices_raw = rank_info.get("alternatives", []) if isinstance(rank_info, dict) else []
+        alt_indices: List[int] = []
+        if isinstance(alt_indices_raw, list):
+            for item in alt_indices_raw:
+                if isinstance(item, int) and 0 <= item < len(candidates) and item != best_idx:
+                    alt_indices.append(item)
+
+        # Fill remaining alternatives to show as many as possible
+        remaining = [i for i in range(len(candidates)) if i not in alt_indices and i != best_idx]
+        alt_indices = alt_indices + remaining
+
+        prod_type = "cassette" if key == "cassettes" else "chain"
+        best_prod = _simplify_product(candidates[best_idx], prod_type=prod_type)
+        alt_prods = [_simplify_product(candidates[i], prod_type=prod_type) for i in alt_indices]
+
+        products_by_category.append(
             {
-                "type": "cassette",
-                "name": cass["name"],
-                "brand": cass["brand"],
-                "price": cass["price"],
-                "url": cass["url"],
+                "category": label,
+                "best": best_prod,
+                "alternatives": alt_prods,
             }
         )
-    for chain in context["candidates"]["chains"]:
-        products.append(
-            {
-                "type": "chain",
-                "name": chain["name"],
-                "brand": chain["brand"],
-                "price": chain["price"],
-                "url": chain["url"],
-            }
-        )
 
-    if not products:
+    _build_row("cassettes", "Cassettes")
+    _build_row("chains", "Chains")
+
+    if not products_by_category:
         return (
             jsonify(
                 {
@@ -701,9 +756,10 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
 
     return jsonify(
         {
-            "answer": answer_text_clean,
-            "products": products,
-            "summary": json_summary,  # Include for frontend if needed, but not displayed in main answer
+            "sections": sections,
+            "products_by_category": products_by_category,
+            "inferred_speed": bike_speed,
+            "inferred_use_case": use_case,
         }
     )
 
