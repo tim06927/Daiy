@@ -385,40 +385,88 @@
 
     function renderOptions(options, missingKeys) {
       clarificationCard.style.display = "block";
-      clarificationHint.textContent = "Pick one option to continue.";
+      
+      // Update hint based on how many questions remain
+      const stillMissing = missingKeys.filter(key => {
+        if (key === "drivetrain_speed") return !selectedSpeed;
+        if (key === "use_case") return !selectedUseCase;
+        return true;
+      });
+      
+      if (stillMissing.length > 1) {
+        clarificationHint.textContent = "Please select both options to continue.";
+      } else {
+        clarificationHint.textContent = "Pick one option to continue.";
+      }
 
       if (missingKeys.includes("drivetrain_speed")) {
         speedOptionsEl.style.display = "block";
         speedButtonsEl.innerHTML = "";
-        (options.speed_options || []).forEach((opt) => {
-          const btn = document.createElement("button");
-          btn.className = "btn";
-          btn.type = "button";
-          btn.textContent = opt;
-          btn.style.padding = "0.5rem 1rem";
-          btn.onclick = () => {
-            selectedSpeed = opt;
-            callBackend(opt, selectedUseCase);
-          };
-          speedButtonsEl.appendChild(btn);
-        });
+        
+        // If already selected, show which one
+        if (selectedSpeed) {
+          const selected = document.createElement("div");
+          selected.style.padding = "0.5rem 1rem";
+          selected.style.color = "var(--accent)";
+          selected.textContent = `✓ Selected: ${selectedSpeed}`;
+          speedButtonsEl.appendChild(selected);
+        } else {
+          (options.speed_options || []).forEach((opt) => {
+            const btn = document.createElement("button");
+            btn.className = "btn";
+            btn.type = "button";
+            btn.textContent = opt;
+            btn.style.padding = "0.5rem 1rem";
+            btn.onclick = () => {
+              selectedSpeed = opt;
+              // Immediately lock the selection in the UI so it can't be pressed again
+              speedButtonsEl.innerHTML = "";
+              const selected = document.createElement("div");
+              selected.style.padding = "0.5rem 1rem";
+              selected.style.color = "var(--accent)";
+              selected.textContent = `✓ Selected: ${selectedSpeed}`;
+              speedButtonsEl.appendChild(selected);
+              // Pass current selections - speed just selected, use case from previous selection if any
+              callBackend(opt, selectedUseCase);
+            };
+            speedButtonsEl.appendChild(btn);
+          });
+        }
       }
 
       if (missingKeys.includes("use_case")) {
         usecaseOptionsEl.style.display = "block";
         usecaseButtonsEl.innerHTML = "";
-        (options.use_case_options || []).forEach((opt) => {
-          const btn = document.createElement("button");
-          btn.className = "btn";
-          btn.type = "button";
-          btn.textContent = opt;
-          btn.style.padding = "0.5rem 1rem";
-          btn.onclick = () => {
-            selectedUseCase = opt;
-            callBackend(selectedSpeed, opt);
-          };
-          usecaseButtonsEl.appendChild(btn);
-        });
+        
+        // If already selected, show which one
+        if (selectedUseCase) {
+          const selected = document.createElement("div");
+          selected.style.padding = "0.5rem 1rem";
+          selected.style.color = "var(--accent)";
+          selected.textContent = `✓ Selected: ${selectedUseCase}`;
+          usecaseButtonsEl.appendChild(selected);
+        } else {
+          (options.use_case_options || []).forEach((opt) => {
+            const btn = document.createElement("button");
+            btn.className = "btn";
+            btn.type = "button";
+            btn.textContent = opt;
+            btn.style.padding = "0.5rem 1rem";
+            btn.onclick = () => {
+              selectedUseCase = opt;
+              // Immediately lock the selection in the UI so it can't be pressed again
+              usecaseButtonsEl.innerHTML = "";
+              const selected = document.createElement("div");
+              selected.style.padding = "0.5rem 1rem";
+              selected.style.color = "var(--accent)";
+              selected.textContent = `✓ Selected: ${selectedUseCase}`;
+              usecaseButtonsEl.appendChild(selected);
+              // Pass current selections - use case just selected, speed from previous selection if any
+              callBackend(selectedSpeed, opt);
+            };
+            usecaseButtonsEl.appendChild(btn);
+          });
+        }
       }
     }
 
@@ -433,7 +481,17 @@
       statusEl.classList.remove("error");
       statusEl.textContent = "Thinking…";
       askBtn.disabled = true;
-      hideClarification();
+      
+      // Important: capture selected values BEFORE hiding clarification
+      const finalSpeed = speedOpt || selectedSpeed;
+      const finalUseCase = useCaseOpt || selectedUseCase;
+      
+      // Only hide clarification UI if we have both values
+      // This allows the user to answer both questions when both are shown
+      const hasBothValues = finalSpeed && finalUseCase;
+      if (hasBothValues) {
+        hideClarification();
+      }
 
       try {
         const resp = await fetch("/api/recommend", {
@@ -443,8 +501,8 @@
           },
           body: JSON.stringify({
             problem_text: problemText,
-            selected_speed: speedOpt,
-            selected_use_case: useCaseOpt,
+            selected_speed: finalSpeed,
+            selected_use_case: finalUseCase,
           }),
         });
 
@@ -454,6 +512,14 @@
         }
 
         const data = await resp.json();
+
+        // Persist any inferred values the backend already determined
+        if (!selectedSpeed && data.inferred_speed) {
+          selectedSpeed = data.inferred_speed;
+        }
+        if (!selectedUseCase && data.inferred_use_case) {
+          selectedUseCase = data.inferred_use_case;
+        }
 
         if (data.need_clarification) {
           statusEl.textContent = "Select an option to continue.";

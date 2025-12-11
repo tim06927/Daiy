@@ -29,6 +29,10 @@ ENV/
 .env.*.local
 *.log
 
+# LLM interaction logs
+daiy_web/logs/
+*.jsonl
+
 # Testing
 .pytest_cache/
 .coverage
