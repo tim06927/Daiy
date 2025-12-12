@@ -11,6 +11,7 @@ from scrape.config import BASE_URL, DELAY_MAX, DELAY_MIN, HEADERS, REQUEST_TIMEO
 from scrape.html_utils import (
     extract_breadcrumbs,
     extract_description_and_specs,
+    extract_primary_image_url,
     extract_sku,
     is_product_url,
     map_chain_specs,
@@ -99,8 +100,9 @@ def parse_product_page(category_key: str, html: str, url: str) -> Product:
     sku = extract_sku(soup)
     breadcrumbs_text = extract_breadcrumbs(soup)
 
-    # Description + specs
+    # Description + specs + image
     description, specs = extract_description_and_specs(soup)
+    image_url = extract_primary_image_url(soup)
 
     # Chain-specific mappings (only for chains category)
     chain_fields = {}
@@ -123,6 +125,7 @@ def parse_product_page(category_key: str, html: str, url: str) -> Product:
         url=url,
         brand=brand,
         price_text=price_text,
+        image_url=image_url,
         sku=sku,
         breadcrumbs=breadcrumbs_text,
         description=description,

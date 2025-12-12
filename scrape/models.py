@@ -11,6 +11,7 @@ class Product:
     category: str
     name: str
     url: str
+    image_url: Optional[str] = None
     brand: Optional[str] = None
     price_text: Optional[str] = None
     sku: Optional[str] = None

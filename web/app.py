@@ -4,6 +4,7 @@ Provides a user interface for bike component upgrade recommendations using
 LLM-powered suggestions grounded in real product inventory.
 """
 
+import base64
 import json
 import os
 import re
@@ -55,6 +56,47 @@ def log_interaction(event_type: str, data: Dict[str, Any]) -> None:
     log_entry = {"timestamp": datetime.now().isoformat(), "event_type": event_type, **data}
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+
+
+# ---------- BASIC AUTH ----------
+
+
+def _basic_auth_creds() -> tuple[Optional[str], Optional[str]]:
+    """Get demo credentials from environment."""
+    return os.getenv("DEMO_USER"), os.getenv("DEMO_PASS")
+
+
+def _unauthorized() -> Response:
+    return Response(
+        "Authentication required",
+        401,
+        {"WWW-Authenticate": 'Basic realm="Login Required"'},
+    )
+
+
+@app.before_request
+def require_basic_auth() -> Optional[Response]:
+    """
+    Enforce HTTP Basic Auth for all routes.
+    Skips enforcement if credentials are not configured (DEMO_USER/DEMO_PASS unset).
+    """
+    user, password = _basic_auth_creds()
+    if not user or not password:
+        return None  # auth disabled
+
+    header = request.headers.get("Authorization", "")
+    if not header.startswith("Basic "):
+        return _unauthorized()
+
+    try:
+        decoded = base64.b64decode(header.split(" ", 1)[1]).decode("utf-8")
+        username, passwd = decoded.split(":", 1)
+    except Exception:
+        return _unauthorized()
+
+    if username == user and passwd == password:
+        return None
+    return _unauthorized()
 
 
 # ---------- DATA MODEL & CATALOG LOADING ----------
