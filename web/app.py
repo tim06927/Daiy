@@ -292,12 +292,21 @@ def _parse_selected_speed(value: Any) -> Optional[int]:
     return None
 
 
-def _request_clarification_options(problem_text: str, missing: List[str]) -> Dict[str, Any]:
+def _request_clarification_options(
+    problem_text: str,
+    missing: List[str],
+    image_base64: Optional[str] = None,
+    image_meta: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """Ask the LLM to infer missing values from user text OR propose option lists.
 
     The LLM first tries to infer the missing information from the user's text.
     If it can infer values, it returns them directly with empty option lists.
     If it cannot infer, it returns option lists for the user to choose from.
+
+    Optionally provides a user-uploaded photo (base64, truncated) so the LLM can
+    leverage visual cues for drivetrain speed or use case. Photo metadata is carried
+    through logging so we can audit when an image was uploaded and shared.
 
     Returns:
         Dict with keys:
@@ -306,9 +315,27 @@ def _request_clarification_options(problem_text: str, missing: List[str]) -> Dic
         - "speed_options": list (if LLM needs to ask user)
         - "use_case_options": list (if LLM needs to ask user)
     """
+    base_len = len(image_base64.strip()) if isinstance(image_base64, str) else 0
+    image_note = ""
+    if isinstance(image_base64, str) and image_base64.strip():
+        truncated = image_base64.strip()[:4000]
+        image_note = (
+            "The user also uploaded a bike photo (JPEG base64, truncated). "
+            "Use any clear visual cues (cassette sprocket count, tire style, mounts) "
+            "to infer drivetrain speed or use case if possible.\n"
+            f"Photo base64 (truncated):\n{truncated}\n\n"
+        )
+    image_meta_for_log = {
+        **(image_meta or {}),
+        "shared_with_llm": bool(base_len),
+        "shared_chars": min(base_len, 4000) if base_len else 0,
+        "truncated_in_prompt": base_len > 4000,
+    }
+
     prompt = (
         "You are assisting a bike components recommender. The user wrote:\n"
         f'"""{problem_text}"""\n\n'
+        f"{image_note}"
         f"The regex-based system could not automatically detect: {', '.join(missing)}.\n\n"
         "YOUR TASK: Carefully analyze the user's text and either:\n"
         "1. INFER the missing values if they are clearly stated or strongly implied, OR\n"
@@ -331,7 +358,14 @@ def _request_clarification_options(problem_text: str, missing: List[str]) -> Dic
 
     log_interaction(
         "llm_call_clarification",
-        {"model": LLM_MODEL, "prompt": prompt, "missing_keys": missing, "user_text": problem_text},
+        {
+            "model": LLM_MODEL,
+            "prompt": prompt,
+            "missing_keys": missing,
+            "user_text": problem_text,
+            "image_attached": bool(image_note),
+            "image_meta": image_meta_for_log,
+        },
     )
 
     resp = client.responses.create(model=LLM_MODEL, input=prompt)
@@ -515,7 +549,7 @@ def make_prompt(context: dict) -> str:
     )
 
 
-def call_llm(prompt: str) -> Dict[str, Any]:
+def call_llm(prompt: str, image_meta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Call the LLM and parse the structured JSON response.
 
     Returns a dict with sections + product_ranking. Falls back to empty dict on failure.
@@ -525,6 +559,7 @@ def call_llm(prompt: str) -> Dict[str, Any]:
         {
             "model": LLM_MODEL,
             "prompt": prompt,
+            "image_meta": image_meta or {},
         },
     )
 
@@ -621,9 +656,17 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
 
     raw_image_b64 = data.get("image_base64")
     image_base64 = raw_image_b64.strip() if isinstance(raw_image_b64, str) else None
+    image_meta = {
+        "uploaded": bool(image_base64),
+        "received_chars": len(raw_image_b64) if isinstance(raw_image_b64, str) else 0,
+        "stored_chars": len(image_base64) if isinstance(image_base64, str) else 0,
+        "truncated_to_120k": False,
+    }
     if image_base64 and len(image_base64) > 120_000:
         # safety: limit payload size, keep the head
         image_base64 = image_base64[:120_000]
+        image_meta["stored_chars"] = len(image_base64)
+        image_meta["truncated_to_120k"] = True
 
     if not problem_text:
         return jsonify({"error": "problem_text is required"}), 400
@@ -635,6 +678,7 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
             "user_input",
             {
                 "problem_text": problem_text,
+                "image_meta": image_meta,
             },
         )
     else:
@@ -645,6 +689,7 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
                 "problem_text": problem_text,
                 "selected_speed": selected_speed,
                 "selected_use_case": selected_use_case,
+                "image_meta": image_meta,
             },
         )
 
@@ -678,7 +723,9 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
     # BUT only if this is the first request (no user selections yet)
     if missing_keys and selected_speed is None and selected_use_case is None:
         # First time - try LLM inference before asking user
-        llm_result = _request_clarification_options(problem_text, missing_keys)
+        llm_result = _request_clarification_options(
+            problem_text, missing_keys, image_base64=image_base64, image_meta=image_meta
+        )
 
         # Use LLM's inferred values if available
         if llm_result.get("inferred_speed") is not None and "drivetrain_speed" in missing_keys:
@@ -771,9 +818,18 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
             "speed": _clean(prod.get("speed")),
         }
 
+    # Prepare photo metadata for downstream logging
+    base_len = len(image_base64) if isinstance(image_base64, str) else 0
+    image_meta_for_llm = {
+        **image_meta,
+        "shared_with_llm": bool(base_len),
+        "shared_chars": min(base_len, 4000) if base_len else 0,
+        "truncated_in_prompt": base_len > 4000,
+    }
+
     # Call LLM and parse structured content
     try:
-        llm_payload = call_llm(prompt)
+        llm_payload = call_llm(prompt, image_meta=image_meta_for_llm)
     except ValueError:
         llm_payload = {}
 

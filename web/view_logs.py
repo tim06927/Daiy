@@ -34,6 +34,32 @@ def escape_html(text: str) -> str:
     )
 
 
+def render_image_meta(meta: Any) -> str:
+    """Render photo metadata if present."""
+    if not isinstance(meta, dict) or not meta:
+        return ""
+
+    uploaded = "Yes" if meta.get("uploaded") else "No"
+    received = meta.get("received_chars", 0)
+    stored = meta.get("stored_chars", 0)
+    truncated_120k = "Yes" if meta.get("truncated_to_120k") else "No"
+    shared = "Yes" if meta.get("shared_with_llm") else "No"
+    shared_chars = meta.get("shared_chars", 0)
+    truncated_prompt = "Yes" if meta.get("truncated_in_prompt") else "No"
+
+    parts = [
+        f"<li><strong>Uploaded:</strong> {uploaded}</li>",
+        f"<li><strong>Received chars:</strong> {received}</li>",
+        f"<li><strong>Stored chars:</strong> {stored}</li>",
+        f"<li><strong>Truncated to 120k:</strong> {truncated_120k}</li>",
+        f"<li><strong>Shared with LLM:</strong> {shared}</li>",
+        f"<li><strong>Shared chars (prompt):</strong> {shared_chars}</li>",
+        f"<li><strong>Truncated in prompt:</strong> {truncated_prompt}</li>",
+    ]
+
+    return "<p><strong>📷 Photo Meta:</strong></p><ul>" + "".join(parts) + "</ul>"
+
+
 def format_event_html(event: Dict[str, Any]) -> str:
     """Format a single log event as HTML."""
     event_type = event.get("event_type", "unknown")
@@ -52,6 +78,7 @@ def format_event_html(event: Dict[str, Any]) -> str:
             html_parts.append(
                 f'<p><strong>Selected Use Case:</strong> {event["selected_use_case"]}</p>'
             )
+        html_parts.append(render_image_meta(event.get("image_meta")))
 
     elif event_type == "regex_inference":
         html_parts.append("<p><strong>🔍 Regex Inference:</strong></p>")
@@ -73,6 +100,7 @@ def format_event_html(event: Dict[str, Any]) -> str:
         html_parts.append("<ul>")
         html_parts.append(f'<li>Model: <code>{event.get("model", "unknown")}</code></li>')
         html_parts.append(f'<li>Missing Keys: <code>{event.get("missing_keys", [])}</code></li>')
+        html_parts.append(render_image_meta(event.get("image_meta")))
         html_parts.append("</ul>")
         html_parts.append("<details><summary>View Prompt</summary>")
         prompt = escape_html(event.get("prompt", ""))
@@ -108,6 +136,7 @@ def format_event_html(event: Dict[str, Any]) -> str:
         html_parts.append("<p><strong>🤖 LLM Call (Recommendation):</strong></p>")
         html_parts.append("<ul>")
         html_parts.append(f'<li>Model: <code>{event.get("model", "unknown")}</code></li>')
+        html_parts.append(render_image_meta(event.get("image_meta")))
         html_parts.append("</ul>")
         html_parts.append("<details><summary>View Prompt</summary>")
         prompt = escape_html(event.get("prompt", ""))
@@ -143,6 +172,7 @@ def format_event_html(event: Dict[str, Any]) -> str:
             html_parts.append(
                 f'<p><strong>Selected Use Case:</strong> {event["selected_use_case"]}</p>'
             )
+        html_parts.append(render_image_meta(event.get("image_meta")))
 
     else:
         # Generic handler

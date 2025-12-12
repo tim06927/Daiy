@@ -1286,8 +1286,9 @@
                 if (!blob) return reject(new Error('Compression failed'));
                 const fr = new FileReader();
                 fr.onloadend = () => {
-                  const base64 = (fr.result || '').toString();
-                  resolve(base64.replace(/^data:image\\/[^;]+;base64,/, ''));
+                  const dataUrl = (fr.result || '').toString();
+                  const [, base64 = ''] = dataUrl.split(','); // keep only the Base64 payload after the comma
+                  resolve(base64);
                 };
                 fr.onerror = reject;
                 fr.readAsDataURL(blob);
