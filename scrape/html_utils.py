@@ -67,6 +67,20 @@ def extract_description_and_specs(soup: BeautifulSoup) -> Tuple[Optional[str], D
     return description_text, specs
 
 
+def extract_primary_image_url(soup: BeautifulSoup) -> Optional[str]:
+    """Extract the first product image URL (thumbnail/primary) from the page."""
+    # Try dedicated image container
+    img = soup.select_one('div.product-media img[src]')
+    if img and img.get("src"):
+        return img.get("src")
+
+    # Fallback: any img with data-test or alt near product
+    fallback_img = soup.find("img", src=True)
+    if fallback_img:
+        return fallback_img.get("src")
+    return None
+
+
 def pick_spec(specs: Dict[str, str], keys: List[str]) -> Optional[str]:
     """Pick a spec value by trying a list of possible labels (case-insensitive)."""
     # Exact matches first

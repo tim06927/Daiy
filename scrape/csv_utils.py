@@ -48,7 +48,13 @@ def save_products_to_csv(
         print("No products to save.")
         return
 
+    # Merge fieldnames to include any new fields (e.g., image_url) while preserving order.
     active_fieldnames = fieldnames or list(rows[0].keys())
+    for row in rows:
+        for key in row.keys():
+            if key not in active_fieldnames:
+                active_fieldnames.append(key)
+
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=active_fieldnames)
         writer.writeheader()
