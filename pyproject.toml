@@ -55,7 +55,7 @@ Repository = "https://github.com/tim06927/daiy.git"
 Issues = "https://github.com/tim06927/daiy/issues"
 
 [tool.setuptools]
-packages = ["scrape", "grounded_demo", "daiy_web"]
+packages = ["scrape", "grounded_demo", "web"]
 
 [tool.black]
 line-length = 100

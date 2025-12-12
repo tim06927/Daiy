@@ -23,7 +23,7 @@ The app uses the same grounding pattern as the demo: all recommendations come fr
 ## Project Structure
 
 ```
-daiy_web/
+web/
 ├── app.py              # Main Flask application
 ├── config.py           # Centralized configuration
 ├── templates/          # HTML templates
@@ -80,7 +80,7 @@ HTML templates:
 export OPENAI_API_KEY="sk-..."
 
 # Run the app
-python daiy_web/app.py
+python web/app.py
 ```
 
 The app will start at `http://127.0.0.1:5000`

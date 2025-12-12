@@ -29,7 +29,7 @@ export OPENAI_API_KEY="your-api-key-here"
 ## Run the Web App
 
 ```bash
-cd daiy_web
+cd web
 python app.py
 ```
 
@@ -60,7 +60,7 @@ This adds new products from bike-components.de to `data/bc_products_sample.csv`.
 
 - **scrape/** - Web scraper for bike components
 - **grounded_demo/** - CLI proof-of-concept
-- **daiy_web/** - Flask web application
+- **web/** - Flask web application
 - **data/** - CSV data files
 - **ARCHITECTURE.md** - Deep dive into design patterns
 - **CONTRIBUTING.md** - Guidelines for developers

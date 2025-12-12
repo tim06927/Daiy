@@ -11,8 +11,12 @@ inventory.
 
 import json
 
-from catalog import build_grounding_context, load_catalog
+from dotenv import load_dotenv
 from openai import OpenAI
+
+from catalog import build_grounding_context, load_catalog
+
+load_dotenv()  # Load environment variables from .env file
 
 # Uses OPENAI_API_KEY from your environment
 client = OpenAI()
