@@ -600,6 +600,60 @@
       background: var(--accent-light);
     }
 
+    .option-btn.selected {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: white;
+    }
+
+    .other-input-container {
+      display: none;
+      margin-top: 0.5rem;
+    }
+
+    .other-input-container.active {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .other-input {
+      flex: 1;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.8rem;
+    }
+
+    .other-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .clarification-submit {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.6rem 1.5rem;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .clarification-submit:hover {
+      background: var(--accent-dark, #0056b3);
+    }
+
+    .clarification-submit.visible {
+      display: inline-block;
+    }
+
     /* Right Panel - Results */
     .results-panel {
       padding: 0.5rem 0.75rem;
@@ -1105,9 +1159,11 @@
         <p class="hero-tagline">Upload a photo or describe your problem. We'll find the right parts and explain why they fit.</p>
       </div>
       
+      {% if show_demo_notice %}
       <div class="disclaimer">
         <p><strong>Demo Notice:</strong> This demo currently features a limited selection of bike drivetrain products (chains, cassettes, and related parts). For best results, try queries like "replace my worn 11-speed cassette" or "find a chain for my road bike." You can ask about other topics, but recommendations will only come from our current product catalog. Want to help expand it? <a href="https://github.com/tim06927/Daiy" target="_blank" rel="noopener">Contribute on GitHub</a>.</p>
       </div>
+      {% endif %}
     </section>
 
     <!-- Results State - Split Panel -->
@@ -1149,6 +1205,7 @@
             <div id="clarification-content">
               <!-- Dynamically populated with speed/use-case buttons -->
             </div>
+            <button class="clarification-submit" id="clarification-submit" onclick="submitClarifications()">Find Parts →</button>
           </div>
 
           <div class="error-message hidden" id="error-message"></div>
@@ -1420,6 +1477,9 @@
       errorMessage.classList.remove('hidden');
     }
 
+    // Track which clarifications are needed for this query
+    let pendingClarifications = [];
+
     function showClarification(data) {
       loadingState.classList.remove('active');
       
@@ -1432,13 +1492,20 @@
       const options = data.options || {};
       const hints = data.hints || {};
       
+      // Track what's needed
+      pendingClarifications = [];
+      
       if (missing.includes('drivetrain_speed') && !selectedSpeed) {
+        pendingClarifications.push('speed');
         const section = document.createElement('div');
         section.className = 'clarification-section';
         section.innerHTML = `
           <div class="clarification-label">Drivetrain Speed:</div>
           <div class="clarification-hint">${hints.drivetrain_speed || ''}</div>
           <div class="option-buttons" id="speed-buttons"></div>
+          <div class="other-input-container" id="speed-other-container">
+            <input type="text" class="other-input" id="speed-other-input" placeholder="e.g., 12-speed, single speed...">
+          </div>
         `;
         clarificationContent.appendChild(section);
         
@@ -1447,18 +1514,39 @@
           const btn = document.createElement('button');
           btn.className = 'option-btn';
           btn.textContent = opt;
-          btn.onclick = () => selectSpeed(opt);
+          btn.dataset.value = opt;
+          btn.onclick = () => selectSpeed(opt, btn);
           speedBtns.appendChild(btn);
+        });
+        
+        // Add "Other" button
+        const otherBtn = document.createElement('button');
+        otherBtn.className = 'option-btn';
+        otherBtn.textContent = 'Other';
+        otherBtn.onclick = () => showOtherInput('speed', otherBtn);
+        speedBtns.appendChild(otherBtn);
+        
+        // Handle other input
+        const otherInput = section.querySelector('#speed-other-input');
+        otherInput.addEventListener('input', () => {
+          if (otherInput.value.trim()) {
+            selectedSpeed = otherInput.value.trim();
+            updateSubmitButton();
+          }
         });
       }
       
       if (missing.includes('use_case') && !selectedUseCase) {
+        pendingClarifications.push('usecase');
         const section = document.createElement('div');
         section.className = 'clarification-section';
         section.innerHTML = `
           <div class="clarification-label">Use Case:</div>
           <div class="clarification-hint">${hints.use_case || ''}</div>
           <div class="option-buttons" id="usecase-buttons"></div>
+          <div class="other-input-container" id="usecase-other-container">
+            <input type="text" class="other-input" id="usecase-other-input" placeholder="e.g., commuting, touring...">
+          </div>
         `;
         clarificationContent.appendChild(section);
         
@@ -1467,29 +1555,124 @@
           const btn = document.createElement('button');
           btn.className = 'option-btn';
           btn.textContent = opt;
-          btn.onclick = () => selectUseCase(opt);
+          btn.dataset.value = opt;
+          btn.onclick = () => selectUseCase(opt, btn);
           usecaseBtns.appendChild(btn);
+        });
+        
+        // Add "Other" button
+        const otherBtn = document.createElement('button');
+        otherBtn.className = 'option-btn';
+        otherBtn.textContent = 'Other';
+        otherBtn.onclick = () => showOtherInput('usecase', otherBtn);
+        usecaseBtns.appendChild(otherBtn);
+        
+        // Handle other input
+        const otherInput = section.querySelector('#usecase-other-input');
+        otherInput.addEventListener('input', () => {
+          if (otherInput.value.trim()) {
+            selectedUseCase = otherInput.value.trim();
+            updateSubmitButton();
+          }
         });
       }
       
       clarificationPanel.classList.add('active');
       productCategories.classList.add('active');
       categoriesContainer.innerHTML = '';
+      updateSubmitButton();
     }
 
-    function selectSpeed(speed) {
-      selectedSpeed = parseInt(speed);
+    function showOtherInput(type, btn) {
+      const container = document.getElementById(`${type}-other-container`);
+      const buttonsContainer = document.getElementById(`${type === 'speed' ? 'speed' : 'usecase'}-buttons`);
+      
+      // Deselect all buttons in this section
+      buttonsContainer.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      
+      // Clear the selection
+      if (type === 'speed') {
+        selectedSpeed = null;
+      } else {
+        selectedUseCase = null;
+      }
+      
+      // Show input container
+      container.classList.add('active');
+      container.querySelector('.other-input').focus();
+      
       updateSelectedOptions();
-      loadingState.classList.add('active');
-      productCategories.classList.remove('active');
-      handleSearch();
+      updateSubmitButton();
     }
 
-    function selectUseCase(useCase) {
+    function selectSpeed(speed, btn) {
+      // Parse as int if it looks like a number
+      selectedSpeed = /^\d+$/.test(speed) ? parseInt(speed) : speed;
+      
+      // Update button states
+      const speedBtns = document.getElementById('speed-buttons');
+      if (speedBtns) {
+        speedBtns.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+        if (btn) btn.classList.add('selected');
+      }
+      
+      // Hide other input if showing
+      const otherContainer = document.getElementById('speed-other-container');
+      if (otherContainer) {
+        otherContainer.classList.remove('active');
+        otherContainer.querySelector('.other-input').value = '';
+      }
+      
+      updateSelectedOptions();
+      updateSubmitButton();
+    }
+
+    function selectUseCase(useCase, btn) {
       selectedUseCase = useCase;
+      
+      // Update button states
+      const usecaseBtns = document.getElementById('usecase-buttons');
+      if (usecaseBtns) {
+        usecaseBtns.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+        if (btn) btn.classList.add('selected');
+      }
+      
+      // Hide other input if showing
+      const otherContainer = document.getElementById('usecase-other-container');
+      if (otherContainer) {
+        otherContainer.classList.remove('active');
+        otherContainer.querySelector('.other-input').value = '';
+      }
+      
       updateSelectedOptions();
+      updateSubmitButton();
+    }
+
+    function updateSubmitButton() {
+      const submitBtn = document.getElementById('clarification-submit');
+      if (!submitBtn) return;
+      
+      // Check if all pending clarifications have been answered
+      let allAnswered = true;
+      if (pendingClarifications.includes('speed') && !selectedSpeed) {
+        allAnswered = false;
+      }
+      if (pendingClarifications.includes('usecase') && !selectedUseCase) {
+        allAnswered = false;
+      }
+      
+      if (allAnswered && pendingClarifications.length > 0) {
+        submitBtn.classList.add('visible');
+      } else {
+        submitBtn.classList.remove('visible');
+      }
+    }
+
+    function submitClarifications() {
       loadingState.classList.add('active');
       productCategories.classList.remove('active');
+      document.getElementById('clarification-submit').classList.remove('visible');
       handleSearch();
     }
 
