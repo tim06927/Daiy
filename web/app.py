@@ -497,12 +497,27 @@ def _request_clarification_options(
         "shared_chars": base_len,
     }
 
+    # Build prompt - emphasize image analysis if an image is attached
+    image_instruction = ""
+    if image_base64:
+        image_instruction = (
+            "\n\nIMPORTANT - IMAGE ANALYSIS:\n"
+            "The user has uploaded a PHOTO. Carefully analyze the image to:\n"
+            "- COUNT the number of cogs/sprockets on the cassette to determine speed "
+            "(e.g., 10 cogs = 10-speed, 11 cogs = 11-speed, 12 cogs = 12-speed)\n"
+            "- IDENTIFY the bike type from visual cues (drop bars = road/gravel, flat bars = MTB, etc.)\n"
+            "- Look for brand logos or component markings\n"
+            "Use this visual information to infer speed and use_case. "
+            "Only ask for clarification if the image is unclear or doesn't show relevant components.\n"
+        )
+
     prompt = (
         "You are assisting a bike components recommender. The user wrote:\n"
         f'"""{problem_text}"""\n\n'
         f"The regex-based system could not automatically detect: {', '.join(missing)}.\n\n"
-        "YOUR TASK: Carefully analyze the user's text and either:\n"
-        "1. INFER the missing values if they are clearly stated or strongly implied, OR\n"
+        f"{image_instruction}"
+        "YOUR TASK: Carefully analyze the user's text (and image if provided) and either:\n"
+        "1. INFER the missing values if they are clearly stated, strongly implied, or visible in the image, OR\n"
         "2. PROPOSE option lists if the information is truly ambiguous or absent.\n\n"
         "Respond with pure JSON ONLY (no prose), using this exact structure:\n"
         "{\n"
@@ -512,10 +527,10 @@ def _request_clarification_options(
         '  "use_case_options": []  // empty if inferred, else ["road", "gravel", "mtb"]\n'
         "}\n\n"
         "RULES:\n"
-        "- If you can determine the speed/use_case from context, set inferred_* and leave options empty\n"
+        "- If you can determine the speed/use_case from context or the image, set inferred_* and leave options empty\n"
         "- Only populate options lists if you genuinely cannot infer the value\n"
-        "- For speed: look for mentions like '12-speed', 'shimano 105' (11-speed), 'ultegra' (11/12), etc.\n"
-        "- For use_case: look for bike types, terrain, riding style, component mentions\n"
+        "- For speed: count cogs in image, or look for mentions like '12-speed', 'shimano 105' (11-speed), etc.\n"
+        "- For use_case: look at bike frame/handlebars in image, or text mentions of bike types, terrain, riding style\n"
         "- Keep option lists to max 5 items with short labels\n"
         "- Use lowercase for use_case values: 'road', 'gravel', 'mtb', 'commute', 'touring', etc.\n"
     )
