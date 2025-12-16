@@ -2,21 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Bike Components Shop – AI Recommendations</title>
+  <title>Snap-to-Cart – AI Component Finder</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <style>
+    /* ========== CSS VARIABLES ========== */
     :root {
       --bg: #ffffff;
-      --surface: #f8f8f8;
-      --accent: #000000;
-      --accent-hover: #333333;
-      --text: #111111;
+      --surface: #f8f9fa;
+      --accent: #0066cc;
+      --accent-hover: #0052a3;
+      --accent-light: #e6f0fa;
+      --text: #1a1a1a;
       --text-secondary: #666666;
+      --text-muted: #999999;
       --border: #e0e0e0;
-      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-      --shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-      --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+      --border-light: #f0f0f0;
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+      --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.12);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-xs: 6px;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
     }
 
     * {
@@ -30,75 +40,53 @@
       background: var(--bg);
       color: var(--text);
       line-height: 1.5;
+      min-height: 100vh;
     }
 
-    /* Header */
+    /* ========== HEADER ========== */
     .header {
       background: var(--bg);
       border-bottom: 1px solid var(--border);
-      padding: 1rem 0;
+      padding: 0.75rem 0;
       position: sticky;
       top: 0;
       z-index: 100;
-      backdrop-filter: blur(8px);
-      background: rgba(255, 255, 255, 0.98);
     }
 
     .header-content {
-      max-width: 1280px;
+      max-width: 1400px;
       margin: 0 auto;
-      padding: 0 2rem;
+      padding: 0 1.5rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 1rem;
-      flex-wrap: wrap;
     }
 
     .logo {
-      font-size: 1.25rem;
+      font-size: 1.1rem;
       font-weight: 600;
       color: var(--text);
       text-decoration: none;
-      white-space: nowrap;
       display: flex;
       align-items: center;
-      gap: 0.4rem;
-      letter-spacing: -0.5px;
+      gap: 0.5rem;
     }
 
-    .logo-text {
-      display: inline-flex;
-      align-items: baseline;
-      gap: 0.3rem;
-      flex-wrap: wrap;
-    }
-
-    .header-title {
-      font-size: 1.2rem;
-      font-weight: 600;
-      color: var(--text);
-      line-height: 1.3;
-    }
-
-    .header-subtitle {
-      font-size: 0.9rem;
-      color: var(--text-secondary);
-      line-height: 1.3;
+    .logo-icon {
+      font-size: 1.25rem;
     }
 
     .nav {
       display: flex;
       gap: 1.5rem;
       list-style: none;
-      flex-wrap: wrap;
     }
 
     .nav a {
       color: var(--text-secondary);
       text-decoration: none;
+      font-size: 0.9rem;
       font-weight: 500;
-      font-size: 0.95rem;
       transition: color 0.15s;
     }
 
@@ -106,207 +94,188 @@
       color: var(--text);
     }
 
-    /* Hero Search Section */
-    .hero {
-      background: linear-gradient(to bottom, var(--bg), var(--surface));
-      padding: 1.5rem 2rem 1rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .hero-content {
-      max-width: 1280px;
+    /* ========== LAYOUT STATES ========== */
+    .app-container {
+      max-width: 1400px;
       margin: 0 auto;
+      padding: 0 1.5rem;
     }
 
-    .hero-subtitle {
-      text-align: center;
-      color: var(--text-secondary);
-      font-size: 0.85rem;
-      margin-bottom: 0.75rem;
-      letter-spacing: 0.3px;
-    }
-
-    /* Search Mode Tabs */
-    .search-modes-inline {
-      position: absolute;
-      left: 0.8rem;
-      top: 0.5rem;
+    /* Initial State - Shop-style search */
+    .initial-state {
       display: flex;
-      gap: 0.3rem;
-      z-index: 2;
-    }
-
-    .mode-tab {
-      padding: 0.4rem 0.8rem;
-      border: none;
-      background: transparent;
-      color: var(--text-secondary);
-      font-size: 0.85rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: color 0.15s;
-      line-height: 1.2;
-      position: relative;
-      outline: 2px solid transparent;
-      outline-offset: 2px;
-    }
-
-    .mode-tab:focus {
-      outline-color: var(--accent);
-      border-radius: 4px;
-    }
-
-    .mode-tab:hover {
-      color: var(--text);
-    }
-
-    .mode-tab.active {
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    .mode-tab.active::after {
-      content: '';
-      position: absolute;
-      bottom: -4px;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: var(--text);
-    }
-
-    .mode-tab.disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    /* Search Container */
-    .search-container {
-      position: relative;
-      max-width: 920px;
-      margin: 0 auto;
-    }
-
-    .search-wrapper {
-      position: relative;
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      box-shadow: var(--shadow);
-      transition: all 0.15s ease;
-      display: flex;
+      flex-direction: column;
       align-items: center;
-      padding-right: 0.5rem;
-      padding-left: 4.5rem;
+      justify-content: flex-start;
+      min-height: calc(100vh - 60px);
+      padding: 3rem 2rem 2rem;
+      text-align: center;
     }
 
-    .search-wrapper:focus-within {
-      border-color: var(--accent);
-      box-shadow: var(--shadow-lg);
-    }
-
-    .search-wrapper:has(.search-input:focus) {
-      outline: 2px solid var(--accent);
-      outline-offset: 0px;
-    }
-
-    .search-input {
-      flex: 1;
-      border: none;
-      outline: none;
-      padding: 1rem 1.25rem 1rem 3.25rem;
-      font-size: 1rem;
-      background: transparent;
-      resize: none;
-      overflow: hidden;
-      font-family: inherit;
-      line-height: 1.5;
-      color: var(--text);
-      min-height: auto;
-      max-height: 200px;
-    }
-
-    .upload-input {
+    .initial-state.hidden {
       display: none;
     }
 
-    .upload-btn {
+    /* Tab Selector */
+    .tab-selector {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .tab-btn {
+      padding: 0.4rem 0;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+    }
+
+    .tab-btn.active::after {
+      content: '';
       position: absolute;
-      left: 1.25rem;
-      width: 2.5rem;
-      height: 2.5rem;
-      border-radius: 6px;
-      border: 1px solid var(--border);
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+
+    .tab-btn.disabled {
+      color: var(--text-muted);
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .tab-btn.disabled:hover {
+      color: var(--text-muted);
+    }
+
+    .hero-tagline {
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .hero-subtitle {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      margin-bottom: 0;
+      max-width: 500px;
+    }
+
+    /* Search Box - Initial State */
+    .search-box-initial {
+      width: 100%;
+      max-width: 700px;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+
+    .search-box-initial:focus-within {
+      border-color: var(--accent);
+      box-shadow: var(--shadow-lg), 0 0 0 4px var(--accent-light);
+    }
+
+    .search-wrapper {
+      width: 100%;
+      max-width: 700px;
+    }
+
+    .search-wrapper .initial-hint {
+      margin-top: 0.5rem;
+      text-align: left;
+    }
+
+    .search-row {
+      display: flex;
+      align-items: stretch;
+    }
+
+    .upload-btn-initial {
+      width: 56px;
+      border: none;
       background: var(--surface);
       color: var(--text-secondary);
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.1rem;
-      transition: all 0.15s;
-      z-index: 2;
-    }
-
-    .upload-btn:hover {
-      background: var(--bg);
-      color: var(--text);
-      border-color: var(--accent);
-    }
-
-    .upload-status {
-      margin-top: 0.35rem;
-      color: var(--text-secondary);
-      font-size: 0.85rem;
-      min-height: 1rem;
-    }
-
-    .search-input::placeholder {
-      color: var(--text-secondary);
-    }
-
-    .search-input.multi-line {
-      min-height: 1.5rem;
-      padding: 0.9rem 1.25rem;
-    }
-
-    .search-button {
-      width: 2.5rem;
-      height: 2.5rem;
-      border-radius: 6px;
-      background: var(--accent);
-      border: none;
-      color: white;
-      font-size: 1.1rem;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 1.25rem;
+      border-right: 1px solid var(--border);
       transition: all 0.15s;
-      flex-shrink: 0;
-      margin-right: 0.25rem;
-      position: relative;
-      outline: 2px solid transparent;
-      outline-offset: 2px;
     }
 
-    .search-button:focus {
-      outline-color: var(--accent);
+    .upload-btn-initial:hover {
+      background: var(--accent-light);
+      color: var(--accent);
     }
 
-    .search-button.loading {
+    .upload-btn-initial.has-image {
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+
+    .search-input-initial {
+      flex: 1;
+      border: none;
+      outline: none;
+      padding: 1rem 1.25rem;
+      font-size: 1rem;
+      font-family: inherit;
+      resize: none;
+      min-height: 56px;
+      max-height: 150px;
+    }
+
+    .search-input-initial::placeholder {
+      color: var(--text-muted);
+    }
+
+    .search-btn-initial {
+      width: 56px;
+      border: none;
+      background: var(--accent);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      transition: all 0.15s;
+    }
+
+    .search-btn-initial:hover {
+      background: var(--accent-hover);
+    }
+
+    .search-btn-initial:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .search-btn-initial.loading {
       color: transparent;
+      position: relative;
     }
 
-    .search-button.loading::after {
+    .search-btn-initial.loading::after {
       content: '';
       position: absolute;
-      width: 16px;
-      height: 16px;
-      top: 50%;
-      left: 50%;
-      margin-left: -8px;
-      margin-top: -8px;
+      width: 18px;
+      height: 18px;
       border: 2px solid rgba(255, 255, 255, 0.3);
       border-radius: 50%;
       border-top-color: white;
@@ -317,51 +286,252 @@
       to { transform: rotate(360deg); }
     }
 
-    .search-button:hover {
-      background: var(--accent-hover);
+    .image-preview-initial {
+      display: none;
+      padding: 0.75rem 1rem;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      align-items: center;
+      gap: 0.75rem;
     }
 
-    .search-button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+    .image-preview-initial.visible {
+      display: flex;
     }
 
-    /* Status Message */
-    .status-message {
-      text-align: center;
-      margin-top: 0.5rem;
-      color: var(--text-secondary);
-      font-size: 0.85rem;
-      min-height: 1.2rem;
-    }
-
-    .status-message.error {
-      color: #dc2626;
-    }
-
-    /* Clarification Section */
-    .clarification {
-      background: #fafafa;
+    .preview-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-xs);
+      object-fit: cover;
       border: 1px solid var(--border);
-      border-radius: 8px;
+    }
+
+    .preview-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .preview-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .preview-size {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .preview-remove {
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 0.25rem;
+      font-size: 1.1rem;
+      transition: color 0.15s;
+    }
+
+    .preview-remove:hover {
+      color: var(--error);
+    }
+
+    .hero-section {
+      margin-top: 2rem;
+      max-width: 500px;
+      text-align: center;
+    }
+
+    .initial-hint {
+      margin-top: 1rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .initial-hint kbd {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.15rem 0.4rem;
+      font-family: inherit;
+      font-size: 0.75rem;
+    }
+
+    /* ========== RESULTS STATE - Split Panel ========== */
+    .results-state {
+      display: none;
+      min-height: calc(100vh - 60px);
+    }
+
+    .results-state.active {
+      display: block;
+    }
+
+    .split-panel {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 0;
+      min-height: calc(100vh - 60px);
+    }
+
+    /* Left Panel - Query Context */
+    .query-panel {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
       padding: 1rem;
-      margin-top: 0.75rem;
+      overflow-y: auto;
+      max-height: calc(100vh - 60px);
+      position: sticky;
+      top: 60px;
+    }
+
+    .query-image-container {
+      margin-bottom: 0.75rem;
+    }
+
+    .query-image {
+      width: 100%;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .query-image-placeholder {
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: linear-gradient(135deg, var(--border-light) 0%, var(--border) 100%);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 0.5rem;
+      cursor: pointer;
+      border: 2px dashed var(--border);
+      transition: all 0.2s;
+    }
+
+    .query-image-placeholder:hover {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .query-image-placeholder .icon {
+      font-size: 1.5rem;
+      color: var(--text-muted);
+    }
+
+    .query-image-placeholder .text {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .query-text-container {
+      margin-bottom: 1rem;
+    }
+
+    .query-text {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.4;
+      margin-bottom: 0.5rem;
+    }
+
+    .edit-query-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 0.3rem 0.6rem;
+      border-radius: var(--radius-xs);
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .edit-query-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Selected Options */
+    .selected-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .selected-option {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.5rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      font-size: 0.75rem;
+    }
+
+    .selected-option .label {
+      color: var(--text-secondary);
+    }
+
+    .selected-option .value {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .selected-option .check {
+      color: var(--success);
+      margin-left: auto;
+    }
+
+    /* Diagnosis in Left Panel */
+    .diagnosis-container {
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .diagnosis-container.hidden {
       display: none;
     }
 
-    .clarification.active {
+    .diagnosis-text {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      font-style: italic;
+    }
+
+    /* Clarification in Right Panel */
+    .clarification-panel {
+      display: none;
+      padding: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 1rem;
+    }
+
+    .clarification-panel.active {
       display: block;
     }
 
     .clarification-title {
+      font-size: 0.9rem;
       font-weight: 600;
-      margin-bottom: 1rem;
       color: var(--text);
-      font-size: 0.95rem;
+      margin-bottom: 0.75rem;
     }
 
     .clarification-section {
-      margin-bottom: 1rem;
+      margin-bottom: 0.75rem;
     }
 
     .clarification-section:last-child {
@@ -369,387 +539,487 @@
     }
 
     .clarification-label {
-      font-size: 0.85rem;
-      font-weight: 500;
-      color: var(--text-secondary);
-      margin-bottom: 0.6rem;
-      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.25rem;
     }
 
-    .clarification-options {
+    .clarification-hint {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+      line-height: 1.4;
+      font-style: italic;
+    }
+
+    .option-buttons {
       display: flex;
-      gap: 0.5rem;
       flex-wrap: wrap;
+      gap: 0.4rem;
     }
 
     .option-btn {
-      padding: 0.5rem 1rem;
+      padding: 0.4rem 0.75rem;
       border: 1px solid var(--border);
-      background: white;
+      background: var(--bg);
       color: var(--text);
-      border-radius: 6px;
+      border-radius: var(--radius-xs);
       cursor: pointer;
-      font-size: 0.9rem;
+      font-size: 0.8rem;
       font-weight: 500;
       transition: all 0.15s;
     }
 
     .option-btn:hover {
-      background: var(--surface);
       border-color: var(--accent);
+      background: var(--accent-light);
     }
 
-    .option-selected {
-      padding: 0.5rem 1rem;
-      color: var(--text);
-      font-size: 0.9rem;
-      font-weight: 500;
+    /* Right Panel - Results */
+    .results-panel {
+      padding: 0.5rem 0.75rem;
+      overflow-y: auto;
     }
 
-    /* Main Content */
-    .main-content {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 1.25rem 2rem;
-    }
-
-    /* AI Results Section */
-    .ai-results {
-      display: none;
-      margin-bottom: 1.25rem;
-    }
-
-    .ai-results.active {
-      display: block;
-    }
-
-    .insight-tabs {
+    .results-tabs {
       display: flex;
-      gap: 0;
-      margin-bottom: 0.75rem;
-      border-bottom: 2px solid var(--border);
-      padding-bottom: 0;
-    }
-
-    .insight-tab {
-      border: none;
-      background: transparent;
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-      font-weight: 500;
-      border-radius: 0;
-      padding: 0.75rem 1rem;
-      cursor: pointer;
-      transition: all 0.15s;
-      position: relative;
-    }
-
-    .insight-tab:hover {
-      color: var(--text);
-    }
-
-    .insight-tab.active {
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    .insight-tab.active::after {
-      content: '';
-      position: absolute;
-      bottom: -2px;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: var(--text);
-    }
-
-    .insight-panels {
-      background: transparent;
-      border: none;
-      border-radius: 0;
-      padding: 0.75rem 0;
-      box-shadow: none;
-    }
-
-    .insight-panel {
-      display: none;
-    }
-
-    .insight-panel.active {
-      display: block;
-    }
-
-    .info-title {
-      font-weight: 600;
-      margin-bottom: 0.75rem;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.95rem;
-    }
-
-    .info-list {
-      margin: 0.3rem 0 0;
-      padding-left: 1.25rem;
-      color: var(--text-secondary);
-      font-size: 0.85rem;
-    }
-
-    .info-list li {
-      margin-bottom: 0.2rem;
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.3rem;
-      padding: 0.35rem 0.75rem;
-      background: var(--surface);
-      color: var(--text);
-      border-radius: 4px;
-      font-size: 0.8rem;
-      font-weight: 500;
-    }
-
-    /* Product Rows */
-    .products-section {
-      margin-top: 0.75rem;
-    }
-
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.25rem;
-      margin-top: 1rem;
-    }
-
-    .section-title {
-      font-size: 1.3rem;
-      font-weight: 600;
-      color: var(--text);
-      letter-spacing: -0.5px;
-    }
-
-    .section-subtitle {
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-    }
-
-    .category-row {
-      margin-bottom: 1.5rem;
-    }
-
-    .category-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .category-name {
-      font-size: 1.15rem;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .product-row {
-      display: grid;
-      grid-template-columns: 1fr 1.2fr;
-      gap: 0.8rem;
-      align-items: stretch;
-    }
-
-    .best-card {
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow-lg);
-      position: relative;
-    }
-
-    .best-badge {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      background: var(--accent);
-      color: white;
-      font-size: 0.7rem;
-      padding: 0.35rem 0.7rem;
-      border-radius: 4px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .alternatives-scroll {
-      overflow-x: auto;
-      padding-bottom: 0;
-      scroll-behavior: smooth;
-    }
-
-    .alternatives-scroll::-webkit-scrollbar {
-      height: 4px;
-    }
-
-    .alternatives-scroll::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    .alternatives-scroll::-webkit-scrollbar-thumb {
-      background: var(--border);
-      border-radius: 2px;
-    }
-
-    .alternatives-list {
-      display: flex;
-      gap: 0.75rem;
-      min-height: 100%;
-    }
-
-    .alt-card {
-      min-width: 220px;
-      max-width: 280px;
-      flex: 0 0 auto;
-    }
-
-    .products-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 1.5rem;
-    }
-
-    .product-card {
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-      transition: all 0.15s;
-      text-decoration: none;
-      color: inherit;
-      display: block;
-      position: relative;
-    }
-
-    .product-card:hover {
-      box-shadow: var(--shadow-lg);
-      border-color: var(--accent);
-    }
-
-    .product-image {
-      width: 100%;
-      height: 180px;
-      background: var(--surface);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-secondary);
-      font-size: 2.5rem;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
       border-bottom: 1px solid var(--border);
     }
 
-    .product-body {
-      padding: 1.25rem;
+    .results-tab {
+      padding: 0.4rem 0;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      position: relative;
+      transition: color 0.15s;
     }
 
-    .product-category {
-      display: inline-block;
-      padding: 0.3rem 0.6rem;
-      background: transparent;
+    .results-tab.active {
+      color: var(--accent);
+    }
+
+    .results-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+
+    .results-tab:hover:not(.active) {
+      color: var(--text);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Instructions Tab */
+    .instructions-content {
+      font-size: 0.8rem;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .instructions-section {
+      margin-bottom: 0.75rem;
+    }
+
+    .instructions-section h4 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.35rem;
+    }
+
+    .instructions-section ul {
+      margin: 0;
+      padding-left: 1.25rem;
+    }
+
+    .instructions-section li {
+      margin-bottom: 0.2rem;
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+    }
+
+    /* Loading State */
+    .loading-state {
+      display: none;
+      padding: 3rem;
+      text-align: center;
+    }
+
+    .loading-state.active {
+      display: block;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-radius: 50%;
+      border-top-color: var(--accent);
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    .loading-text {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    /* Product Categories */
+    .product-categories {
+      display: none;
+    }
+
+    .product-categories.active {
+      display: block;
+    }
+
+    .category-section {
+      margin-bottom: 0.5rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      overflow: hidden;
+    }
+
+    .category-header {
+      padding: 0.35rem 0.5rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .category-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .category-products {
+      padding: 0.35rem;
+    }
+
+    /* Product Card - Compact Horizontal Layout */
+    .product-card {
+      display: grid;
+      grid-template-columns: 40px 1fr auto;
+      gap: 0.4rem;
+      padding: 0.35rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      margin-bottom: 0.35rem;
+      transition: all 0.15s;
+      text-decoration: none;
+      color: inherit;
+      align-items: center;
+    }
+
+    .product-card:last-child {
+      margin-bottom: 0;
+    }
+
+    .product-card:hover {
+      border-color: var(--accent);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .product-card.best {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .product-image {
+      width: 40px;
+      height: 40px;
+      background: var(--surface);
+      border-radius: var(--radius-xs);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
       color: var(--text-secondary);
       border: 1px solid var(--border);
-      border-radius: 4px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      margin-bottom: 0.75rem;
-      letter-spacing: 0.5px;
     }
 
-    .product-category.chain {
-      color: var(--text-secondary);
+    .product-info {
+      min-width: 0;
     }
 
     .product-name {
       font-weight: 600;
-      font-size: 0.95rem;
-      margin-bottom: 0.5rem;
-      line-height: 1.4;
+      font-size: 0.75rem;
+      color: var(--text);
+      margin-bottom: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .product-specs {
+      font-size: 0.65rem;
+      color: var(--text-secondary);
+      margin-bottom: 0;
+    }
+
+    .product-fit {
+      font-size: 0.65rem;
+      color: var(--text-secondary);
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .product-fit strong {
       color: var(--text);
     }
 
-    .product-meta {
-      font-size: 0.8rem;
-      color: var(--text-secondary);
-      margin-bottom: 0.75rem;
-    }
-
-    .product-footer {
+    .product-actions {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-top: 0.75rem;
-      border-top: 1px solid var(--border);
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.15rem;
     }
 
     .product-price {
-      font-size: 1rem;
-      font-weight: 600;
+      font-size: 0.75rem;
+      font-weight: 700;
       color: var(--text);
+      font-family: "SF Mono", "Monaco", "Inconsolata", monospace;
     }
 
-    .product-link {
-      color: var(--text-secondary);
-      font-size: 0.8rem;
+    .add-to-cart-btn {
+      padding: 0.2rem 0.4rem;
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      border-radius: var(--radius-xs);
+      font-size: 0.6rem;
       font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .add-to-cart-btn:hover {
+      background: var(--accent);
+      color: white;
+    }
+
+    .best-badge {
+      display: inline-block;
+      background: var(--accent);
+      color: white;
+      font-size: 0.5rem;
+      padding: 0.1rem 0.25rem;
+      border-radius: 2px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+      margin-left: 0.25rem;
+      vertical-align: middle;
+    }
+
+    /* Alternatives Toggle */
+    .alternatives-section {
+      border-top: 1px solid var(--border-light);
+      padding-top: 0.25rem;
+      margin-top: 0.25rem;
+    }
+
+    .alternatives-toggle {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.65rem;
+      cursor: pointer;
       display: flex;
       align-items: center;
       gap: 0.25rem;
+      padding: 0.2rem 0;
       transition: color 0.15s;
     }
 
-    .product-link:hover {
-      color: var(--text);
+    .alternatives-toggle:hover {
+      color: var(--accent);
     }
 
-    /* Responsive */
-    @media (max-width: 768px) {
-      .header-content {
-        padding: 0 1rem;
+    .alternatives-toggle .arrow {
+      transition: transform 0.2s;
+      font-size: 0.55rem;
+    }
+
+    .alternatives-toggle.expanded .arrow {
+      transform: rotate(180deg);
+    }
+
+    .alternatives-list {
+      display: none;
+      margin-top: 0.2rem;
+    }
+
+    .alternatives-list.expanded {
+      display: block;
+    }
+
+    .alt-product-card {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      gap: 0.3rem;
+      padding: 0.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-xs);
+      margin-bottom: 0.2rem;
+      text-decoration: none;
+      color: inherit;
+      align-items: center;
+      transition: all 0.15s;
+    }
+
+    .alt-product-card:hover {
+      border-color: var(--accent);
+    }
+
+    .alt-product-card .product-image {
+      width: 28px;
+      height: 28px;
+      font-size: 0.8rem;
+    }
+
+    .alt-product-card .product-name {
+      font-size: 0.65rem;
+    }
+
+    .alt-product-card .product-fit {
+      display: none;
+    }
+
+    .alt-product-card .product-price {
+      font-size: 0.65rem;
+    }
+
+    .alt-product-card .add-to-cart-btn {
+      padding: 0.15rem 0.3rem;
+      font-size: 0.55rem;
+    }
+
+    /* Results Footer */
+    .results-footer {
+      margin-top: 0.75rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .footer-text {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* ========== RESPONSIVE ========== */
+    @media (max-width: 900px) {
+      .split-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .query-panel {
+        position: relative;
+        top: 0;
+        max-height: none;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .query-image-container {
+        max-width: 300px;
       }
 
       .nav {
         display: none;
       }
 
-      .main-content {
-        padding: 1.5rem 1rem;
+      .hero-title {
+        font-size: 1.75rem;
       }
 
-      .hero {
-        padding: 1.5rem 1rem;
+      .product-card {
+        grid-template-columns: 60px 1fr;
+        grid-template-rows: auto auto;
       }
 
-      .products-grid {
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 1rem;
+      .product-actions {
+        grid-column: 1 / -1;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .search-box-initial {
+        border-radius: var(--radius-sm);
       }
 
-      .product-row {
+      .initial-state {
+        padding: 1.5rem;
+      }
+
+      .results-panel {
+        padding: 1rem;
+      }
+
+      .product-card {
         grid-template-columns: 1fr;
+        text-align: center;
       }
 
-      .search-wrapper {
-        padding-left: 4.5rem;
+      .product-image {
+        margin: 0 auto;
       }
 
-      .section-title {
-        font-size: 1.25rem;
+      .product-actions {
+        justify-content: center;
       }
+    }
 
-      .insight-tab {
-        padding: 0.75rem 1rem;
-        font-size: 0.9rem;
-      }
+    /* Hidden utility */
+    .hidden {
+      display: none !important;
+    }
+
+    /* Input file hidden */
+    .upload-input {
+      display: none;
+    }
+
+    /* Error state */
+    .error-message {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+      padding: 1rem;
+      border-radius: var(--radius-sm);
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
     }
   </style>
 </head>
@@ -757,508 +1027,208 @@
   <!-- Header -->
   <header class="header">
     <div class="header-content">
-      <a href="/" class="logo">
-        🚴
-        <span class="logo-text">
-          <span class="header-title">BikeShop</span>
-          <span class="header-subtitle">A Snap-to-Cart bike shop. Translate your job into workflow and shopping cart.</span>
-        </span>
+      <a href="/" class="logo" onclick="resetToInitial(); return false;">
+        <span class="logo-icon">🛒</span>
+        <span>A Snap-to-Cart Bike Retailer</span>
       </a>
       <nav>
         <ul class="nav">
           <li><a href="#products">Products</a></li>
-          <li><a href="#categories">Categories</a></li>
+          <li><a href="#how-it-works">How it works</a></li>
           <li><a href="#support">Support</a></li>
         </ul>
       </nav>
     </div>
   </header>
 
-  <!-- Hero Search Section -->
-  <section class="hero">
-    <div class="hero-content">
-      <!-- Search Container -->
-      <div class="search-container">
-        <div class="search-modes-inline">
-          <button class="mode-tab disabled" id="search-tab" onclick="switchMode('search')">Search</button>
-          <button class="mode-tab active" id="ai-tab" onclick="switchMode('ai')">AI</button>
+  <div class="app-container">
+    <!-- Initial State - Shop Style Search -->
+    <section class="initial-state" id="initial-state">
+      <div class="search-wrapper">
+        <div class="tab-selector">
+          <button class="tab-btn disabled" disabled>Search</button>
+          <button class="tab-btn active">AI</button>
         </div>
-        <p class="hero-subtitle">AI-powered bike component matching, currently only: replacing bike drivetrains/cassetts.</p>
-        <div class="search-wrapper">
-          <input id="upload-input" class="upload-input" type="file" accept="image/*" />
-          <button id="upload-btn" class="upload-btn" type="button" onclick="triggerUpload()">📎</button>
-          <textarea 
-            id="search-input" 
-            class="search-input multi-line" 
-            placeholder="Describe your bike and what you need... (e.g., 'I have a Shimano 11-speed gravel bike and need easier gears for climbs')"
-            rows="1"
-          ></textarea>
-          <button id="search-btn" class="search-button" onclick="handleSearch()">
-            →
-          </button>
+        <div class="search-box-initial">
+          <input type="file" id="upload-input" class="upload-input" accept="image/*" />
+          <div class="search-row">
+            <button class="upload-btn-initial" id="upload-btn" type="button" title="Upload photo">
+              📷
+            </button>
+            <textarea 
+              id="search-input" 
+              class="search-input-initial" 
+              placeholder="e.g., 'My 11-speed chain is worn, need a new chain and cassette'"
+              rows="1"
+            ></textarea>
+            <button id="search-btn" class="search-btn-initial" type="button">
+              →
+            </button>
+          </div>
+          <div class="image-preview-initial" id="image-preview">
+            <img class="preview-thumb" id="preview-thumb" src="" alt="Preview" />
+            <div class="preview-info">
+              <div class="preview-name" id="preview-name"></div>
+              <div class="preview-size" id="preview-size"></div>
+            </div>
+            <button class="preview-remove" id="preview-remove" type="button" title="Remove image">×</button>
+          </div>
         </div>
-        <div id="status" class="status-message"></div>
-        <div id="upload-status" class="upload-status"></div>
+        <p class="initial-hint">Press <kbd>Enter</kbd> to search · <kbd>Shift+Enter</kbd> for new line</p>
+      </div>
+      
+      <div class="hero-section">
+        <p class="hero-tagline">Upload a photo or describe your problem. We'll find the right parts and explain why they fit.</p>
+      </div>
+    </section>
 
-        <!-- Clarification Section -->
-        <div id="clarification" class="clarification">
-          <div class="clarification-title" id="clarification-hint">Please select the missing information:</div>
+    <!-- Results State - Split Panel -->
+    <section class="results-state" id="results-state">
+      <div class="split-panel">
+        <!-- Left Panel - Query Context -->
+        <div class="query-panel">
+          <div class="query-image-container" id="query-image-container">
+            <div class="query-image-placeholder" id="query-image-placeholder" onclick="triggerUploadInResults()">
+              <span class="icon">📷</span>
+              <span class="text">Upload or Snap Photo</span>
+            </div>
+            <img class="query-image hidden" id="query-image" src="" alt="Your photo" />
+          </div>
           
-          <div id="speed-section" class="clarification-section" style="display:none;">
-            <div class="clarification-label">Drivetrain Speed:</div>
-            <div id="speed-options" class="clarification-options"></div>
+          <div class="query-text-container">
+            <p class="query-text" id="query-text-display"></p>
+            <button class="edit-query-btn" onclick="resetToInitial()">Edit query</button>
+          </div>
+          
+          <div class="selected-options" id="selected-options">
+            <!-- Dynamically populated with already selected speed/use-case -->
           </div>
 
-          <div id="usecase-section" class="clarification-section" style="display:none;">
-            <div class="clarification-label">Use Case:</div>
-            <div id="usecase-options" class="clarification-options"></div>
+          <div class="diagnosis-container hidden" id="diagnosis-container">
+            <p class="diagnosis-text" id="diagnosis-text"></p>
+          </div>
+        </div>
+
+        <!-- Right Panel - Results -->
+        <div class="results-panel">
+          <div class="loading-state" id="loading-state">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Finding the right parts for you...</p>
+          </div>
+
+          <div class="clarification-panel" id="clarification-panel">
+            <div class="clarification-title">Help us narrow it down:</div>
+            <div id="clarification-content">
+              <!-- Dynamically populated with speed/use-case buttons -->
+            </div>
+          </div>
+
+          <div class="error-message hidden" id="error-message"></div>
+
+          <div class="product-categories" id="product-categories">
+            <div class="results-tabs" id="results-tabs">
+              <button class="results-tab active" data-tab="products">Products</button>
+              <button class="results-tab" data-tab="instructions">Instructions</button>
+            </div>
+            
+            <div class="tab-content active" id="products-tab">
+              <div id="categories-container">
+                <!-- Dynamically populated product categories -->
+              </div>
+            </div>
+
+            <div class="tab-content" id="instructions-tab">
+              <div class="instructions-content" id="instructions-content">
+                <!-- Dynamically populated instructions -->
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
-
-  <!-- Main Content -->
-  <main class="main-content">
-    <!-- AI Results (hidden by default) -->
-    <div id="ai-results" class="ai-results">
-      <div class="insight-tabs">
-        <button class="insight-tab active" id="tab-why" onclick="switchInsight('why')">Why it fits</button>
-        <button class="insight-tab" id="tab-workflow" onclick="switchInsight('workflow')">Workflow</button>
-        <button class="insight-tab" id="tab-checklist" onclick="switchInsight('checklist')">Checklist</button>
-      </div>
-      <div class="insight-panels">
-        <div class="insight-panel active" id="panel-why">
-          <div class="info-title">Why it fits</div>
-          <ul id="why-body" class="info-list"></ul>
-        </div>
-        <div class="insight-panel" id="panel-workflow">
-          <div class="info-title">🛠️ Suggested workflow</div>
-          <ol id="workflow-list" class="info-list"></ol>
-        </div>
-        <div class="insight-panel" id="panel-checklist">
-          <div class="info-title">✅ Checklist</div>
-          <ul id="checklist-list" class="info-list"></ul>
-        </div>
-      </div>
-
-      <div class="section-header">
-        <div>
-          <h2 class="section-title">Recommended Products</h2>
-          <p class="section-subtitle">Based on your requirements</p>
-        </div>
-      </div>
-      <div id="product-rows"></div>
-    </div>
-
-  </main>
+    </section>
+  </div>
 
   <script>
-    // ========== STATE & ELEMENTS ==========
-    let currentMode = 'ai';
+    // ========== STATE ========== 
     let selectedSpeed = null;
     let selectedUseCase = null;
+    let compressedImage = null;
+    let imageDataUrl = null;
+    let currentQuery = '';
 
+    // ========== DOM ELEMENTS ========== 
+    const initialState = document.getElementById('initial-state');
+    const resultsState = document.getElementById('results-state');
     const searchInput = document.getElementById('search-input');
     const searchBtn = document.getElementById('search-btn');
-    const statusEl = document.getElementById('status');
     const uploadInput = document.getElementById('upload-input');
-    const uploadStatus = document.getElementById('upload-status');
-    const clarificationEl = document.getElementById('clarification');
-    const aiResultsEl = document.getElementById('ai-results');
-    const whyBody = document.getElementById('why-body');
-    const workflowList = document.getElementById('workflow-list');
-    const checklistList = document.getElementById('checklist-list');
-    const productRowsEl = document.getElementById('product-rows');
-    let activeInsight = 'why';
-    let compressedImage = null;
+    const uploadBtn = document.getElementById('upload-btn');
+    const imagePreview = document.getElementById('image-preview');
+    const previewThumb = document.getElementById('preview-thumb');
+    const previewName = document.getElementById('preview-name');
+    const previewSize = document.getElementById('preview-size');
+    const previewRemove = document.getElementById('preview-remove');
+    
+    // Results state elements
+    const queryImagePlaceholder = document.getElementById('query-image-placeholder');
+    const queryImage = document.getElementById('query-image');
+    const queryTextDisplay = document.getElementById('query-text-display');
+    const selectedOptionsEl = document.getElementById('selected-options');
+    const clarificationPanel = document.getElementById('clarification-panel');
+    const clarificationContent = document.getElementById('clarification-content');
+    const loadingState = document.getElementById('loading-state');
+    const errorMessage = document.getElementById('error-message');
+    const productCategories = document.getElementById('product-categories');
+    const categoriesContainer = document.getElementById('categories-container');
 
-    // ========== MODE SWITCHING ==========
-    function switchMode(mode) {
-      if (mode === 'search') {
-        // Search is dummy for now
-        return;
-      }
+    // ========== STATE TRANSITIONS ========== 
+    function switchToResultsState() {
+      currentQuery = searchInput.value.trim();
+      queryTextDisplay.textContent = currentQuery;
       
-      currentMode = mode;
-      document.getElementById('search-tab').classList.toggle('active', mode === 'search');
-      document.getElementById('ai-tab').classList.toggle('active', mode === 'ai');
-      
-      if (mode === 'ai') {
-        searchInput.classList.add('multi-line');
-        searchInput.placeholder = "Describe your bike and what you need... (e.g., 'I have a Shimano 11-speed gravel bike and need easier gears for climbs')";
-        searchInput.rows = 3;
+      // Show image if uploaded
+      if (imageDataUrl) {
+        queryImage.src = imageDataUrl;
+        queryImage.classList.remove('hidden');
+        queryImagePlaceholder.classList.add('hidden');
       } else {
-        searchInput.classList.remove('multi-line');
-        searchInput.placeholder = "Search for components...";
-        searchInput.rows = 1;
+        queryImage.classList.add('hidden');
+        queryImagePlaceholder.classList.remove('hidden');
       }
-    }
-
-    // ========== SEARCH & API REQUEST ==========
-    async function handleSearch() {
-      const problemText = searchInput.value.trim();
       
-      if (!problemText) {
-        statusEl.textContent = "Please describe your bike and project first.";
-        statusEl.classList.add('error');
-        return;
-      }
-
-      statusEl.classList.remove('error');
-      statusEl.textContent = "";
-      searchBtn.disabled = true;
-      searchBtn.classList.add('loading');
-
-      const finalSpeed = selectedSpeed;
-      const finalUseCase = selectedUseCase;
-
-      try {
-        const resp = await fetch("/api/recommend", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            problem_text: problemText,
-            selected_speed: finalSpeed,
-            selected_use_case: finalUseCase,
-            image_base64: compressedImage,
-          }),
-        });
-
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          throw new Error(err.error || `Server error (${resp.status})`);
-        }
-
-        const data = await resp.json();
-
-        // Persist any inferred values the backend already determined
-        if (!selectedSpeed && data.inferred_speed) {
-          selectedSpeed = data.inferred_speed;
-        }
-        if (!selectedUseCase && data.inferred_use_case) {
-          selectedUseCase = data.inferred_use_case;
-        }
-
-        if (data.need_clarification) {
-          statusEl.textContent = "Please select the missing information below.";
-          renderClarification(data.options || {}, data.missing || []);
-          return;
-        }
-
-        // Show AI results
-        showAIResults(data);
-
-      } catch (error) {
-        statusEl.textContent = "Error: " + error.message;
-        statusEl.classList.add('error');
-      } finally {
-        searchBtn.disabled = false;
-        searchBtn.classList.remove('loading');
-      }
-    }
-
-    // ========== CLARIFICATION OPTIONS ==========
-    function renderClarification(options, missingKeys) {
-      clarificationEl.classList.add('active');
+      initialState.classList.add('hidden');
+      resultsState.classList.add('active');
       
-      const speedSection = document.getElementById('speed-section');
-      const usecaseSection = document.getElementById('usecase-section');
-      const speedOptions = document.getElementById('speed-options');
-      const usecaseOptions = document.getElementById('usecase-options');
-
-      // Update hint
-      const stillMissing = missingKeys.filter(key => {
-        if (key === "drivetrain_speed") return !selectedSpeed;
-        if (key === "use_case") return !selectedUseCase;
-        return true;
-      });
-      
-      if (stillMissing.length > 1) {
-        document.getElementById('clarification-hint').textContent = "Please select both options to continue:";
-      } else {
-        document.getElementById('clarification-hint').textContent = "Please select one option to continue:";
-      }
-
-      // Speed options
-      if (missingKeys.includes("drivetrain_speed")) {
-        speedSection.style.display = 'block';
-        speedOptions.innerHTML = '';
-        
-        if (selectedSpeed) {
-          const selected = document.createElement("div");
-          selected.className = "option-selected";
-          selected.textContent = `✓ Selected: ${selectedSpeed}-speed`;
-          speedOptions.appendChild(selected);
-        } else {
-          (options.speed_options || []).forEach((opt) => {
-            const btn = document.createElement("button");
-            btn.className = "option-btn";
-            btn.textContent = opt;
-            btn.onclick = () => selectSpeed(opt);
-            speedOptions.appendChild(btn);
-          });
-        }
-      } else {
-        speedSection.style.display = 'none';
-      }
-
-      // Use case options
-      if (missingKeys.includes("use_case")) {
-        usecaseSection.style.display = 'block';
-        usecaseOptions.innerHTML = '';
-        
-        if (selectedUseCase) {
-          const selected = document.createElement("div");
-          selected.className = "option-selected";
-          selected.textContent = `✓ Selected: ${selectedUseCase}`;
-          usecaseOptions.appendChild(selected);
-        } else {
-          (options.use_case_options || []).forEach((opt) => {
-            const btn = document.createElement("button");
-            btn.className = "option-btn";
-            btn.textContent = opt;
-            btn.onclick = () => selectUseCase(opt);
-            usecaseOptions.appendChild(btn);
-          });
-        }
-      } else {
-        usecaseSection.style.display = 'none';
-      }
+      // Show loading
+      loadingState.classList.add('active');
+      productCategories.classList.remove('active');
+      errorMessage.classList.add('hidden');
+      clarificationPanel.classList.remove('active');
     }
 
-    // ========== SPEED & USE CASE SELECTION ==========
-    function selectSpeed(speed) {
-      selectedSpeed = parseInt(speed);
-      
-      // Lock in the selection visually
-      const speedOptions = document.getElementById('speed-options');
-      speedOptions.innerHTML = '';
-      const selected = document.createElement("div");
-      selected.className = "option-selected";
-      selected.textContent = `✓ Selected: ${selectedSpeed}-speed`;
-      speedOptions.appendChild(selected);
-      
-      handleSearch();
+    function resetToInitial() {
+      resultsState.classList.remove('active');
+      initialState.classList.remove('hidden');
+      selectedSpeed = null;
+      selectedUseCase = null;
+      selectedOptionsEl.innerHTML = '';
+      clarificationPanel.classList.remove('active');
+      productCategories.classList.remove('active');
+      loadingState.classList.remove('active');
+      errorMessage.classList.add('hidden');
+      searchInput.focus();
     }
 
-    // Select use case option
-    function selectUseCase(useCase) {
-      selectedUseCase = useCase;
-      
-      // Lock in the selection visually
-      const usecaseOptions = document.getElementById('usecase-options');
-      usecaseOptions.innerHTML = '';
-      const selected = document.createElement("div");
-      selected.className = "option-selected";
-      selected.textContent = `✓ Selected: ${selectedUseCase}`;
-      usecaseOptions.appendChild(selected);
-      
-      handleSearch();
-    }
-
-    // ========== INSIGHT TABS & SECTIONS ==========
-    function switchInsight(key) {
-      activeInsight = key;
-      const tabs = ['why', 'workflow', 'checklist'];
-      tabs.forEach(t => {
-        document.getElementById(`tab-${t}`).classList.toggle('active', t === key);
-        document.getElementById(`panel-${t}`).classList.toggle('active', t === key);
-      });
-    }
-
-    function renderSections(sections) {
-      const whyList = Array.isArray(sections.why_it_fits) ? sections.why_it_fits : [];
-      const workflow = Array.isArray(sections.suggested_workflow) ? sections.suggested_workflow : [];
-      const checklist = Array.isArray(sections.checklist) ? sections.checklist : [];
-
-      // Why
-      whyBody.innerHTML = '';
-      whyList.forEach(item => {
-        const li = document.createElement('li');
-        li.textContent = item;
-        whyBody.appendChild(li);
-      });
-
-      // Workflow
-      workflowList.innerHTML = '';
-      workflow.forEach(step => {
-        const li = document.createElement('li');
-        li.textContent = step;
-        workflowList.appendChild(li);
-      });
-
-      // Checklist
-      checklistList.innerHTML = '';
-      checklist.forEach(item => {
-        const li = document.createElement('li');
-        li.textContent = item;
-        checklistList.appendChild(li);
-      });
-
-      // Reset to first tab on each render
-      switchInsight('why');
-    }
-
-    // ========== PRODUCT ROW RENDERING ==========
-    function renderProductRows(rows) {
-      productRowsEl.innerHTML = '';
-      if (!Array.isArray(rows) || rows.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'status-message';
-        empty.textContent = 'No products returned.';
-        productRowsEl.appendChild(empty);
-        return;
-      }
-
-      rows.forEach(row => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'category-row';
-
-        const head = document.createElement('div');
-        head.className = 'category-head';
-        const title = document.createElement('div');
-        title.className = 'category-name';
-        title.textContent = row.category || 'Category';
-        const descriptor = document.createElement('span');
-        descriptor.className = 'section-subtitle';
-        descriptor.textContent = 'Best pick + alternatives';
-        const expandToggle = document.createElement('button');
-        expandToggle.className = 'expand-toggle collapsed';
-        expandToggle.setAttribute('aria-label', 'Toggle alternatives');
-        expandToggle.textContent = '▼';
-        expandToggle.type = 'button';
-        head.appendChild(title);
-        head.appendChild(descriptor);
-        head.appendChild(expandToggle);
-        wrapper.appendChild(head);
-
-        const rowContainer = document.createElement('div');
-        rowContainer.className = 'product-row';
-
-        const bestCard = createProductCard(row.best || {}, true);
-        const badge = document.createElement('span');
-        badge.className = 'best-badge';
-        badge.textContent = 'Best option';
-        bestCard.appendChild(badge);
-        rowContainer.appendChild(bestCard);
-
-        const altScroll = document.createElement('div');
-        altScroll.className = 'alternatives-scroll';
-        const altList = document.createElement('div');
-        altList.className = 'alternatives-list';
-
-        (row.alternatives || []).forEach(prod => {
-          const card = createProductCard(prod, false);
-          card.classList.add('alt-card');
-          altList.appendChild(card);
-        });
-
-        // Attach expand/collapse handler
-        expandToggle.addEventListener('click', (e) => {
-          e.preventDefault();
-          expandToggle.classList.toggle('collapsed');
-          altList.classList.toggle('expanded');
-        });
-
-        altScroll.appendChild(altList);
-        rowContainer.appendChild(altScroll);
-        wrapper.appendChild(rowContainer);
-
-        productRowsEl.appendChild(wrapper);
-      });
-    }
-
-    // ========== RESULTS & UI UPDATES ==========
-    function showAIResults(data) {
-      statusEl.textContent = "";
-      clarificationEl.classList.remove('active');
-      
-      // Show AI results
-      aiResultsEl.classList.add('active');
-
-      renderSections(data.sections || {});
-      renderProductRows(data.products_by_category || []);
-
-      // Scroll to results
-      aiResultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    // ========== PRODUCT CARD GENERATION ==========
-    function createProductCard(prod, isBest = false) {
-      const safeType = prod.type || 'cassette';
-      const card = document.createElement("a");
-      card.className = "product-card" + (isBest ? " best-card" : "");
-      card.href = prod.url || "#";
-      card.target = "_blank";
-      card.rel = "noopener noreferrer";
-
-      const image = document.createElement("div");
-      image.className = "product-image";
-      if (safeType === 'cassette') {
-        image.textContent = '⚙️';
-      } else if (safeType === 'chain') {
-        image.textContent = '⛓️';
-      } else {
-        image.textContent = '🛠️';
-      }
-
-      const body = document.createElement("div");
-      body.className = "product-body";
-
-      const category = document.createElement("span");
-      category.className = `product-category ${safeType}`;
-      if (safeType === 'cassette') {
-        category.textContent = 'Cassette';
-      } else if (safeType === 'chain') {
-        category.textContent = 'Chain';
-      } else {
-        category.textContent = 'Tool';
-      }
-
-      const name = document.createElement("div");
-      name.className = "product-name";
-      name.textContent = prod.name || 'Product';
-
-      const meta = document.createElement("div");
-      meta.className = "product-meta";
-      meta.textContent = [prod.brand, prod.application].filter(Boolean).join(" · ");
-
-      const footer = document.createElement("div");
-      footer.className = "product-footer";
-
-      const price = document.createElement("div");
-      price.className = "product-price";
-      price.textContent = prod.price || "";
-
-      const link = document.createElement("span");
-      link.className = "product-link";
-      link.innerHTML = "View →";
-
-      footer.appendChild(price);
-      footer.appendChild(link);
-
-      body.appendChild(category);
-      body.appendChild(name);
-      body.appendChild(meta);
-      body.appendChild(footer);
-
-      card.appendChild(image);
-      card.appendChild(body);
-
-      return card;
-    }
-
-    // ========== PAGE LOAD & EVENT LISTENERS ==========
+    // ========== IMAGE HANDLING ========== 
     function triggerUpload() {
       uploadInput.click();
     }
 
-    document.getElementById('upload-btn').addEventListener('click', triggerUpload);
-
-    function setUploadStatus(text) {
-      uploadStatus.textContent = text || '';
+    function triggerUploadInResults() {
+      uploadInput.click();
     }
+
+    uploadBtn.addEventListener('click', triggerUpload);
 
     async function compressImage(file) {
       return new Promise((resolve, reject) => {
@@ -1281,13 +1251,17 @@
             const ctx = canvas.getContext('2d');
             if (!ctx) return reject(new Error('Canvas not supported'));
             ctx.drawImage(img, 0, 0, width, height);
+            
+            // Store data URL for display
+            imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            
             canvas.toBlob(
               (blob) => {
                 if (!blob) return reject(new Error('Compression failed'));
                 const fr = new FileReader();
                 fr.onloadend = () => {
                   const dataUrl = (fr.result || '').toString();
-                  const [, base64 = ''] = dataUrl.split(','); // keep only the Base64 payload after the comma
+                  const [, base64 = ''] = dataUrl.split(',');
                   resolve(base64);
                 };
                 fr.onerror = reject;
@@ -1305,32 +1279,450 @@
       });
     }
 
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
     uploadInput.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
       if (!file.type.startsWith('image/')) {
-        setUploadStatus('Please choose an image file.');
-        compressedImage = null;
+        alert('Please choose an image file.');
         return;
       }
-      setUploadStatus('Compressing photo...');
+      
       try {
         compressedImage = await compressImage(file);
-        setUploadStatus(`Attached: ${file.name}`);
+        
+        // Show preview in initial state
+        previewThumb.src = imageDataUrl;
+        previewName.textContent = file.name;
+        previewSize.textContent = formatFileSize(file.size);
+        imagePreview.classList.add('visible');
+        uploadBtn.classList.add('has-image');
+        
+        // Update results state if visible
+        if (resultsState.classList.contains('active')) {
+          queryImage.src = imageDataUrl;
+          queryImage.classList.remove('hidden');
+          queryImagePlaceholder.classList.add('hidden');
+        }
       } catch (err) {
         console.error(err);
-        compressedImage = null;
-        setUploadStatus('Upload failed. Try a different image.');
+        alert('Failed to process image. Try a different one.');
       }
     });
 
-    // Allow Enter to submit (Shift+Enter for new line)
+    previewRemove.addEventListener('click', () => {
+      compressedImage = null;
+      imageDataUrl = null;
+      uploadInput.value = '';
+      imagePreview.classList.remove('visible');
+      uploadBtn.classList.remove('has-image');
+      
+      if (resultsState.classList.contains('active')) {
+        queryImage.classList.add('hidden');
+        queryImagePlaceholder.classList.remove('hidden');
+      }
+    });
+
+    // ========== SEARCH & API ========== 
+    async function handleSearch() {
+      const problemText = searchInput.value.trim();
+      
+      if (!problemText) {
+        searchInput.focus();
+        return;
+      }
+
+      searchBtn.disabled = true;
+      searchBtn.classList.add('loading');
+      
+      // Switch to results state
+      switchToResultsState();
+
+      try {
+        const resp = await fetch("/api/recommend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            problem_text: problemText,
+            selected_speed: selectedSpeed,
+            selected_use_case: selectedUseCase,
+            image_base64: compressedImage,
+          }),
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.error || `Server error (${resp.status})`);
+        }
+
+        const data = await resp.json();
+
+        // Persist any inferred values
+        if (!selectedSpeed && data.inferred_speed) {
+          selectedSpeed = data.inferred_speed;
+        }
+        if (!selectedUseCase && data.inferred_use_case) {
+          selectedUseCase = data.inferred_use_case;
+        }
+
+        if (data.need_clarification) {
+          showClarification(data);
+          return;
+        }
+
+        // Show results
+        showResults(data);
+
+      } catch (error) {
+        showError(error.message);
+      } finally {
+        searchBtn.disabled = false;
+        searchBtn.classList.remove('loading');
+      }
+    }
+
+    function showError(message) {
+      loadingState.classList.remove('active');
+      errorMessage.textContent = message;
+      errorMessage.classList.remove('hidden');
+    }
+
+    function showClarification(data) {
+      loadingState.classList.remove('active');
+      
+      // Update selected options display
+      updateSelectedOptions();
+      
+      // Show clarification panel
+      clarificationContent.innerHTML = '';
+      const missing = data.missing || [];
+      const options = data.options || {};
+      const hints = data.hints || {};
+      
+      if (missing.includes('drivetrain_speed') && !selectedSpeed) {
+        const section = document.createElement('div');
+        section.className = 'clarification-section';
+        section.innerHTML = `
+          <div class="clarification-label">Drivetrain Speed:</div>
+          <div class="clarification-hint">${hints.drivetrain_speed || ''}</div>
+          <div class="option-buttons" id="speed-buttons"></div>
+        `;
+        clarificationContent.appendChild(section);
+        
+        const speedBtns = section.querySelector('#speed-buttons');
+        (options.speed_options || []).forEach(opt => {
+          const btn = document.createElement('button');
+          btn.className = 'option-btn';
+          btn.textContent = opt;
+          btn.onclick = () => selectSpeed(opt);
+          speedBtns.appendChild(btn);
+        });
+      }
+      
+      if (missing.includes('use_case') && !selectedUseCase) {
+        const section = document.createElement('div');
+        section.className = 'clarification-section';
+        section.innerHTML = `
+          <div class="clarification-label">Use Case:</div>
+          <div class="clarification-hint">${hints.use_case || ''}</div>
+          <div class="option-buttons" id="usecase-buttons"></div>
+        `;
+        clarificationContent.appendChild(section);
+        
+        const usecaseBtns = section.querySelector('#usecase-buttons');
+        (options.use_case_options || []).forEach(opt => {
+          const btn = document.createElement('button');
+          btn.className = 'option-btn';
+          btn.textContent = opt;
+          btn.onclick = () => selectUseCase(opt);
+          usecaseBtns.appendChild(btn);
+        });
+      }
+      
+      clarificationPanel.classList.add('active');
+      productCategories.classList.add('active');
+      categoriesContainer.innerHTML = '';
+    }
+
+    function selectSpeed(speed) {
+      selectedSpeed = parseInt(speed);
+      updateSelectedOptions();
+      loadingState.classList.add('active');
+      productCategories.classList.remove('active');
+      handleSearch();
+    }
+
+    function selectUseCase(useCase) {
+      selectedUseCase = useCase;
+      updateSelectedOptions();
+      loadingState.classList.add('active');
+      productCategories.classList.remove('active');
+      handleSearch();
+    }
+
+    function updateSelectedOptions() {
+      selectedOptionsEl.innerHTML = '';
+      
+      if (selectedSpeed) {
+        const opt = document.createElement('div');
+        opt.className = 'selected-option';
+        opt.innerHTML = `
+          <span class="label">Speed:</span>
+          <span class="value">${selectedSpeed}-speed</span>
+          <span class="check">✓</span>
+        `;
+        selectedOptionsEl.appendChild(opt);
+      }
+      
+      if (selectedUseCase) {
+        const opt = document.createElement('div');
+        opt.className = 'selected-option';
+        opt.innerHTML = `
+          <span class="label">Use:</span>
+          <span class="value">${selectedUseCase}</span>
+          <span class="check">✓</span>
+        `;
+        selectedOptionsEl.appendChild(opt);
+      }
+    }
+
+    // ========== RESULTS RENDERING ========== 
+    function showResults(data) {
+      loadingState.classList.remove('active');
+      clarificationPanel.classList.remove('active');
+      updateSelectedOptions();
+      
+      // Use diagnosis from LLM if available
+      const diagnosis = data.diagnosis || '';
+      const sections = data.sections || {};
+      
+      // Show diagnosis in left panel
+      const diagnosisContainer = document.getElementById('diagnosis-container');
+      const diagnosisText = document.getElementById('diagnosis-text');
+      if (diagnosis) {
+        diagnosisText.textContent = diagnosis;
+        diagnosisContainer.classList.remove('hidden');
+      } else {
+        diagnosisContainer.classList.add('hidden');
+      }
+      
+      // Render product categories
+      renderProductCategories(data.products_by_category || [], sections);
+      
+      // Render instructions
+      renderInstructions(sections);
+      
+      // Setup tabs
+      setupResultsTabs();
+      
+      productCategories.classList.add('active');
+    }
+
+    function renderInstructions(sections) {
+      const container = document.getElementById('instructions-content');
+      container.innerHTML = '';
+      
+      const workflow = sections.suggested_workflow || [];
+      const checklist = sections.checklist || [];
+      
+      if (workflow.length > 0) {
+        const workflowSection = document.createElement('div');
+        workflowSection.className = 'instructions-section';
+        workflowSection.innerHTML = `
+          <h4>🔧 Installation Steps</h4>
+          <ul>${workflow.map(item => `<li>${item}</li>`).join('')}</ul>
+        `;
+        container.appendChild(workflowSection);
+      }
+      
+      if (checklist.length > 0) {
+        const checklistSection = document.createElement('div');
+        checklistSection.className = 'instructions-section';
+        checklistSection.innerHTML = `
+          <h4>✅ Checklist</h4>
+          <ul>${checklist.map(item => `<li>${item}</li>`).join('')}</ul>
+        `;
+        container.appendChild(checklistSection);
+      }
+      
+      if (workflow.length === 0 && checklist.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.8rem;">No instructions available.</p>';
+      }
+    }
+
+    function setupResultsTabs() {
+      const tabs = document.querySelectorAll('.results-tab');
+      const productsTab = document.getElementById('products-tab');
+      const instructionsTab = document.getElementById('instructions-tab');
+      
+      // Reset to products tab
+      tabs.forEach(t => t.classList.remove('active'));
+      tabs[0].classList.add('active');
+      productsTab.classList.add('active');
+      instructionsTab.classList.remove('active');
+      
+      tabs.forEach(tab => {
+        tab.onclick = () => {
+          tabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          
+          if (tab.dataset.tab === 'products') {
+            productsTab.classList.add('active');
+            instructionsTab.classList.remove('active');
+          } else {
+            productsTab.classList.remove('active');
+            instructionsTab.classList.add('active');
+          }
+        };
+      });
+    }
+
+    function renderProductCategories(categories, sections) {
+      categoriesContainer.innerHTML = '';
+      
+      // Map category type to display name and icon
+      const categoryMeta = {
+        'cassettes': { name: 'Cassette', icon: '⚙️' },
+        'chains': { name: 'Chain', icon: '⛓️' },
+        'drivetrain_tools': { name: 'Tools', icon: '🔧' },
+      };
+      
+      categories.forEach((cat) => {
+        const meta = categoryMeta[cat.category_key] || { name: cat.category || 'Products', icon: '📦' };
+        
+        const section = document.createElement('div');
+        section.className = 'category-section';
+        
+        const header = document.createElement('div');
+        header.className = 'category-header';
+        header.innerHTML = `<span class="category-name">${meta.icon} ${meta.name}</span>`;
+        section.appendChild(header);
+        
+        const productsDiv = document.createElement('div');
+        productsDiv.className = 'category-products';
+        
+        // Best product
+        if (cat.best) {
+          const bestCard = createProductCard(cat.best, true, meta.icon);
+          productsDiv.appendChild(bestCard);
+        }
+        
+        // Alternatives
+        if (cat.alternatives && cat.alternatives.length > 0) {
+          const altSection = document.createElement('div');
+          altSection.className = 'alternatives-section';
+          
+          const toggleBtn = document.createElement('button');
+          toggleBtn.className = 'alternatives-toggle';
+          toggleBtn.innerHTML = `<span class="arrow">▼</span> ${cat.alternatives.length} alternative${cat.alternatives.length > 1 ? 's' : ''}`;
+          toggleBtn.onclick = () => {
+            toggleBtn.classList.toggle('expanded');
+            altList.classList.toggle('expanded');
+          };
+          altSection.appendChild(toggleBtn);
+          
+          const altList = document.createElement('div');
+          altList.className = 'alternatives-list';
+          cat.alternatives.forEach(alt => {
+            const altCard = createAltProductCard(alt, meta.icon);
+            altList.appendChild(altCard);
+          });
+          altSection.appendChild(altList);
+          
+          productsDiv.appendChild(altSection);
+        }
+        
+        section.appendChild(productsDiv);
+        categoriesContainer.appendChild(section);
+      });
+    }
+
+    function createProductCard(product, isBest, icon) {
+      const card = document.createElement('a');
+      card.className = 'product-card' + (isBest ? ' best' : '');
+      card.href = product.url || '#';
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer';
+      
+      const specs = [product.brand, product.application].filter(Boolean).join(' · ');
+      
+      card.innerHTML = `
+        <div class="product-image">${icon}</div>
+        <div class="product-info">
+          <div class="product-name">
+            ${product.name || 'Product'}
+            ${isBest ? '<span class="best-badge">Best</span>' : ''}
+          </div>
+          <div class="product-specs">${specs}</div>
+          <div class="product-fit">
+            <strong>Why this fits:</strong> ${product.why_it_fits || 'Compatible with your setup.'}
+          </div>
+        </div>
+        <div class="product-actions">
+          <div class="product-price">${product.price || ''}</div>
+          <button class="add-to-cart-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart('${(product.name || '').replace(/'/g, "\\'")}')">
+            Add to Cart
+          </button>
+        </div>
+      `;
+      
+      return card;
+    }
+
+    function createAltProductCard(product, icon) {
+      const card = document.createElement('a');
+      card.className = 'alt-product-card';
+      card.href = product.url || '#';
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer';
+      
+      card.innerHTML = `
+        <div class="product-image">${icon}</div>
+        <div class="product-info">
+          <div class="product-name">${product.name || 'Product'}</div>
+          <div class="product-fit">
+            <strong>Why:</strong> ${product.why_it_fits || 'Alternative option.'}
+          </div>
+        </div>
+        <div class="product-actions">
+          <div class="product-price">${product.price || ''}</div>
+          <button class="add-to-cart-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart('${(product.name || '').replace(/'/g, "\\'")}')">
+            Add
+          </button>
+        </div>
+      `;
+      
+      return card;
+    }
+
+    function addToCart(productName) {
+      // Placeholder - would integrate with real cart
+      alert(`Added "${productName}" to cart! (Demo)`);
+    }
+
+    // ========== EVENT LISTENERS ========== 
+    searchBtn.addEventListener('click', handleSearch);
+    
     searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSearch();
       }
     });
+
+    // Auto-resize textarea
+    searchInput.addEventListener('input', () => {
+      searchInput.style.height = 'auto';
+      searchInput.style.height = Math.min(searchInput.scrollHeight, 150) + 'px';
+    });
+
+    // Focus input on load
+    searchInput.focus();
   </script>
 </body>
 </html>
