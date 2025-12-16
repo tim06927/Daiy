@@ -58,6 +58,105 @@ def log_interaction(event_type: str, data: Dict[str, Any]) -> None:
         f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
 
 
+# Maximum image size in bytes (5MB)
+MAX_IMAGE_SIZE = 5 * 1024 * 1024
+
+# Register HEIF/HEIC support for Pillow (for iPad images)
+try:
+    from pillow_heif import register_heif_opener
+
+    register_heif_opener()
+except ImportError:
+    pass  # pillow-heif not installed, HEIC support disabled
+
+
+def _process_image_for_openai(
+    image_base64: Optional[str],
+) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Process and convert image to a format OpenAI accepts.
+
+    Accepts any image format (including HEIC from iPad) and converts to PNG.
+    Rejects images larger than 5MB.
+
+    Args:
+        image_base64: Raw base64 string (may include data URL prefix or not).
+
+    Returns:
+        Tuple of (processed_base64, mime_type, error_message).
+        - If successful: (base64_string, "image/png", None)
+        - If image too large: (None, None, "error message for user")
+        - If invalid/no image: (None, None, None)
+    """
+    if not image_base64 or not isinstance(image_base64, str):
+        return None, None, None
+
+    # Strip whitespace
+    clean = image_base64.strip()
+    if not clean:
+        return None, None, None
+
+    # If it's a data URL, extract the base64 part
+    if clean.startswith("data:"):
+        # Format: data:image/jpeg;base64,/9j/4AAQ...
+        try:
+            _, b64_data = clean.split(",", 1)
+            clean = b64_data
+        except ValueError:
+            return None, None, None
+
+    # Try to decode base64
+    try:
+        decoded = base64.b64decode(clean, validate=True)
+    except Exception:
+        return None, None, None
+
+    # Check size limit (5MB)
+    if len(decoded) > MAX_IMAGE_SIZE:
+        size_mb = len(decoded) / (1024 * 1024)
+        return None, None, f"Image too large ({size_mb:.1f}MB). Please use an image smaller than 5MB."
+
+    # Try to open and convert the image using Pillow
+    try:
+        from io import BytesIO
+
+        from PIL import Image
+
+        img = Image.open(BytesIO(decoded))
+
+        # Convert to RGB if necessary (handles RGBA, P mode, etc.)
+        if img.mode in ("RGBA", "LA", "P"):
+            # For images with transparency, convert to RGB with white background
+            if img.mode == "P":
+                img = img.convert("RGBA")
+            background = Image.new("RGB", img.size, (255, 255, 255))
+            if img.mode in ("RGBA", "LA"):
+                background.paste(img, mask=img.split()[-1])  # Use alpha channel as mask
+            else:
+                background.paste(img)
+            img = background
+        elif img.mode != "RGB":
+            img = img.convert("RGB")
+
+        # Save as PNG to preserve quality (no compression artifacts)
+        output = BytesIO()
+        img.save(output, format="PNG")
+        output.seek(0)
+
+        # Check if converted image is too large
+        png_data = output.read()
+        if len(png_data) > MAX_IMAGE_SIZE:
+            size_mb = len(png_data) / (1024 * 1024)
+            return None, None, f"Image too large after processing ({size_mb:.1f}MB). Please use a smaller image."
+
+        # Encode back to base64
+        processed_b64 = base64.b64encode(png_data).decode("utf-8")
+        return processed_b64, "image/png", None
+
+    except Exception as e:
+        log_interaction("image_processing_error", {"error": str(e)})
+        return None, None, None
+
+
 # ---------- BASIC AUTH ----------
 
 
@@ -388,12 +487,13 @@ def _request_clarification_options(
         - "speed_options": list (if LLM needs to ask user)
         - "use_case_options": list (if LLM needs to ask user)
     """
-    base_len = len(image_base64.strip()) if isinstance(image_base64, str) else 0
+    # Image is already processed/validated by caller
+    base_len = len(image_base64) if image_base64 else 0
+
     image_meta_for_log = {
         **(image_meta or {}),
         "shared_with_llm": bool(base_len),
         "shared_chars": base_len,
-        "truncated_in_prompt": False,
     }
 
     prompt = (
@@ -432,14 +532,14 @@ def _request_clarification_options(
     )
 
     input_payload = [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}]
-    if base_len:
+    if image_base64:
         input_payload.append(
             {
                 "role": "user",
                 "content": [
                     {
                         "type": "input_image",
-                        "image_url": f"data:image/jpeg;base64,{str(image_base64)}",
+                        "image_url": f"data:image/png;base64,{image_base64}",
                     }
                 ],
             }
@@ -648,6 +748,7 @@ def call_llm(
 
     Returns a dict with sections + product_ranking. Falls back to empty dict on failure.
     """
+    # Image is already processed/validated by caller
     log_interaction(
         "llm_call_recommendation",
         {
@@ -659,14 +760,14 @@ def call_llm(
     )
 
     input_payload = [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}]
-    if isinstance(image_base64, str) and image_base64.strip():
+    if image_base64:
         input_payload.append(
             {
                 "role": "user",
                 "content": [
                     {
                         "type": "input_image",
-                        "image_url": f"data:image/jpeg;base64,{image_base64.strip()}",
+                        "image_url": f"data:image/png;base64,{image_base64}",
                     }
                 ],
             }
@@ -763,19 +864,19 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
     else:
         selected_use_case = None
 
+    # Process and validate image early
     raw_image_b64 = data.get("image_base64")
-    image_base64 = raw_image_b64.strip() if isinstance(raw_image_b64, str) else None
+    processed_image, image_mime, image_error = _process_image_for_openai(raw_image_b64)
+
+    # Return error to user if image is too large or invalid
+    if image_error:
+        return jsonify({"error": image_error}), 400
+
     image_meta = {
-        "uploaded": bool(image_base64),
-        "received_chars": len(raw_image_b64) if isinstance(raw_image_b64, str) else 0,
-        "stored_chars": len(image_base64) if isinstance(image_base64, str) else 0,
-        "truncated_to_120k": False,
+        "uploaded": bool(raw_image_b64),
+        "processed": bool(processed_image),
+        "mime_type": image_mime,
     }
-    if image_base64 and len(image_base64) > 120_000:
-        # safety: limit payload size, keep the head
-        image_base64 = image_base64[:120_000]
-        image_meta["stored_chars"] = len(image_base64)
-        image_meta["truncated_to_120k"] = True
 
     if not problem_text:
         return jsonify({"error": "problem_text is required"}), 400
@@ -828,7 +929,7 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
     if missing_keys and selected_speed is None and selected_use_case is None:
         # First time - try LLM inference before asking user
         llm_result = _request_clarification_options(
-            problem_text, missing_keys, image_base64=image_base64, image_meta=image_meta
+            problem_text, missing_keys, image_base64=processed_image, image_meta=image_meta
         )
 
         # Use LLM's inferred values if available
@@ -875,9 +976,9 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
     assert bike_speed is not None and use_case is not None
 
     context = build_grounding_context(
-        problem_text, bike_speed=bike_speed, use_case=use_case, image_base64=image_base64
+        problem_text, bike_speed=bike_speed, use_case=use_case, image_base64=processed_image
     )
-    prompt = make_prompt(context, image_attached=bool(image_base64))
+    prompt = make_prompt(context, image_attached=bool(processed_image))
 
     def _default_sections() -> Dict[str, List[str]]:
         return {
@@ -925,17 +1026,16 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
         }
 
     # Prepare photo metadata for downstream logging
-    base_len = len(image_base64) if isinstance(image_base64, str) else 0
+    base_len = len(processed_image) if processed_image else 0
     image_meta_for_llm = {
         **image_meta,
         "shared_with_llm": bool(base_len),
         "shared_chars": base_len,
-        "truncated_in_prompt": False,
     }
 
     # Call LLM and parse structured content
     try:
-        llm_payload = call_llm(prompt, image_base64=image_base64, image_meta=image_meta_for_llm)
+        llm_payload = call_llm(prompt, image_base64=processed_image, image_meta=image_meta_for_llm)
     except ValueError:
         llm_payload = {}
 
