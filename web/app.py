@@ -31,6 +31,7 @@ from config import (  # noqa: E402
     MAX_CASSETTES,
     MAX_CHAINS,
     MAX_TOOLS,
+    SHOW_DEMO_NOTICE,
 )
 
 # Initialize OpenAI client with API key from environment
@@ -843,7 +844,7 @@ def remove_json_summary(answer_text: str) -> str:
 @app.route("/", methods=["GET"])
 def index() -> str:
     """Render the main recommendation page."""
-    return render_template("index.html", show_demo_notice=config.SHOW_DEMO_NOTICE)
+    return render_template("index.html", show_demo_notice=SHOW_DEMO_NOTICE)
 
 
 @app.route("/api/recommend", methods=["POST"])
