@@ -843,7 +843,7 @@ def remove_json_summary(answer_text: str) -> str:
 @app.route("/", methods=["GET"])
 def index() -> str:
     """Render the main recommendation page."""
-    return render_template("index.html")
+    return render_template("index.html", show_demo_notice=config.SHOW_DEMO_NOTICE)
 
 
 @app.route("/api/recommend", methods=["POST"])

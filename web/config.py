@@ -23,3 +23,6 @@ FLASK_DEBUG = os.getenv("FLASK_DEBUG", "False").lower() == "true"
 MAX_CASSETTES = int(os.getenv("MAX_CASSETTES", "5"))
 MAX_CHAINS = int(os.getenv("MAX_CHAINS", "5"))
 MAX_TOOLS = int(os.getenv("MAX_TOOLS", "5"))
+
+# UI Settings
+SHOW_DEMO_NOTICE = os.getenv("SHOW_DEMO_NOTICE", "True").lower() == "true"
