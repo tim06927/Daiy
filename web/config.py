@@ -1,9 +1,14 @@
 """Centralized configuration for the Daiy web app."""
 
 import os
+from pathlib import Path
 
-# Data
-CSV_PATH = "data/bc_products_sample.csv"
+# Determine project root (parent of 'web' directory)
+_THIS_DIR = Path(__file__).parent
+_PROJECT_ROOT = _THIS_DIR.parent
+
+# Data - use absolute path for consistent loading
+CSV_PATH = str(_PROJECT_ROOT / "data" / "bc_products_sample.csv")
 
 # LLM Configuration
 LLM_MODEL = "gpt-5-mini"

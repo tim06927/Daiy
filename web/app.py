@@ -157,32 +157,55 @@ def load_catalog(path: str = CSV_PATH) -> pd.DataFrame:
     else:
         df["specs_dict"] = [{} for _ in range(len(df))]
 
-    # Derive speed from chain gearing or specs
+    # Derive speed from chain gearing, specs, or product name
     def derive_speed(row: pd.Series) -> Optional[int]:
+        # Try chain_gearing field first
         cg = row.get("chain_gearing")
         if isinstance(cg, str):
             m = re.search(r"\d+", cg)
             if m:
                 return int(m.group())
 
+        # Try specs Gearing
         specs = row["specs_dict"]
         g = specs.get("Gearing")
         if isinstance(g, str):
             m = re.search(r"\d+", g)
             if m:
                 return int(m.group())
+
+        # Fallback: extract speed from product name (e.g., "11-Speed", "12s")
+        name = row.get("name", "")
+        if isinstance(name, str):
+            # Match patterns like "11-Speed", "11 Speed", "11s", "11-speed"
+            m = re.search(r"(\d{1,2})[\-\s]?(?:speed|s(?:pd)?)\b", name, re.IGNORECASE)
+            if m:
+                return int(m.group(1))
+
         return None
 
     df["speed"] = df.apply(derive_speed, axis=1)
 
-    # Derive application from chain application or specs
+    # Derive application from chain application, specs, or product name
     def derive_application(row: pd.Series) -> Optional[str]:
         ca = row.get("chain_application")
         if isinstance(ca, str):
             return ca
         specs = row["specs_dict"]
         app = specs.get("Application")
-        return app if isinstance(app, str) else None
+        if isinstance(app, str):
+            return app
+
+        # Fallback: extract application keywords from product name
+        name = row.get("name", "")
+        if isinstance(name, str):
+            name_lower = name.lower()
+            # Check for common application keywords
+            for keyword in ["road", "gravel", "mtb", "mountain", "e-bike", "ebike", "touring", "cx", "cyclocross"]:
+                if keyword in name_lower:
+                    return keyword.title()
+
+        return None
 
     df["application"] = df.apply(derive_application, axis=1)
 
@@ -217,12 +240,20 @@ def select_candidates(
         a list of products. Each product is a dict with: name, url, brand, price,
         application, speed, specs.
     """
+    # Cassettes: try to filter by speed AND application, fall back to speed only
     cassettes = df[
         (df["category"] == "cassettes")
         & (df["speed"] == bike_speed)
         & df["application"].fillna("").str.contains(use_case_substring, case=False)
-    ].head(MAX_CASSETTES)
+    ]
+    if cassettes.empty:
+        # Fall back to just speed filter if no application matches
+        cassettes = df[
+            (df["category"] == "cassettes") & (df["speed"] == bike_speed)
+        ]
+    cassettes = cassettes.head(MAX_CASSETTES)
 
+    # Chains: filter by speed only
     chains = df[(df["category"] == "chains") & (df["speed"] == bike_speed)].head(MAX_CHAINS)
 
     tools = df[df["category"] == "drivetrain_tools"]
@@ -574,20 +605,35 @@ def make_prompt(context: dict, image_attached: bool = False) -> str:
         f"{tools_block}\n\n"
         "RESPONSE FORMAT (return JSON ONLY, no prose):\n"
         "{\n"
+        '  "diagnosis": "Short 1-sentence diagnosis of user problem",\n'
         '  "sections": {\n'
         '    "why_it_fits": ["bullet 1", "bullet 2", "bullet 3"],\n'
         '    "suggested_workflow": ["step 1", "step 2", "step 3"],\n'
         '    "checklist": ["tool 1", "part 1", "consumable 1"]\n'
         "  },\n"
         '  "product_ranking": {\n'
-        '    "cassettes": {"best_index": 0, "alternatives": [1,2]},\n'
-        '    "chains": {"best_index": 0, "alternatives": [1,2]},\n'
-        '    "drivetrain_tools": {"best_index": 0, "alternatives": [1,2]}\n'
+        '    "cassettes": {\n'
+        '      "best_index": 0,\n'
+        '      "alternatives": [1, 2],\n'
+        '      "why_fits": {"0": "Fits explanation for product 0", "1": "Fits for product 1", "2": "Fits for product 2"}\n'
+        '    },\n'
+        '    "chains": {\n'
+        '      "best_index": 0,\n'
+        '      "alternatives": [1, 2],\n'
+        '      "why_fits": {"0": "Fits explanation for product 0", "1": "Fits for product 1"}\n'
+        '    },\n'
+        '    "drivetrain_tools": {\n'
+        '      "best_index": 0,\n'
+        '      "alternatives": [1],\n'
+        '      "why_fits": {"0": "Essential for cassette removal", "1": "Needed for chain installation"}\n'
+        '    }\n'
         "  }\n"
         "}\n\n"
         "RULES:\n"
         "- Use 0-based indices that exist in the candidate lists above.\n"
         "- Choose exactly one best_index per category (cassettes, chains, drivetrain_tools); alternatives are optional and must be unique.\n"
+        "- For EACH recommended product (best + alternatives), include a why_fits entry explaining why it matches the user's needs.\n"
+        "- Keep why_fits explanations short (8-15 words), specific to the user's situation.\n"
         "- Keep bullets concise (max ~15 words each), 3-5 bullets for why_it_fits.\n"
         "- Provide 3-6 workflow steps, actionable and ordered.\n"
         "- Provide a checklist of 5-10 concise items (tools/parts/consumables).\n"
@@ -771,11 +817,6 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
         },
     )
 
-    # Debug logging
-    print(f"[DEBUG] Inference: speed={inferred_speed}, use_case={inferred_use_case}")
-    print(f"[DEBUG] Selected: speed={selected_speed}, use_case={selected_use_case}")
-    print(f"[DEBUG] Final: speed={bike_speed}, use_case={use_case}")
-
     missing_keys: List[str] = []
     if bike_speed is None:
         missing_keys.append("drivetrain_speed")
@@ -794,12 +835,10 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
         if llm_result.get("inferred_speed") is not None and "drivetrain_speed" in missing_keys:
             bike_speed = llm_result["inferred_speed"]
             missing_keys.remove("drivetrain_speed")
-            print(f"[DEBUG] LLM inferred speed: {bike_speed}")
 
         if llm_result.get("inferred_use_case") is not None and "use_case" in missing_keys:
             use_case = llm_result["inferred_use_case"]
             missing_keys.remove("use_case")
-            print(f"[DEBUG] LLM inferred use_case: {use_case}")
 
         # If there are STILL missing values after LLM inference, ask user to select from options
         if missing_keys:
@@ -807,11 +846,15 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
                 "speed_options": llm_result.get("speed_options", []),
                 "use_case_options": llm_result.get("use_case_options", []),
             }
+            hints = {
+                "drivetrain_speed": "Count the cogs on your rear cassette, or check the number printed on your shifter (e.g., '11' for 11-speed).",
+                "use_case": "Think about where you ride most: smooth roads, gravel paths, mountain trails, or city commutes.",
+            }
             payload = {
                 "need_clarification": True,
                 "missing": missing_keys,
                 "options": options,
-                "hint": "Select the option that best matches your bike and riding style.",
+                "hints": hints,
             }
             # Persist any inferred values so the frontend can keep them between requests
             if bike_speed is not None:
@@ -823,7 +866,7 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
     elif missing_keys:
         # User already made a selection but something is still missing
         # This shouldn't happen, but handle it gracefully with defaults
-        print(f"[WARNING] Still missing {missing_keys} after user selection")
+        log_interaction("fallback_defaults", {"missing_keys": missing_keys})
         if bike_speed is None:
             bike_speed = 11  # Default fallback
         if use_case is None:
@@ -898,6 +941,7 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
 
     sections_raw = llm_payload.get("sections", {}) if isinstance(llm_payload, dict) else {}
     ranking_raw = llm_payload.get("product_ranking", {}) if isinstance(llm_payload, dict) else {}
+    diagnosis = llm_payload.get("diagnosis", "") if isinstance(llm_payload, dict) else ""
 
     sections = _default_sections()
     sections["why_it_fits"] = _coerce_str_list(
@@ -938,12 +982,27 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
             "drivetrain_tools": "tool",
         }
         prod_type = prod_type_map.get(key, "product")
-        best_prod = _simplify_product(candidates[best_idx], prod_type=prod_type)
-        alt_prods = [_simplify_product(candidates[i], prod_type=prod_type) for i in alt_indices]
+
+        # Get why_fits explanations from LLM response
+        why_fits = rank_info.get("why_fits", {}) if isinstance(rank_info, dict) else {}
+        if not isinstance(why_fits, dict):
+            why_fits = {}
+
+        def _add_why_fits(prod: Dict[str, Any], idx: int) -> Dict[str, Any]:
+            """Add why_it_fits field to product based on LLM response."""
+            prod_with_why = _simplify_product(prod, prod_type=prod_type)
+            # Try both string and int keys for robustness
+            why_text = why_fits.get(str(idx)) or why_fits.get(idx) or ""
+            prod_with_why["why_it_fits"] = why_text if isinstance(why_text, str) else ""
+            return prod_with_why
+
+        best_prod = _add_why_fits(candidates[best_idx], best_idx)
+        alt_prods = [_add_why_fits(candidates[i], i) for i in alt_indices]
 
         products_by_category.append(
             {
                 "category": label,
+                "category_key": key,
                 "best": best_prod,
                 "alternatives": alt_prods,
             }
@@ -970,6 +1029,7 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
 
     return jsonify(
         {
+            "diagnosis": diagnosis,
             "sections": sections,
             "products_by_category": products_by_category,
             "inferred_speed": bike_speed,
