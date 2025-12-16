@@ -11,7 +11,7 @@ _PROJECT_ROOT = _THIS_DIR.parent
 CSV_PATH = str(_PROJECT_ROOT / "data" / "bc_products_sample.csv")
 
 # LLM Configuration
-LLM_MODEL = "gpt-5-mini"
+LLM_MODEL = "gpt-5.2"
 
 # Flask app settings (allow env overrides; default debug off for safety)
 # Render sets PORT dynamically; fall back to FLASK_PORT or 5000 for local.

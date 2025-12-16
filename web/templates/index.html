@@ -1301,6 +1301,11 @@
       productCategories.classList.remove('active');
       loadingState.classList.remove('active');
       errorMessage.classList.add('hidden');
+      // Reset diagnosis from previous run
+      const diagnosisContainer = document.getElementById('diagnosis-container');
+      const diagnosisText = document.getElementById('diagnosis-text');
+      if (diagnosisContainer) diagnosisContainer.classList.add('hidden');
+      if (diagnosisText) diagnosisText.textContent = '';
       searchInput.focus();
     }
 
