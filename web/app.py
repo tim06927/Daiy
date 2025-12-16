@@ -817,11 +817,6 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
         },
     )
 
-    # Debug logging
-    print(f"[DEBUG] Inference: speed={inferred_speed}, use_case={inferred_use_case}")
-    print(f"[DEBUG] Selected: speed={selected_speed}, use_case={selected_use_case}")
-    print(f"[DEBUG] Final: speed={bike_speed}, use_case={use_case}")
-
     missing_keys: List[str] = []
     if bike_speed is None:
         missing_keys.append("drivetrain_speed")
@@ -840,12 +835,10 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
         if llm_result.get("inferred_speed") is not None and "drivetrain_speed" in missing_keys:
             bike_speed = llm_result["inferred_speed"]
             missing_keys.remove("drivetrain_speed")
-            print(f"[DEBUG] LLM inferred speed: {bike_speed}")
 
         if llm_result.get("inferred_use_case") is not None and "use_case" in missing_keys:
             use_case = llm_result["inferred_use_case"]
             missing_keys.remove("use_case")
-            print(f"[DEBUG] LLM inferred use_case: {use_case}")
 
         # If there are STILL missing values after LLM inference, ask user to select from options
         if missing_keys:
@@ -873,7 +866,7 @@ def api_recommend() -> Union[tuple[Response, int], Response]:
     elif missing_keys:
         # User already made a selection but something is still missing
         # This shouldn't happen, but handle it gracefully with defaults
-        print(f"[WARNING] Still missing {missing_keys} after user selection")
+        log_interaction("fallback_defaults", {"missing_keys": missing_keys})
         if bike_speed is None:
             bike_speed = 11  # Default fallback
         if use_case is None:

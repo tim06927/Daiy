@@ -2,24 +2,31 @@
 
 ## About Daiy
 
-An startup that aims to help every DIYler to find the right parts and tools using multimodal AI.
+A startup that aims to help every DIYer find the right parts and tools using multimodal AI.
 
 ## Vibe Coding and PoC Disclaimer
 
-Large parts of this project are vibe-coded using Github Copilot, ChatGPT and more. Further, this is a proof of concept and not a production ready project. Parts of this repo (CODING_STANDARDS, somewhat excessive documentation, ...) exist to make the AI do a good job and not to put an overbearing burden on humans. Proceed with fun and care when using.
+Large parts of this project are vibe-coded using GitHub Copilot, ChatGPT, and more. Further, this is a proof of concept and not a production-ready project. Parts of this repo (CODING_STANDARDS, somewhat excessive documentation, ...) exist to make the AI do a good job and not to put an overbearing burden on humans. Proceed with fun and care when using.
 
 ## Daiy PoC
 
 This repository contains a proof of concept (PoC) for Daiy that demonstrates:
 - **Web scraping** - Automated extraction of real bike component data
 - **Grounded AI** - LLM recommendations using only real products from inventory
+- **Multimodal input** - Text descriptions and optional image uploads
+- **Smart clarification** - AI infers missing info or asks targeted questions
 - **Product database** - Structured storage and retrieval of bike parts
-- **AI integration** - API-driven recommendations with reasoning
 
 ## Project Structure
 
 ```
-├── scrape/              # Web scraper for bike-components.de
+├── web/                # Flask web app (main application)
+│   ├── app.py          # Flask application with LLM integration
+│   ├── config.py       # Centralized configuration
+│   ├── templates/      # HTML templates (index.html)
+│   ├── logs/           # LLM interaction logs (JSONL)
+│   └── README.md       # Web app documentation
+├── scrape/             # Web scraper for bike-components.de
 │   ├── config.py       # Configuration & URLs
 │   ├── models.py       # Data models
 │   ├── scraper.py      # Scraping logic
@@ -31,19 +38,33 @@ This repository contains a proof of concept (PoC) for Daiy that demonstrates:
 │   ├── demo.py         # Main demo script
 │   ├── catalog.py      # Product context building
 │   └── README.md       # Demo documentation
-├── web/           # Flask web app for recommendations
-│   ├── app.py          # Flask application
-│   ├── config.py       # Configuration
-│   ├── templates/      # HTML templates
-│   └── README.md       # Web app documentation
 ├── data/               # Product data
-│   ├── bc_products_sample.csv  # Scraped bike components
-│   └── sampleData/     # Additional sample data (archived)
-├── scripts/            # Database & setup scripts (archived)
-└── README.md          # This file
+│   └── bc_products_sample.csv  # Scraped bike components
+├── .env.example        # Environment template (copy to .env)
+├── requirements.txt    # Python dependencies
+└── README.md           # This file
 ```
 
 ## Key Features
+
+### Web App (`web/`) - Main Application
+
+Modern split-panel interface for AI-powered bike component recommendations:
+- **Natural language input** - Describe your upgrade project in plain text
+- **Image upload** - Optional bike photo for visual analysis
+- **Smart clarification** - AI infers speed/use-case or asks targeted questions with hints
+- **Grounded results** - Only recommends real products from inventory
+- **Per-product explanations** - Each product shows why it fits your needs
+- **Tabbed interface** - Products and installation instructions in separate tabs
+- **Direct links** - One-click access to bike-components.de product pages
+
+```bash
+# Quick start
+cp .env.example .env
+# Edit .env and add your OPENAI_API_KEY
+python web/app.py
+# Visit http://127.0.0.1:5000
+```
 
 ### Web Scraping (`scrape/`)
 
@@ -64,31 +85,13 @@ python scrape/cli.py --mode full
 
 ### Grounded AI Demo (`grounded_demo/`)
 
-LLM-powered recommendations grounded in real product data:
+CLI-based LLM recommendations grounded in real product data:
 - **Grounding pattern** - Only suggests products from catalog
 - **Reasoning** - Explains why products fit the user's needs
 - **Structured output** - JSON summary for downstream use
-- **Real data** - Uses products from the scraper
 
 ```bash
 python grounded_demo/demo.py
-```
-
-### Web App (`web/`)
-
-Flask web interface for AI recommendations:
-- **User-friendly form** - Describe your upgrade project
-- **Grounded results** - Real products from inventory
-- **Product tiles** - Browse candidates with pricing
-- **Direct links** - One-click to bike-components.de
-
-```bash
-# Make sure you have product data first
-python scrape/cli.py
-
-# Then run the web app
-python web/app.py
-# Visit http://127.0.0.1:5000
 ```
 
 ## Setup
@@ -108,86 +111,94 @@ python web/app.py
    pip install -r requirements.txt
    ```
 
-2. **Scrape bike components**
+2. **Configure environment**
    ```bash
-   python scrape/cli.py
+   cp .env.example .env
+   # Edit .env and add your OPENAI_API_KEY
    ```
 
-3. **Run the AI demo**
-   ```bash
-   export OPENAI_API_KEY="sk-..."
-   python grounded_demo/demo.py
-   ```
-
-4. **Or run the web app**
+3. **Run the web app**
    ```bash
    python web/app.py
    # Visit http://127.0.0.1:5000
+   ```
+
+4. **(Optional) Scrape fresh data**
+   ```bash
+   python scrape/cli.py
    ```
 
 ## Sample Data and Database
 
 Product data is sourced from bike-components.de via the scraper. Data includes:
 - Product name, brand, price
-- Technical specifications
+- Technical specifications (speed derived from product names)
 - Product URLs
 - Category classification
 
 **Current approach:** CSV-first, lightweight, and easy to use.
 - Scraped products are saved to `data/bc_products_sample.csv`
-- The web app and demo load directly from CSV
-
-**Archived for later:** Database setup (99spokes dataset, PostgreSQL schemas) have been archived. These can be restored when needed for persistent storage or advanced queries.
+- The web app loads directly from CSV at startup
 
 ## Workflow
 
 1. **Scrape** - Run scraper to fetch fresh product data
-2. **Store** - Products are saved to CSV (can import to DB)
-3. **Query** - Load products for AI recommendations
-4. **Recommend** - Use LLM to suggest compatible products
-5. **Output** - Structured JSON with URLs and reasoning
+2. **Store** - Products are saved to CSV
+3. **Describe** - User describes their bike upgrade project
+4. **Infer** - AI infers speed/use-case or asks clarifying questions
+5. **Filter** - Select candidate products matching constraints
+6. **Recommend** - LLM picks best products with explanations
+7. **Output** - Product cards with install instructions
 
 ## Example: Cassette Upgrade
 
 Input:
-- User has 11-speed road bike
-- Current: 11-32 cassette
-- Goal: Wider range for climbing
+> "I have an 11-speed road bike and want better climbing range"
 
-Output from grounded demo:
-```json
-{
-  "cassette_url": "https://bike-components.de/...",
-  "chain_url": "https://bike-components.de/...",
-  "notes": [
-    "Both 11-speed, compatible with your drivetrain",
-    "11-34 cassette provides wider climbing range",
-    "Proven Shimano pairing for reliability"
-  ]
-}
-```
+AI Response:
+- **Diagnosis**: "You want to improve climbing on your 11-speed road bike"
+- **Best cassette**: Shimano CS-HG700-11 11-34T (wider range)
+- **Best chain**: KMC X11 (durable, compatible)
+- **Tools needed**: Cassette lockring tool, chain breaker
+- **Why it fits**: Matches your 11-speed drivetrain, 11-34 provides wider climbing range
 
 ## Documentation
 
-- **[Scraper README](scrape/README.md)** - Detailed scraping configuration, usage, and extension
-- **[Grounded Demo README](grounded_demo/README.md)** - AI recommendation pattern and customization
-- **[Web App README](web/README.md)** - Flask app setup, API, and customization
+- **[Web App README](web/README.md)** - Flask app setup, API, and UI details
+- **[Scraper README](scrape/README.md)** - Scraping configuration and usage
+- **[Grounded Demo README](grounded_demo/README.md)** - CLI demo customization
 
 ## Architecture Decisions
 
-- **Modular scraper** - Easy to extend for new sites/categories
-- **CSV-first** - Simple export, flexible import options
-- **Grounding pattern** - Reliable AI recommendations without hallucination
-- **Incremental scraping** - Efficient updates, avoids re-scraping
-- **gpt-5-nano** - Cost-effective reasoning model for recommendations
+- **Single-file frontend** - All CSS/JS inline in index.html for deployment simplicity
+- **CSV-first data** - Simple export, no database dependency
+- **Grounding pattern** - LLM can only recommend real products from inventory
+- **Smart clarification** - AI infers missing info before asking user
+- **Per-product explanations** - Each recommendation includes "why it fits"
+- **gpt-5-mini** - Cost-effective model for recommendations
+
+## Environment Variables
+
+See [.env.example](.env.example) for all available options:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OPENAI_API_KEY` | Yes | Your OpenAI API key |
+| `FLASK_HOST` | No | Host to bind (default: 0.0.0.0) |
+| `FLASK_PORT` | No | Port (default: 5000) |
+| `FLASK_DEBUG` | No | Debug mode (default: False) |
+| `DEMO_USER` | No | Basic auth username |
+| `DEMO_PASS` | No | Basic auth password |
+| `MAX_CASSETTES` | No | Product limit (default: 5) |
+| `MAX_CHAINS` | No | Product limit (default: 5) |
+| `MAX_TOOLS` | No | Product limit (default: 5) |
 
 ## Future Roadmap
 
 - [ ] Database integration (PostgreSQL/SQLite)
-- [ ] REST API for recommendations
-- [ ] Web interface for browsing products
 - [ ] Multi-language support
-- [ ] Pagination support for large categories
 - [ ] Price history and trend tracking
 - [ ] User preference learning
-- [ ] Performance metrics (weight, durability, cost-per-tooth)
+- [ ] Performance metrics (weight, durability)
+- [ ] Compatibility checking between components
+- [ ] Community reviews integration

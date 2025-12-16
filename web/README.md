@@ -1,24 +1,29 @@
 # Daiy Web App
 
-A Flask-based web interface for getting grounded AI recommendations for bike component upgrades.
+A Flask-based web interface for AI-powered bike component recommendations with a modern split-panel UI.
 
 ## Overview
 
 The web app provides a user-friendly interface to:
-1. Describe a bike upgrade project
-2. Get AI-powered recommendations grounded in real product data
-3. View candidate products with pricing and specs
-4. Access direct links to bike-components.de
+1. Describe a bike upgrade project (text + optional image)
+2. Get smart clarification if speed/use-case is unclear
+3. View AI recommendations grounded in real product data
+4. Browse products with per-item explanations
+5. Access installation instructions and checklists
 
-The app uses the same grounding pattern as the demo: all recommendations come from a real product catalog, preventing the LLM from hallucinating products.
+The app uses a grounding pattern: all recommendations come from a real product catalog, preventing the LLM from hallucinating products.
 
 ## Features
 
-- **Problem-based input** - Users describe what they're trying to achieve
-- **Grounded recommendations** - LLM only suggests real products in stock
-- **Product tiles** - Browse cassettes and chains with prices and brands
-- **Reasoning** - Detailed explanation of why products were chosen
-- **Direct links** - One-click access to product pages on bike-components.de
+- **Natural language input** - Describe your project in plain text
+- **Image upload** - Optional bike photo for visual analysis
+- **Smart clarification** - AI infers missing info or asks targeted questions with helpful hints
+- **Split-panel UI** - Query context on left, results on right
+- **Per-product explanations** - Each product shows "why it fits" your needs
+- **Tabbed results** - Products and installation instructions in separate tabs
+- **Grounded recommendations** - Only suggests real products in inventory
+- **Direct links** - One-click access to bike-components.de product pages
+- **Optional basic auth** - Protect demos with username/password
 
 ## Project Structure
 
@@ -26,58 +31,63 @@ The app uses the same grounding pattern as the demo: all recommendations come fr
 web/
 ├── app.py              # Main Flask application
 ├── config.py           # Centralized configuration
-├── templates/          # HTML templates
-│   ├── base.html      # Base template with CSS
-│   └── index.html     # Main page
-└── README.md          # This file
+├── templates/
+│   └── index.html      # Single-page app (CSS/JS inline)
+├── logs/               # LLM interaction logs (JSONL)
+├── tests/              # Test files
+└── README.md           # This file
 ```
 
 ## Files
 
 ### `app.py`
-Main application with:
-- **Product loading** - Reads CSV catalog at startup
+Main application (1000+ lines) with:
+- **Product loading** - Reads CSV catalog at startup, derives speed from product names
 - **Candidate selection** - Filters products by speed and use case
-- **Context building** - Prepares grounding data for LLM
-- **LLM integration** - Calls gpt-5-nano with structured prompt
-- **Flask routes** - Handles GET/POST requests
-- **JSON API** - `/api/recommend` endpoint for frontend
+- **Smart clarification** - LLM tries to infer missing values before asking user
+- **Context building** - Prepares grounding data for recommendation LLM
+- **LLM integration** - Calls gpt-5-mini with structured JSON prompts
+- **Interaction logging** - All LLM calls logged to JSONL for debugging
+- **Flask routes** - GET `/` and POST `/api/recommend`
 
 Key functions:
-- `load_catalog()` - Parse CSV, derive speed/application
-- `select_candidates()` - Filter cassettes/chains
-- `build_grounding_context()` - Create LLM context
-- `make_prompt()` - Format prompt with instructions
-- `call_llm()` - Call OpenAI API
-- `extract_json_summary()` - Parse machine-readable JSON from LLM response
-- `remove_json_summary()` - Strip JSON from user-facing text
+- `load_catalog()` - Parse CSV, derive speed/application from product names
+- `select_candidates()` - Filter cassettes/chains/tools by constraints
+- `_infer_bike_attributes()` - Regex-based speed/use-case extraction
+- `_request_clarification_options()` - LLM inference for missing values
+- `build_grounding_context()` - Create structured context for LLM
+- `make_prompt()` - Format prompt with product candidates
+- `call_llm()` - Call OpenAI API and parse JSON response
 
 ### `config.py`
 Centralized settings:
-- `CSV_PATH` - Path to product data
-- `LLM_MODEL` - Model to use (gpt-5-nano)
-- `FLASK_HOST/PORT/DEBUG` - Server settings
-- `DEFAULT_BIKE_SPEED` - Default drivetrain speed
-- `DEFAULT_USE_CASE` - Default filter (Road/MTB/Gravel)
-- `MAX_CASSETTES/CHAINS` - Candidate limits
+- `CSV_PATH` - Absolute path to product data
+- `LLM_MODEL` - Model to use (gpt-5-mini)
+- `FLASK_HOST/PORT/DEBUG` - Server settings (env overridable)
+- `MAX_CASSETTES/CHAINS/TOOLS` - Candidate limits per category
 
-### `templates/`
-HTML templates:
-- `base.html` - CSS styling and layout
-- `index.html` - Main page with form and results
+### `templates/index.html`
+Single-page app (~1700 lines) with inline CSS and JavaScript:
+- **Two-state UI** - Initial search state and results state
+- **Tab selector** - Search (disabled) and AI modes
+- **Split-panel results** - Left panel (query context), right panel (products)
+- **Clarification UI** - Speed/use-case selection with helpful hints
+- **Results tabs** - Products and Instructions views
+- **Responsive design** - Works on desktop and mobile
 
 ## Setup
 
 ### Prerequisites
 - Python 3.8+
-- OpenAI API key with access to `gpt-5-nano`
+- OpenAI API key with access to `gpt-5-mini`
 - Product data CSV at `data/bc_products_sample.csv`
 
 ### Installation
 
 ```bash
-# Set API key
-export OPENAI_API_KEY="sk-..."
+# From project root
+cp .env.example .env
+# Edit .env and add your OPENAI_API_KEY
 
 # Run the app
 python web/app.py
@@ -90,202 +100,142 @@ The app will start at `http://127.0.0.1:5000`
 ### Web Interface
 
 1. Open http://127.0.0.1:5000
-2. Describe your upgrade project (e.g., "I have a 11-speed road bike and want to upgrade my cassette for better climbing")
-3. (Optional) Upload an image of your bike
-4. Click "Get Recommendation"
-5. View the LLM's analysis and product candidates
+2. Describe your upgrade project (e.g., "I have a 12-speed gravel bike and need a new cassette")
+3. (Optional) Upload an image of your bike/drivetrain
+4. Click the search button (→)
+5. If needed, select speed or use-case from clarification options
+6. View recommendations with product cards and installation instructions
 
 ### API Endpoint
 
 POST `/api/recommend`:
+
+**Request:**
 ```json
 {
-  "problem_text": "I want to upgrade my cassette for better climbing"
+  "problem_text": "I want to upgrade my 11-speed road bike cassette for better climbing",
+  "image_base64": "...",
+  "selected_speed": 11,
+  "selected_use_case": "road"
 }
 ```
 
-Response:
+**Response (needs clarification):**
 ```json
 {
-  "answer": "Recommended combination:\n- Cassette: ...\n- Chain: ...\n\nWhy these fit...",
-  "products": [
+  "need_clarification": true,
+  "missing": ["drivetrain_speed"],
+  "options": {
+    "speed_options": ["10-speed", "11-speed", "12-speed"],
+    "use_case_options": []
+  },
+  "hints": {
+    "drivetrain_speed": "Count the cogs on your rear cassette..."
+  },
+  "inferred_use_case": "road"
+}
+```
+
+**Response (success):**
+```json
+{
+  "diagnosis": "You want better climbing range on your 11-speed road bike",
+  "sections": {
+    "why_it_fits": ["Matches 11-speed drivetrain", "Wider range for climbing"],
+    "suggested_workflow": ["Remove old cassette", "Install new cassette"],
+    "checklist": ["Cassette lockring tool", "Chain breaker"]
+  },
+  "products_by_category": [
     {
-      "type": "cassette",
-      "name": "Shimano CS-HG700-11 11-speed Cassette",
-      "brand": "Shimano",
-      "price": "44.99€",
-      "url": "https://bike-components.de/..."
-    },
-    ...
+      "category": "Cassettes",
+      "best": {
+        "name": "Shimano CS-HG700-11",
+        "price": "44.99€",
+        "url": "https://bike-components.de/...",
+        "why_it_fits": "11-34 range provides excellent climbing"
+      },
+      "alternatives": []
+    }
   ],
-  "summary": {
-    "cassette_url": "https://bike-components.de/...",
-    "chain_url": "https://bike-components.de/...",
-    "notes": ["Both 11-speed compatible", "Wider range for climbing", ...]
-  }
+  "inferred_speed": 11,
+  "inferred_use_case": "road"
 }
 ```
-
-**Note:** The `answer` field contains only the human-readable explanation. The machine-readable JSON summary is extracted and returned separately in the `summary` field, but not displayed to the user in the main answer text.
 
 ## Configuration
 
-Edit `config.py` to customize:
+Environment variables (see `.env.example` in project root):
 
-```python
-# Change LLM model
-LLM_MODEL = "gpt-4"
-
-# Different default bike speed (12-speed)
-DEFAULT_BIKE_SPEED = 12
-
-# More candidates shown
-MAX_CASSETTES = 10
-MAX_CHAINS = 10
-
-# Server settings
-FLASK_PORT = 8000
-FLASK_DEBUG = False
+```bash
+OPENAI_API_KEY=sk-...        # Required
+FLASK_HOST=0.0.0.0           # Optional (default: 0.0.0.0)
+FLASK_PORT=5000              # Optional (default: 5000)
+FLASK_DEBUG=True             # Optional (default: False)
+DEMO_USER=demo               # Optional basic auth
+DEMO_PASS=changeme           # Optional basic auth
+MAX_CASSETTES=5              # Optional (default: 5)
+MAX_CHAINS=5                 # Optional (default: 5)
+MAX_TOOLS=5                  # Optional (default: 5)
 ```
 
 ## How It Works
 
 ### Data Flow
 
-1. **Load Catalog** - App loads CSV on startup
-2. **Parse Products** - Derive speed, application, specs
-3. **User Input** - User describes their project
-4. **Select Candidates** - Filter by bike speed and use case
-5. **Build Context** - Create JSON for LLM with candidates
-6. **Call LLM** - gpt-5-nano reads context and problem
-7. **Generate Response** - LLM explains choice with reasoning
-8. **Display Results** - Show explanation + product tiles
+1. **Load Catalog** - App loads CSV on startup, derives speed from product names
+2. **User Input** - User describes their project (text + optional image)
+3. **Regex Inference** - Extract speed/use-case from text patterns
+4. **LLM Inference** - If regex fails, ask LLM to infer or propose options
+5. **Clarification** - If still unclear, show options with helpful hints
+6. **Select Candidates** - Filter products by speed and use case
+7. **Build Context** - Create JSON with filtered products for LLM
+8. **Generate Recommendation** - LLM picks best products with explanations
+9. **Display Results** - Show product cards + installation instructions
 
 ### Grounding Pattern
 
 The prompt includes:
 - User's problem description
-- Bike specs (speed, use case, constraints)
+- Detected bike specs (speed, use case)
 - **Candidate products only** (real inventory)
-- Explicit instruction: "ONLY recommend from this list"
-- Structured output format (JSON)
+- Explicit instruction: "recommend from the provided candidates only"
+- Structured JSON output format
 
 This ensures:
 - No hallucinated products
 - All URLs are real and verifiable
 - Recommendations respect technical constraints
-- Responses are machine-readable
+- Per-product explanations for transparency
 
-## LLM Response Handling
+## Logging
 
-The app handles responses with reasoning blocks and extracts structured data:
+All LLM interactions are logged to `web/logs/llm_interactions_YYYYMMDD.jsonl`:
+- User inputs and image metadata
+- Regex inference results
+- LLM prompts and responses
+- Clarification requests
 
-```python
-# 1. Call LLM
-for item in resp.output:
-    if hasattr(item, "content") and item.content is not None:
-        return item.content[0].text
-```
-
-This works with gpt-5-nano's extended thinking capability.
-
-```python
-# 2. Extract machine-readable JSON
-json_summary = extract_json_summary(answer_text)
-# Example: {"cassette_url": "...", "chain_url": "...", "notes": [...]}
-
-# 3. Remove JSON from user-facing text
-answer_text_clean = remove_json_summary(answer_text)
-# Clean text without the JSON block at the end
-```
-
-The LLM generates both:
-- **Human-readable explanation** - Shown to the user
-- **Machine-readable JSON** - Parsed and returned separately in the API response
-
-This separation ensures users see clean, natural language recommendations while the frontend can still access structured data for highlighting specific products or other UI features.
-
-## Extending the App
-
-### Add More Categories
-
-Update `config.py`:
-```python
-CANDIDATE_CATEGORIES = ["cassettes", "chains", "brakes"]
-```
-
-Update `select_candidates()` to handle each category.
-
-### Customize Bike Profiles
-
-Instead of hardcoded 11-speed road, load from user input:
-```python
-bike_speed = int(request.json.get("bike_speed", DEFAULT_BIKE_SPEED))
-use_case = request.json.get("use_case", DEFAULT_USE_CASE)
-```
-
-### Add Image Upload Processing
-
-The form accepts image uploads but currently ignores them. To use them:
-
-```python
-@app.route("/api/recommend", methods=["POST"])
-def api_recommend():
-    data = request.form
-    file = request.files.get("image")
-    
-    if file:
-        # Use vision API to analyze bike image
-        # Extract frame material, gearing, condition, etc.
-        pass
-```
-
-### Database Integration
-
-Instead of CSV, load products from PostgreSQL:
-```python
-import psycopg2
-conn = psycopg2.connect("dbname=daiy user=tim")
-CATALOG_DF = pd.read_sql("SELECT * FROM products", conn)
-```
+Use `python web/view_logs.py` to inspect logs.
 
 ## Troubleshooting
 
 ### "No products found"
 - Verify `data/bc_products_sample.csv` exists
 - Run scraper: `python scrape/cli.py`
-- Check DEFAULT_BIKE_SPEED and DEFAULT_USE_CASE match your data
+- Check that products have speed info in their names
 
 ### "OpenAI API error"
-- Set `OPENAI_API_KEY` environment variable
-- Verify API key has gpt-5-nano access
-- Check API quota and usage
+- Check `OPENAI_API_KEY` in `.env` file
+- Verify API key has access to gpt-5-mini
+- Check API quota and usage limits
 
-### "CSV parsing failed"
-- Ensure CSV has required columns: category, name, url, speed, application, specs
-- Check for encoding issues: use UTF-8
-- Verify JSON specs column is properly escaped
-
-### LLM returns empty response
-- Check if response has content (sometimes all reasoning, no output)
-- Increase token limit in config
-- Simplify prompt or problem text
+### "need_clarification keeps appearing"
+- Be more specific: "12-speed gravel bike" instead of "my bike"
+- Or select from the provided options
 
 ## Performance Tips
 
-- **Caching** - Load catalog once at startup (already done)
-- **Candidate limits** - Use MAX_CASSETTES/CHAINS to reduce context
-- **Filter early** - select_candidates() filters before formatting
-- **Async** - Consider using async Flask for concurrent requests
-
-## Future Ideas
-
-- [ ] make sure input is striped of PII and add a super simple consent layer
-- [ ] Multi-turn conversation (refine recommendations)
-- [ ] User authentication and saved recommendations
-- [ ] Image analysis of user's bike
-- [ ] Compatibility checking between components
-- [ ] Price comparison across retailers
-- [ ] Installation difficulty rating
-- [ ] Community reviews and ratings
-- [ ] Performance metrics comparison (weight, efficiency, durability)
+- **Catalog caching** - Loaded once at startup
+- **Candidate limits** - MAX_CASSETTES/CHAINS/TOOLS reduce context size
+- **Early filtering** - `select_candidates()` filters before LLM call
+- **Single LLM call** - Recommendation uses one API call
