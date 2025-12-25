@@ -1,31 +1,39 @@
 """Data models for products."""
 
-from dataclasses import dataclass
-from typing import Dict, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional
+
+__all__ = ["Product"]
 
 
 @dataclass
 class Product:
-    """Represents a single product scraped from bike-components.de"""
+    """Represents a single product scraped from bike-components.de
+    
+    Core fields are stored in the main products table.
+    Category-specific specs are stored in separate tables via category_specs.
+    """
 
+    # Required fields
     category: str
     name: str
     url: str
+
+    # Core optional fields (stored in products table)
     image_url: Optional[str] = None
     brand: Optional[str] = None
     price_text: Optional[str] = None
     sku: Optional[str] = None
     breadcrumbs: Optional[str] = None
-
-    # Text + raw specs
     description: Optional[str] = None
+    
+    # Raw specs dict from HTML (stored as JSON in products table)
     specs: Optional[Dict[str, str]] = None
 
-    # Normalised chain fields (only filled for category == "chains")
-    chain_application: Optional[str] = None
-    chain_gearing: Optional[str] = None
-    chain_num_links: Optional[str] = None
-    chain_closure_type: Optional[str] = None
-    chain_pin_type: Optional[str] = None
-    chain_directional: Optional[str] = None
-    chain_material: Optional[str] = None
+    # Category-specific normalized specs (stored in category-specific table)
+    # Keys match the column names in the respective spec table
+    category_specs: Dict[str, Any] = field(default_factory=dict)
+
+    # Database ID (set after insert/update)
+    id: Optional[int] = None
+
