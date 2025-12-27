@@ -28,9 +28,9 @@ This repository contains a proof of concept (PoC) for Daiy that demonstrates:
 │   └── README.md       # Web app documentation
 ├── scrape/             # Web scraper for bike-components.de
 │   ├── __init__.py     # Package init with convenient exports
-│   ├── config.py       # Configuration, URLs, category spec registry
+│   ├── config.py       # Configuration, URLs, delays, retry settings
 │   ├── models.py       # Data models (Product dataclass)
-│   ├── scraper.py      # Scraping logic with pagination
+│   ├── scraper.py      # Scraping logic with pagination and retries
 │   ├── db.py           # SQLite database schema and helpers
 │   ├── html_utils.py   # HTML parsing
 │   ├── csv_utils.py    # CSV export/import
@@ -38,6 +38,9 @@ This repository contains a proof of concept (PoC) for Daiy that demonstrates:
 │   ├── cli.py          # Command-line interface
 │   ├── discover_fields.py    # Auto-discover spec fields
 │   ├── discover_categories.py # Auto-discover categories
+│   ├── logging_config.py     # Structured JSONL logging
+│   ├── shutdown.py           # Graceful shutdown handling
+│   ├── url_validation.py     # URL security validation
 │   └── README.md       # Scraper documentation
 ├── grounded_demo/      # AI recommendation demo (CLI)
 │   ├── demo.py         # Main demo script
@@ -77,12 +80,17 @@ python web/app.py
 
 Modular scraper for bike-components.de with SQLite storage:
 - **Polite scraping** - Respects rate limits with random delays
+- **Overnight mode** - Extra-slow delays (10-30s) for unattended runs
+- **Automatic retries** - Exponential backoff on server errors (429, 5xx)
+- **Graceful shutdown** - Ctrl+C cleanly saves progress
 - **Pagination support** - Automatically follows all pages in a category
 - **SQLite database** - Normalized storage with category-specific spec tables
 - **Product images** - Extracts primary product image URLs
 - **Incremental mode** - Only scrapes new products (default)
 - **Auto-discovery** - Discover categories from sitemap, fields from sampling
 - **Discover-scrape workflow** - Bulk scrape entire category trees
+- **Structured logging** - JSONL logs for debugging and auditing
+- **URL validation** - Security checks to prevent SSRF attacks
 - **Category support** - Cassettes, chains, drivetrain tools, gloves, and more
 
 ```bash
@@ -91,6 +99,12 @@ python -m scrape.cli
 
 # Full refresh with pagination limit
 python -m scrape.cli --mode full --max-pages 5
+
+# Overnight mode - slow delays for unattended runs
+python -m scrape.cli --overnight --max-pages 100
+
+# Verbose logging
+python -m scrape.cli --verbose
 
 # Discover and scrape all drivetrain subcategories
 python -m scrape.cli --discover-scrape components/drivetrain --dry-run
@@ -125,11 +139,17 @@ make refresh-data      # Scrape → export CSV → show git diff
 make scrape            # Run incremental scrape
 make export            # Export database to CSV
 make discover-fields CAT=cassettes  # Discover fields for a category
+
+# Pipeline targets (discover → analyze → scrape a parent category)
+make pipeline SUPER=components/drivetrain MAX_PAGES=5
+make pipeline-full SUPER=components/drivetrain  # Full rescrape
+make pipeline-overnight SUPER=components        # Slow overnight mode
 ```
 
 **Key workflows:**
 - `make refresh-data` - One command to update product data and prepare for commit
-- `make scrape-drivetrain MAX_PAGES=3` - Scrape all drivetrain subcategories
+- `make pipeline SUPER=components/drivetrain` - Discover and scrape all subcategories
+- `make pipeline-overnight SUPER=components` - Long-running unattended scrape
 
 ## Setup
 

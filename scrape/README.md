@@ -9,6 +9,12 @@ This scraper extracts product details from any bike component category on the si
 ## Features
 
 - **Polite scraping** - Respects rate limits with random delays between requests
+- **Overnight mode** - Extra-slow delays (10-30s) for unattended background runs
+- **Exponential backoff** - Automatic retries with increasing delays on server errors
+- **Session reuse** - HTTP session persistence for efficient connections
+- **Graceful shutdown** - Ctrl+C cleanly saves progress (double-press to force quit)
+- **Structured logging** - JSONL log files for debugging and auditing
+- **URL validation** - Security checks to prevent SSRF vulnerabilities
 - **Pagination support** - Automatically follows pagination to scrape all products in a category
 - **SQLite database** - Normalized storage with separate tables for category-specific specs
 - **Incremental mode (default)** - Skips products already present in the database
@@ -26,16 +32,19 @@ This scraper extracts product details from any bike component category on the si
 ```
 scrape/
 ├── __init__.py              # Package initialization with convenient exports
-├── config.py                # Configuration, URLs, and category spec registry
+├── config.py                # Configuration, URLs, delays, retry settings, and category spec registry
 ├── models.py                # Data models (Product dataclass)
 ├── html_utils.py            # HTML parsing utilities
-├── scraper.py               # Core scraping logic
+├── scraper.py               # Core scraping logic with retries and session management
 ├── db.py                    # SQLite database schema and helpers
 ├── csv_utils.py             # CSV export utilities
 ├── workflows.py             # High-level scraping workflows (discover-scrape)
-├── cli.py                   # Command-line interface
+├── cli.py                   # Command-line interface with verbose/overnight modes
 ├── discover_fields.py       # Auto-discover spec fields from product sampling
 ├── discover_categories.py   # Auto-discover categories from sitemap
+├── logging_config.py        # Structured JSONL logging with colored console output
+├── shutdown.py              # Graceful shutdown signal handling
+├── url_validation.py        # URL security validation
 └── README.md                # This file
 ```
 
@@ -48,7 +57,12 @@ Centralized configuration:
 - `CATEGORY_SPECS` - Registry mapping categories to spec tables and field mappings
 - `HEADERS` - HTTP headers for polite user-agent identification
 - `REQUEST_TIMEOUT` - HTTP request timeout in seconds
-- `DELAY_MIN` / `DELAY_MAX` - Polite delay range between requests
+- `DELAY_MIN` / `DELAY_MAX` - Polite delay range between requests (1-3s default)
+- `DELAY_OVERNIGHT_MIN` / `DELAY_OVERNIGHT_MAX` - Slower delays for overnight runs (10-30s)
+- `MAX_RETRIES` - Maximum retry attempts on server errors (default: 5)
+- `RETRY_BACKOFF_BASE` - Exponential backoff base (default: 2.0)
+- `MAX_RETRY_BACKOFF` - Maximum backoff time in seconds (default: 60)
+- `RETRY_STATUS_CODES` - HTTP status codes to retry (429, 500, 502, 503, 504)
 - `MAX_PAGES_PER_CATEGORY` - Maximum pages to scrape per category (default: 50)
 - `DEFAULT_MAX_PAGES` - Default page limit when not specified (default: 10)
 - `DB_PATH` - SQLite database path (default: `data/products.db`)
@@ -111,10 +125,31 @@ Command-line interface:
 - `--mode full` forces a complete rescrape
 - `--output` overrides the CSV path
 - `--max-pages` limit pages per category (default: 10)
+- `--overnight` enables slow mode (10-30s delays) for unattended runs
+- `--verbose` enables detailed console logging
 - `--discover-scrape <path>` - Discover and scrape all subcategories under a path
 - `--skip-field-discovery` - Skip field discovery phase
 - `--field-sample-size` - Products to sample for field discovery (default: 15)
 - `--dry-run` - Preview what would be scraped without executing
+
+#### `logging_config.py`
+Structured logging infrastructure:
+- JSONL log files for debugging and auditing
+- Colored console output for readability
+- Log levels: DEBUG, INFO, WARNING, ERROR
+- Automatic log rotation by date
+
+#### `shutdown.py`
+Graceful shutdown handling:
+- SIGINT/SIGTERM signal handlers
+- Clean exit after current operation
+- Double Ctrl+C for force quit
+
+#### `url_validation.py`
+URL security validation:
+- HTTPS enforcement
+- Domain allowlist checking
+- SSRF prevention
 
 #### `discover_fields.py`
 Field discovery tool:
@@ -140,7 +175,12 @@ make scrape            # Run incremental scrape (configured categories)
 make scrape-full       # Full refresh (ignore existing data)
 make refresh-data      # Scrape + export CSV + show git diff
 make export            # Export database to CSV
-make pipeline SUPER=components/drivetrain MAX_PAGES=5  # Full pipeline for a category
+
+# Pipeline targets (discover → analyze → scrape)
+make pipeline SUPER=components/drivetrain MAX_PAGES=5
+make pipeline-full SUPER=components/drivetrain  # Full rescrape
+make pipeline-overnight SUPER=components        # Slow overnight mode
+
 make discover-fields CAT=cassettes  # Discover fields for a category
 ```
 
@@ -152,6 +192,12 @@ python -m scrape.cli
 
 # Full refresh - rescrape everything
 python -m scrape.cli --mode full
+
+# Overnight mode - slow delays (10-30s) for unattended runs
+python -m scrape.cli --overnight --max-pages 100
+
+# Verbose logging
+python -m scrape.cli --verbose
 
 # Limit pages per category
 python -m scrape.cli --max-pages 5
@@ -333,9 +379,17 @@ CATEGORY_SPECS = {
 }
 
 # Adjust request timing
-DELAY_MIN = 1.0
-DELAY_MAX = 3.0
+DELAY_MIN = 1.0           # Normal mode minimum delay
+DELAY_MAX = 3.0           # Normal mode maximum delay
+DELAY_OVERNIGHT_MIN = 10.0  # Overnight mode minimum delay
+DELAY_OVERNIGHT_MAX = 30.0  # Overnight mode maximum delay
 REQUEST_TIMEOUT = 15
+
+# Retry settings
+MAX_RETRIES = 5           # Max retry attempts on server errors
+RETRY_BACKOFF_BASE = 2.0  # Exponential backoff base (2^attempt)
+MAX_RETRY_BACKOFF = 60.0  # Cap backoff at 60 seconds
+RETRY_STATUS_CODES = {429, 500, 502, 503, 504}  # Status codes to retry
 
 # Pagination limits
 MAX_PAGES_PER_CATEGORY = 50
@@ -344,6 +398,80 @@ DEFAULT_MAX_PAGES = 10
 # Database location
 DB_PATH = "data/products.db"
 ```
+
+## Resilience Features
+
+### Overnight Mode
+
+For long-running unattended scrapes, use overnight mode which uses much slower delays (10-30 seconds between requests instead of 1-3 seconds):
+
+```bash
+# Via Makefile
+make pipeline-overnight SUPER=components/drivetrain
+
+# Via CLI
+python -m scrape.cli --overnight --max-pages 100
+
+# Via environment variable
+OVERNIGHT=1 python -m scrape.cli
+```
+
+### Automatic Retries with Exponential Backoff
+
+The scraper automatically retries failed requests for recoverable errors (429 rate limiting, 5xx server errors):
+
+- Retry up to 5 times (configurable via `MAX_RETRIES`)
+- Wait time doubles each attempt: 2s → 4s → 8s → 16s → 32s...
+- Capped at 60 seconds maximum wait (configurable via `MAX_RETRY_BACKOFF`)
+- Only retries status codes: 429, 500, 502, 503, 504
+
+### Session Reuse
+
+HTTP sessions are reused across requests for better performance and connection pooling. Sessions maintain:
+- Keep-alive connections
+- Cookie persistence
+- Shared headers
+
+### Graceful Shutdown
+
+Press Ctrl+C once to gracefully stop after the current product finishes:
+
+```
+^C
+Shutdown requested (press Ctrl+C again to force quit)
+Finishing current operation...
+```
+
+This ensures:
+- Current product is fully processed and saved
+- Database connections are properly closed
+- No partial data corruption
+
+Press Ctrl+C twice to force immediate termination.
+
+### Structured Logging
+
+All scraper operations are logged to both console (with colors) and a JSONL file for debugging:
+
+```bash
+# Enable verbose console output
+python -m scrape.cli --verbose
+
+# Logs are saved to scrape/logs/scraper_YYYYMMDD.jsonl
+```
+
+Log entries include:
+- Timestamp, log level, message
+- Category, URL, product details
+- Error tracebacks for debugging
+- Request timing and retry information
+
+### URL Validation
+
+All URLs are validated before requests to prevent:
+- SSRF (Server-Side Request Forgery) attacks
+- Requests to non-HTTPS URLs
+- Requests outside the allowed domain (bike-components.de)
 
 ## Design Philosophy
 
@@ -390,6 +518,12 @@ DB_PATH = "data/products.db"
 - ✅ Discover-scrape workflow for bulk operations
 - ✅ Incremental scraping (skip existing products)
 - ✅ CSV export with flattened fields
+- ✅ Overnight mode for slow unattended scraping
+- ✅ Automatic retries with exponential backoff
+- ✅ Session reuse for efficient connections
+- ✅ Graceful shutdown (Ctrl+C saves progress)
+- ✅ Structured JSONL logging
+- ✅ URL validation for security
 
 ## Future Enhancements
 
