@@ -148,15 +148,6 @@ def fetch_html(
             
         except requests.exceptions.HTTPError as e:
             last_exception = e
-            if e.response is not None and e.response.status_code in RETRY_STATUS_CODES:
-                if attempt < MAX_RETRIES:
-                    backoff = RETRY_BACKOFF_BASE ** attempt + random.uniform(0, 1)
-                    logger.warning(
-                        f"HTTP {e.response.status_code}, backing off {backoff:.1f}s "
-                        f"(attempt {attempt + 1}/{MAX_RETRIES})"
-                    )
-                    time.sleep(backoff)
-                    continue
             # Non-retryable HTTP error
             logger.error(f"HTTP error fetching {url}: {e}")
             raise ValueError(
