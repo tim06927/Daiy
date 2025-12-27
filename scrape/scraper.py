@@ -139,13 +139,10 @@ def fetch_html(
                     time.sleep(backoff)
                     continue
                 else:
-                    # Exhausted retries, raise the error
-                    raise requests.exceptions.HTTPError(
-                        f"Received {resp.status_code} after {MAX_RETRIES} retries",
-                        response=resp
-                    )
+                    # Exhausted retries, let raise_for_status handle it
+                    pass
             
-            # For non-retryable status codes, raise immediately
+            # For non-retryable status codes or exhausted retries, raise immediately
             resp.raise_for_status()
             
             # Success - apply polite delay before returning
