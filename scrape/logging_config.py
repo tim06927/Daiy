@@ -87,11 +87,13 @@ class ColoredConsoleHandler(logging.StreamHandler):
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
+            # Work on a copy to avoid mutating the shared LogRecord
+            local_record = logging.makeLogRecord(record.__dict__)
             # Only colorize if output is a terminal
             if hasattr(self.stream, "isatty") and self.stream.isatty():
-                color = self.COLORS.get(record.levelname, "")
-                record.levelname = f"{color}{record.levelname}{self.RESET}"
-            super().emit(record)
+                color = self.COLORS.get(local_record.levelname, "")
+                local_record.levelname = f"{color}{local_record.levelname}{self.RESET}"
+            super().emit(local_record)
         except Exception:
             self.handleError(record)
 
