@@ -271,11 +271,27 @@ def main() -> None:
     shutdown_handler.install()
     
     # Register cleanup for session
-    def cleanup_session():
-        from scrape.scraper import _session
-        if _session is not None:
-            _session.close()
-            logger.debug("Closed HTTP session")
+    def cleanup_session() -> None:
+        """
+        Attempt to close the shared HTTP session used by the scraper, if any.
+        
+        This function avoids relying on a direct import of a private module
+        attribute and is safe to call even if no scraping has occurred.
+        """
+        try:
+            import scrape.scraper as scraper  # type: ignore[import]
+        except ImportError:
+            logger.debug("scrape.scraper module not available; no session to close")
+            return
+
+        session = getattr(scraper, "_session", None)
+        if session is not None:
+            try:
+                session.close()
+            except Exception:
+                logger.exception("Error while closing HTTP session")
+            else:
+                logger.debug("Closed HTTP session")
     
     shutdown_handler.register_cleanup(cleanup_session)
     
