@@ -4,7 +4,7 @@ A modular Python scraper for extracting product information from [bike-component
 
 ## Overview
 
-This scraper extracts product details from bike component categories including cassettes, chains, drivetrain tools, and mountain bike gloves. It's designed with a pragmatic, modular architecture that separates concerns for maintainability and testability.
+This scraper extracts product details from any bike component category on the site. It's designed with a pragmatic, modular architecture that separates concerns for maintainability and testability.
 
 ## Features
 
@@ -140,7 +140,7 @@ make scrape            # Run incremental scrape (configured categories)
 make scrape-full       # Full refresh (ignore existing data)
 make refresh-data      # Scrape + export CSV + show git diff
 make export            # Export database to CSV
-make scrape-drivetrain MAX_PAGES=3  # Scrape drivetrain subcategories
+make pipeline SUPER=components/drivetrain MAX_PAGES=5  # Full pipeline for a category
 make discover-fields CAT=cassettes  # Discover fields for a category
 ```
 

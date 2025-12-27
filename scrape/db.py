@@ -128,7 +128,7 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
             )
         """)
 
-        # Tool-specific specs (for drivetrain_tools, shifters_derailleurs)
+        # Tool-specific specs (shared by tool categories)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS tool_specs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
