@@ -1,12 +1,13 @@
 """HTML parsing and extraction utilities."""
 
+import json
 import re
-from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import urljoin, urlparse, parse_qs
+from typing import Dict, List, Optional, Tuple
+from urllib.parse import parse_qs, urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
-from scrape.config import BASE_URL, CATEGORY_SPECS, get_spec_config
+from scrape.config import get_spec_config
 
 __all__ = [
     "extract_sku",
@@ -68,12 +69,12 @@ def extract_description_and_specs(soup: BeautifulSoup) -> Tuple[Optional[str], D
         'div.description',
         '[data-overlay="product-description"]',
     ]
-    
+
     for selector in selectors:
         desc_container = soup.select_one(selector)
         if desc_container:
             break
-    
+
     if not desc_container:
         return None, {}
 
@@ -91,7 +92,7 @@ def extract_description_and_specs(soup: BeautifulSoup) -> Tuple[Optional[str], D
                 description_parts.append(text)
         elif isinstance(element, str) and element.strip():
             description_parts.append(element.strip())
-    
+
     # If no structured parts found, fall back to full text
     if description_parts:
         description_text = " ".join(description_parts)
@@ -126,13 +127,13 @@ def extract_primary_image_url(soup: BeautifulSoup) -> Optional[str]:
     og_image = soup.find("meta", property="og:image")
     if og_image and og_image.get("content"):
         return og_image["content"]
-    
+
     # Method 2: Look for product gallery/main image
     # bike-components uses fancybox for gallery
     gallery_img = soup.select_one('a.js-fancybox-productimage[data-src]')
     if gallery_img and gallery_img.get("data-src"):
         return gallery_img["data-src"]
-    
+
     # Method 3: Look for main product image in gallery area
     gallery_selectors = [
         'div.area-gallery img.site-image',
@@ -146,12 +147,11 @@ def extract_primary_image_url(soup: BeautifulSoup) -> Optional[str]:
             src = img.get("src") or img.get("data-src")
             if src and "assets/p/" in src:  # Product image path pattern
                 return src
-    
+
     # Method 4: Look in JSON-LD structured data
     script = soup.find("script", type="application/ld+json")
     if script:
         try:
-            import json
             data = json.loads(script.string)
             items = data if isinstance(data, list) else [data]
             for item in items:
@@ -166,8 +166,10 @@ def extract_primary_image_url(soup: BeautifulSoup) -> Optional[str]:
                     elif isinstance(images, dict):
                         return images.get("url")
         except (json.JSONDecodeError, TypeError, KeyError):
+            # JSON-LD is optional and frequently malformed; ignore parsing issues
+            # and fall back to other image-detection heuristics.
             pass
-    
+
     return None
 
 
@@ -188,7 +190,7 @@ def extract_next_page_url(soup: BeautifulSoup, current_url: str) -> Optional[str
     next_link = soup.find("link", rel="next")
     if next_link and next_link.get("href"):
         return next_link["href"]
-    
+
     # Method 2: Look for pagination navigation
     # Common patterns: <a href="?page=2">, <a class="next">, etc.
     pagination = soup.select_one('nav.pagination, div.pagination, ul.pagination')
@@ -197,13 +199,13 @@ def extract_next_page_url(soup: BeautifulSoup, current_url: str) -> Optional[str
         next_btn = pagination.select_one('a[rel="next"], a.next, a:contains("Next")')
         if next_btn and next_btn.get("href"):
             return urljoin(current_url, next_btn["href"])
-        
+
         # Look for numbered pages and find current + 1
         current_page = extract_current_page(current_url)
         next_page_link = pagination.select_one(f'a[href*="page={current_page + 1}"]')
         if next_page_link:
             return urljoin(current_url, next_page_link["href"])
-    
+
     return None
 
 
@@ -227,7 +229,7 @@ def extract_total_pages(soup: BeautifulSoup) -> Optional[int]:
     pagination = soup.select_one('nav.pagination, div.pagination, ul.pagination')
     if not pagination:
         return None
-    
+
     # Find all page links and get the highest number
     page_links = pagination.select('a[href*="page="]')
     max_page = 1
@@ -237,13 +239,13 @@ def extract_total_pages(soup: BeautifulSoup) -> Optional[int]:
         if match:
             page_num = int(match.group(1))
             max_page = max(max_page, page_num)
-    
+
     # Also check for text like "Page 1 of 5" or "1/5"
     pagination_text = pagination.get_text()
     of_match = re.search(r'of\s+(\d+)', pagination_text, re.IGNORECASE)
     if of_match:
         return int(of_match.group(1))
-    
+
     return max_page if max_page > 1 else None
 
 
@@ -274,17 +276,17 @@ def map_category_specs(category: str, specs: Dict[str, str]) -> Dict[str, Option
     """
     if not specs:
         return {}
-    
+
     spec_config = get_spec_config(category)
     if not spec_config:
         return {}
-    
+
     field_mappings = spec_config.get("field_mappings", {})
     result: Dict[str, Optional[str]] = {}
-    
+
     for db_column, html_labels in field_mappings.items():
         result[db_column] = pick_spec(specs, html_labels)
-    
+
     return result
 
 

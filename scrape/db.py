@@ -24,6 +24,25 @@ __all__ = [
 DEFAULT_DB_PATH = "data/products.db"
 
 
+def _get_valid_spec_tables() -> frozenset:
+    """Generate whitelist of valid spec tables from CATEGORY_SPECS registry.
+
+    This provides SQL injection prevention by validating table names against
+    the known spec tables defined in the configuration.
+    """
+    from scrape.config import CATEGORY_SPECS
+
+    tables = set()
+    for spec_config in CATEGORY_SPECS.values():
+        if "spec_table" in spec_config:
+            tables.add(spec_config["spec_table"])
+    return frozenset(tables)
+
+
+# Whitelist of valid spec tables for SQL injection prevention
+VALID_SPEC_TABLES = _get_valid_spec_tables()
+
+
 @contextmanager
 def get_connection(db_path: str = DEFAULT_DB_PATH) -> Generator[sqlite3.Connection, None, None]:
     """Context manager for database connections."""
@@ -218,6 +237,10 @@ def upsert_category_specs(
     if not specs:
         return
 
+    # Validate table name against whitelist to prevent SQL injection
+    if table_name not in VALID_SPEC_TABLES:
+        raise ValueError(f"Invalid table name: {table_name}. Must be one of {VALID_SPEC_TABLES}")
+
     with get_connection(db_path) as conn:
         cursor = conn.cursor()
 
@@ -315,6 +338,10 @@ def get_all_products(
                 # Get category-specific specs
                 spec_table = get_spec_table_for_category(product["category"])
                 if spec_table:
+                    # Validate table name against whitelist to prevent SQL injection
+                    if spec_table not in VALID_SPEC_TABLES:
+                        raise ValueError(f"Invalid table name: {spec_table}. Must be one of {VALID_SPEC_TABLES}")
+
                     cursor.execute(
                         f"SELECT * FROM {spec_table} WHERE product_id = ?",
                         (product["id"],)
@@ -337,7 +364,7 @@ def get_spec_table_for_category(category: str) -> Optional[str]:
     Uses CATEGORY_SPECS registry from config.py as single source of truth.
     """
     from scrape.config import get_spec_config
-    
+
     spec_config = get_spec_config(category)
     return spec_config.get("spec_table") if spec_config else None
 

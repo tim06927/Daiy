@@ -26,7 +26,7 @@ class Product:
     sku: Optional[str] = None
     breadcrumbs: Optional[str] = None
     description: Optional[str] = None
-    
+
     # Raw specs dict from HTML (stored as JSON in products table)
     specs: Optional[Dict[str, str]] = None
 

@@ -10,10 +10,10 @@ from scrape.config import (
     DB_PATH,
     get_spec_config,
 )
+from scrape.csv_utils import export_db_to_csv
+from scrape.db import get_existing_urls, get_product_count, init_db
 from scrape.models import Product
 from scrape.scraper import scrape_category
-from scrape.db import init_db, get_existing_urls, get_product_count
-from scrape.csv_utils import export_db_to_csv
 from scrape.workflows import discover_and_scrape_workflow
 
 __all__ = [

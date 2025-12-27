@@ -1,10 +1,9 @@
 """Command-line interface for the scraper."""
 
 import argparse
-import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set
 
 # Add parent directory to path to allow imports when run as script
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -24,7 +23,7 @@ from scrape.csv_utils import (
     load_existing_products,
     save_products_to_csv,
 )
-from scrape.db import get_connection, get_existing_urls, get_product_count, init_db
+from scrape.db import get_existing_urls, get_product_count, init_db
 from scrape.models import Product
 from scrape.scraper import scrape_category
 from scrape.workflows import discover_and_scrape_workflow
@@ -49,7 +48,7 @@ def scrape_all(
         categories: Optional list of categories to scrape (default: all)
     """
     all_products: List[Product] = []
-    
+
     # Filter categories if specified
     urls_to_scrape = CATEGORY_URLS
     if categories:
@@ -57,7 +56,7 @@ def scrape_all(
         if not urls_to_scrape:
             print(f"Warning: No valid categories found. Available: {list(CATEGORY_URLS.keys())}")
             return []
-    
+
     for category_key, url in urls_to_scrape.items():
         products = scrape_category(
             category_key,
@@ -103,7 +102,7 @@ Examples:
   python -m scrape.cli --discover-scrape accessories/lighting --max-pages 5
         """,
     )
-    
+
     # Scraping mode
     parser.add_argument(
         "--mode",
@@ -111,7 +110,7 @@ Examples:
         default="incremental",
         help="incremental: skip URLs already scraped (default); full: rescrape everything",
     )
-    
+
     # Pagination
     parser.add_argument(
         "--max-pages",
@@ -119,7 +118,7 @@ Examples:
         default=DEFAULT_MAX_PAGES,
         help=f"Maximum pages to scrape per category (default: {DEFAULT_MAX_PAGES}, max: {MAX_PAGES_PER_CATEGORY})",
     )
-    
+
     # Category selection
     parser.add_argument(
         "--categories",
@@ -127,7 +126,7 @@ Examples:
         choices=list(CATEGORY_URLS.keys()),
         help=f"Categories to scrape (default: all). Choices: {list(CATEGORY_URLS.keys())}",
     )
-    
+
     # Database options
     parser.add_argument(
         "--db",
@@ -139,14 +138,14 @@ Examples:
         action="store_true",
         help="Don't save to database (legacy CSV-only mode)",
     )
-    
+
     # CSV output
     parser.add_argument(
         "--output",
         default=OUTPUT_PATH,
         help=f"Output CSV path for legacy mode (default: {OUTPUT_PATH})",
     )
-    
+
     # Export options
     parser.add_argument(
         "--export-csv",
@@ -159,7 +158,7 @@ Examples:
         choices=list(CATEGORY_URLS.keys()),
         help="Export only this category (use with --export-csv)",
     )
-    
+
     # Info commands
     parser.add_argument(
         "--stats",
@@ -171,7 +170,7 @@ Examples:
         action="store_true",
         help="List available categories and exit",
     )
-    
+
     # Discover and scrape workflow
     parser.add_argument(
         "--discover-scrape",
@@ -195,28 +194,28 @@ Examples:
         action="store_true",
         help="Show what would be scraped without actually scraping",
     )
-    
+
     return parser.parse_args()
 
 
 def show_stats(db_path: str) -> None:
     """Display database statistics."""
     from scrape.db import get_connection, get_product_count
-    
+
     init_db(db_path)
-    
+
     print(f"\n{'='*50}")
     print(f"Database: {db_path}")
     print(f"{'='*50}")
-    
+
     total = get_product_count(db_path)
     print(f"\nTotal products: {total}")
-    
+
     print("\nProducts by category:")
     for category in CATEGORY_URLS.keys():
         count = get_product_count(db_path, category=category)
         print(f"  {category}: {count}")
-    
+
     # Show scrape state
     print("\nScrape state:")
     with get_connection(db_path) as conn:
@@ -230,25 +229,25 @@ def show_stats(db_path: str) -> None:
                       f" - last scraped: {row['last_scraped_at'] or 'never'}")
         else:
             print("  No scraping history yet")
-    
+
     print()
 
 
 def main() -> None:
     """Main entry point for CLI."""
     args = parse_args()
-    
+
     # Handle info commands
     if args.list_categories:
         print("Available categories:")
         for key, url in CATEGORY_URLS.items():
             print(f"  {key}: {url}")
         return
-    
+
     if args.stats:
         show_stats(args.db)
         return
-    
+
     # Handle export commands
     if args.export_csv:
         init_db(args.db)
@@ -257,7 +256,7 @@ def main() -> None:
         else:
             export_db_to_csv(args.db, args.export_csv)
         return
-    
+
     # Handle discover-and-scrape workflow
     if args.discover_scrape:
         discover_and_scrape_workflow(
@@ -270,12 +269,12 @@ def main() -> None:
             dry_run=args.dry_run,
         )
         return
-    
+
     # Main scraping flow (original behavior)
     force_refresh = args.mode == "full"
     use_db = not args.no_db
     max_pages = min(args.max_pages, MAX_PAGES_PER_CATEGORY)
-    
+
     existing_rows: List[Dict[str, str]] = []
     existing_fieldnames: List[str] = []
     existing_urls: Set[str] = set()
@@ -311,7 +310,7 @@ def main() -> None:
     else:
         print(f"\nProducts saved to database: {args.db}")
         print(f"Total products in database: {get_product_count(args.db)}")
-        print(f"\nTo export to CSV, run:")
+        print("\nTo export to CSV, run:")
         print(f"  python -m scrape.cli --export-csv {args.output}")
 
 
