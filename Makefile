@@ -2,6 +2,7 @@
 # Run `make help` to see available targets
 
 .PHONY: help install run scrape scrape-full export refresh-data discover-categories discover-fields clean
+.PHONY: pipeline pipeline-full pipeline-overnight
 
 # Default target
 help:
@@ -19,8 +20,15 @@ help:
 	@echo "Scraping:"
 	@echo "  scrape           Run incremental scrape (configured categories)"
 	@echo "  scrape-full      Run full scrape (ignore existing data)"
-	@echo "  scrape-drivetrain  Scrape all drivetrain subcategories"
-	@echo "  scrape-accessories Scrape all accessories subcategories"
+	@echo ""
+	@echo "Full Pipelines (discover + scrape + export):"
+	@echo "  pipeline SUPER=<path>           Incremental pipeline for a super-category"
+	@echo "  pipeline-full SUPER=<path>      Full pipeline for a super-category"
+	@echo "  pipeline-overnight SUPER=<path> Overnight mode with longer delays (10-30s)"
+	@echo ""
+	@echo "Options (can be combined with any pipeline):"
+	@echo "  MAX_PAGES=N                     Max pages per category (default: 5)"
+	@echo "  OVERNIGHT=1                     Enable overnight mode (longer delays)"
 	@echo ""
 	@echo "Data Management:"
 	@echo "  export           Export database to CSV"
@@ -36,7 +44,13 @@ help:
 	@echo "Examples:"
 	@echo "  make refresh-data"
 	@echo "  make discover-fields CAT=cassettes"
-	@echo "  make scrape-drivetrain MAX_PAGES=3"
+	@echo "  make pipeline SUPER=components/drivetrain MAX_PAGES=5"
+	@echo "  make pipeline SUPER=accessories MAX_PAGES=10 OVERNIGHT=1"
+	@echo ""
+	@echo "Background/Overnight Pipelines (recommended for large scrapes):"
+	@echo "  mkdir -p logs"
+	@echo "  nohup make pipeline-overnight SUPER=components MAX_PAGES=100 > logs/pipeline.log 2>&1 &"
+	@echo "  make pipeline-full SUPER=accessories MAX_PAGES=50 OVERNIGHT=1 2>&1 | tee logs/overnight.log"
 
 # =============================================================================
 # Setup
@@ -73,11 +87,79 @@ scrape:
 scrape-full:
 	python -m scrape.cli --mode full --max-pages $(MAX_PAGES)
 
-scrape-drivetrain:
-	python -m scrape.cli --discover-scrape components/drivetrain --max-pages $(MAX_PAGES) --skip-field-discovery
+# =============================================================================
+# Full Pipelines (discover + scrape + export) - ideal for overnight runs
+# =============================================================================
 
-scrape-accessories:
-	python -m scrape.cli --discover-scrape accessories --max-pages $(MAX_PAGES) --skip-field-discovery
+# Super-category path (e.g., components/drivetrain, accessories, apparel)
+# No default - must be specified explicitly
+SUPER ?=
+
+# Overnight mode flag (set OVERNIGHT=1 to enable longer delays)
+OVERNIGHT ?=
+OVERNIGHT_FLAG := $(if $(OVERNIGHT),--overnight,)
+
+# Generic incremental pipeline
+pipeline:
+	@if [ -z "$(SUPER)" ]; then \
+		echo "Error: SUPER parameter required"; \
+		echo "Usage: make pipeline SUPER=<category-path>"; \
+		echo "Examples:"; \
+		echo "  make pipeline SUPER=components/drivetrain"; \
+		echo "  make pipeline SUPER=accessories"; \
+		echo "  make pipeline SUPER=apparel"; \
+		exit 1; \
+	fi
+	@echo "=== Starting Incremental Pipeline for $(SUPER) ==="
+	@if [ -n "$(OVERNIGHT)" ]; then echo "Mode: OVERNIGHT (10-30s delays between requests)"; fi
+	@echo "Started at: $$(date)"
+	@echo ""
+	@echo "Step 1/3: Discovering categories..."
+	python -m scrape.discover_categories --output data/discovered_categories.json
+	@echo ""
+	@echo "Step 2/3: Scraping (incremental mode)..."
+	python -m scrape.cli --discover-scrape $(SUPER) --max-pages $(MAX_PAGES) --skip-field-discovery $(OVERNIGHT_FLAG)
+	@echo ""
+	@echo "Step 3/3: Exporting to CSV..."
+	python -c "from scrape.csv_utils import export_db_to_csv; export_db_to_csv('$(DB_PATH)', '$(CSV_PATH)')"
+	@echo ""
+	@echo "=== Pipeline Complete ==="
+	@echo "Finished at: $$(date)"
+	@echo "Database: $(DB_PATH)"
+	@echo "CSV: $(CSV_PATH)"
+
+# Generic full pipeline (re-scrape everything)
+pipeline-full:
+	@if [ -z "$(SUPER)" ]; then \
+		echo "Error: SUPER parameter required"; \
+		echo "Usage: make pipeline-full SUPER=<category-path>"; \
+		echo "Examples:"; \
+		echo "  make pipeline-full SUPER=components/drivetrain"; \
+		echo "  make pipeline-full SUPER=accessories"; \
+		echo "  make pipeline-full SUPER=apparel"; \
+		exit 1; \
+	fi
+	@echo "=== Starting Full Pipeline for $(SUPER) ==="
+	@if [ -n "$(OVERNIGHT)" ]; then echo "Mode: OVERNIGHT (10-30s delays between requests)"; fi
+	@echo "Started at: $$(date)"
+	@echo ""
+	@echo "Step 1/3: Discovering categories..."
+	python -m scrape.discover_categories --output data/discovered_categories.json
+	@echo ""
+	@echo "Step 2/3: Scraping (full mode - ignoring existing data)..."
+	python -m scrape.cli --discover-scrape $(SUPER) --max-pages $(MAX_PAGES) --skip-field-discovery --mode full $(OVERNIGHT_FLAG)
+	@echo ""
+	@echo "Step 3/3: Exporting to CSV..."
+	python -c "from scrape.csv_utils import export_db_to_csv; export_db_to_csv('$(DB_PATH)', '$(CSV_PATH)')"
+	@echo ""
+	@echo "=== Pipeline Complete ==="
+	@echo "Finished at: $$(date)"
+	@echo "Database: $(DB_PATH)"
+	@echo "CSV: $(CSV_PATH)"
+
+# Overnight pipeline - convenience shortcut for pipeline with overnight mode
+pipeline-overnight:
+	$(MAKE) pipeline SUPER=$(SUPER) MAX_PAGES=$(MAX_PAGES) OVERNIGHT=1
 
 # =============================================================================
 # Data Management

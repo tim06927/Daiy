@@ -9,6 +9,12 @@ __all__ = [
     "REQUEST_TIMEOUT",
     "DELAY_MIN",
     "DELAY_MAX",
+    "DELAY_OVERNIGHT_MIN",
+    "DELAY_OVERNIGHT_MAX",
+    "MAX_RETRIES",
+    "RETRY_BACKOFF_BASE",
+    "MAX_RETRY_BACKOFF",
+    "RETRY_STATUS_CODES",
     "MAX_PAGES_PER_CATEGORY",
     "DEFAULT_MAX_PAGES",
     "OUTPUT_PATH",
@@ -39,6 +45,17 @@ REQUEST_TIMEOUT = 15
 # Delay between requests (in seconds)
 DELAY_MIN = 1.0
 DELAY_MAX = 3.0
+
+# Overnight mode delays - much slower to minimize server load
+# Suitable for unattended overnight runs
+DELAY_OVERNIGHT_MIN = 10.0
+DELAY_OVERNIGHT_MAX = 30.0
+
+# Retry settings with exponential backoff
+MAX_RETRIES = 5  # Maximum retry attempts
+RETRY_BACKOFF_BASE = 2.0  # Base for exponential backoff (2^attempt seconds)
+MAX_RETRY_BACKOFF = 60.0  # Maximum backoff time in seconds
+RETRY_STATUS_CODES = {429, 500, 502, 503, 504}  # Status codes to retry on
 
 # Pagination settings
 MAX_PAGES_PER_CATEGORY = 50  # Safety limit to avoid runaway scraping

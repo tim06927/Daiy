@@ -1,6 +1,7 @@
 """Command-line interface for the scraper."""
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Set
@@ -24,9 +25,14 @@ from scrape.csv_utils import (
     save_products_to_csv,
 )
 from scrape.db import get_existing_urls, get_product_count, init_db
+from scrape.logging_config import get_logger, setup_logging
 from scrape.models import Product
 from scrape.scraper import scrape_category
+from scrape.shutdown import get_shutdown_handler, shutdown_requested
 from scrape.workflows import discover_and_scrape_workflow
+
+# Module logger
+logger = get_logger("cli")
 
 
 def scrape_all(
@@ -36,6 +42,7 @@ def scrape_all(
     use_db: bool = True,
     db_path: str = DB_PATH,
     categories: Optional[List[str]] = None,
+    overnight: bool = False,
 ) -> List[Product]:
     """Scrape all configured categories and return new products.
     
@@ -46,6 +53,7 @@ def scrape_all(
         use_db: Whether to save to SQLite
         db_path: Path to SQLite database
         categories: Optional list of categories to scrape (default: all)
+        overnight: If True, use longer delays between requests
     """
     all_products: List[Product] = []
 
@@ -54,10 +62,15 @@ def scrape_all(
     if categories:
         urls_to_scrape = {k: v for k, v in CATEGORY_URLS.items() if k in categories}
         if not urls_to_scrape:
-            print(f"Warning: No valid categories found. Available: {list(CATEGORY_URLS.keys())}")
+            logger.warning(f"No valid categories found. Available: {list(CATEGORY_URLS.keys())}")
             return []
 
     for category_key, url in urls_to_scrape.items():
+        # Check for shutdown between categories
+        if shutdown_requested():
+            logger.info("Shutdown requested, stopping scrape_all")
+            break
+        
         products = scrape_category(
             category_key,
             url,
@@ -66,6 +79,7 @@ def scrape_all(
             max_pages=max_pages,
             use_db=use_db,
             db_path=db_path,
+            overnight=overnight,
         )
         # Update the shared set so later categories also skip duplicates
         for p in products:
@@ -194,6 +208,17 @@ Examples:
         action="store_true",
         help="Show what would be scraped without actually scraping",
     )
+    parser.add_argument(
+        "--overnight",
+        action="store_true",
+        help="Use longer delays between requests (10-30s) to minimize server load. "
+             "Ideal for unattended overnight runs.",
+    )
+    parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose/debug logging output",
+    )
 
     return parser.parse_args()
 
@@ -236,82 +261,128 @@ def show_stats(db_path: str) -> None:
 def main() -> None:
     """Main entry point for CLI."""
     args = parse_args()
+    
+    # Set up logging
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    setup_logging(level=log_level)
+    
+    # Install graceful shutdown handler
+    shutdown_handler = get_shutdown_handler()
+    shutdown_handler.install()
+    
+    # Register cleanup for session
+    def cleanup_session() -> None:
+        """
+        Attempt to close the shared HTTP session used by the scraper, if any.
+        
+        This function avoids relying on a direct import of a private module
+        attribute and is safe to call even if no scraping has occurred.
+        """
+        try:
+            import scrape.scraper as scraper  # type: ignore[import]
+        except ImportError:
+            logger.debug("scrape.scraper module not available; no session to close")
+            return
 
-    # Handle info commands
-    if args.list_categories:
-        print("Available categories:")
-        for key, url in CATEGORY_URLS.items():
-            print(f"  {key}: {url}")
-        return
+        session = getattr(scraper, "_session", None)
+        if session is not None:
+            try:
+                session.close()
+            except Exception:
+                logger.exception("Error while closing HTTP session")
+            else:
+                logger.debug("Closed HTTP session")
+    
+    shutdown_handler.register_cleanup(cleanup_session)
+    
+    logger.info("Scraper started")
 
-    if args.stats:
-        show_stats(args.db)
-        return
+    try:
+        # Handle info commands
+        if args.list_categories:
+            print("Available categories:")
+            for key, url in CATEGORY_URLS.items():
+                print(f"  {key}: {url}")
+            return
 
-    # Handle export commands
-    if args.export_csv:
-        init_db(args.db)
-        if args.export_category:
-            export_category_to_csv(args.db, args.export_category, args.export_csv)
-        else:
-            export_db_to_csv(args.db, args.export_csv)
-        return
+        if args.stats:
+            show_stats(args.db)
+            return
 
-    # Handle discover-and-scrape workflow
-    if args.discover_scrape:
-        discover_and_scrape_workflow(
-            parent_path=args.discover_scrape,
-            db_path=args.db,
-            max_pages=min(args.max_pages, MAX_PAGES_PER_CATEGORY),
-            force_refresh=(args.mode == "full"),
-            skip_field_discovery=args.skip_field_discovery,
-            field_sample_size=args.field_sample_size,
-            dry_run=args.dry_run,
-        )
-        return
-
-    # Main scraping flow (original behavior)
-    force_refresh = args.mode == "full"
-    use_db = not args.no_db
-    max_pages = min(args.max_pages, MAX_PAGES_PER_CATEGORY)
-
-    existing_rows: List[Dict[str, str]] = []
-    existing_fieldnames: List[str] = []
-    existing_urls: Set[str] = set()
-
-    if not force_refresh:
-        if use_db:
-            # Get existing URLs from database
+        # Handle export commands
+        if args.export_csv:
             init_db(args.db)
-            existing_urls = get_existing_urls(args.db)
-            print(f"Found {len(existing_urls)} existing products in database")
-        else:
-            # Legacy: get from CSV
-            existing_rows, existing_fieldnames = load_existing_products(args.output)
-            existing_urls = {row["url"] for row in existing_rows if "url" in row and row["url"]}
+            if args.export_category:
+                export_category_to_csv(args.db, args.export_category, args.export_csv)
+            else:
+                export_db_to_csv(args.db, args.export_csv)
+            return
 
-    new_products = scrape_all(
-        existing_urls,
-        force_refresh,
-        max_pages=max_pages,
-        use_db=use_db,
-        db_path=args.db,
-        categories=args.categories,
-    )
+        # Handle discover-and-scrape workflow
+        if args.discover_scrape:
+            discover_and_scrape_workflow(
+                parent_path=args.discover_scrape,
+                db_path=args.db,
+                max_pages=min(args.max_pages, MAX_PAGES_PER_CATEGORY),
+                force_refresh=(args.mode == "full"),
+                skip_field_discovery=args.skip_field_discovery,
+                field_sample_size=args.field_sample_size,
+                dry_run=args.dry_run,
+                overnight=args.overnight,
+            )
+            return
 
-    # Save to CSV if using legacy mode or explicitly requested
-    if not use_db:
-        save_products_to_csv(
-            new_products,
-            args.output,
-            existing_rows=None if force_refresh else existing_rows,
-            fieldnames=existing_fieldnames,
+        # Main scraping flow (original behavior)
+        force_refresh = args.mode == "full"
+        use_db = not args.no_db
+        max_pages = min(args.max_pages, MAX_PAGES_PER_CATEGORY)
+
+        existing_rows: List[Dict[str, str]] = []
+        existing_fieldnames: List[str] = []
+        existing_urls: Set[str] = set()
+
+        if not force_refresh:
+            if use_db:
+                # Get existing URLs from database
+                init_db(args.db)
+                existing_urls = get_existing_urls(args.db)
+                logger.info(f"Found {len(existing_urls)} existing products in database")
+            else:
+                # Legacy: get from CSV
+                existing_rows, existing_fieldnames = load_existing_products(args.output)
+                existing_urls = {row["url"] for row in existing_rows if "url" in row and row["url"]}
+
+        new_products = scrape_all(
+            existing_urls,
+            force_refresh,
+            max_pages=max_pages,
+            use_db=use_db,
+            db_path=args.db,
+            categories=args.categories,
+            overnight=args.overnight,
         )
-    else:
-        print(f"\nProducts saved to database: {args.db}")
-        print(f"Total products in database: {get_product_count(args.db)}")
-        print("\nTo export to CSV, run:")
-        print(f"  python -m scrape.cli --export-csv {args.output}")
+
+        # Save to CSV if using legacy mode or explicitly requested
+        if not use_db:
+            save_products_to_csv(
+                new_products,
+                args.output,
+                existing_rows=None if force_refresh else existing_rows,
+                fieldnames=existing_fieldnames,
+            )
+        else:
+            logger.info(f"Products saved to database: {args.db}")
+            logger.info(f"Total products in database: {get_product_count(args.db)}")
+            print(f"\nTo export to CSV, run:")
+            print(f"  python -m scrape.cli --export-csv {args.output}")
+    
+    except KeyboardInterrupt:
+        logger.info("Scraper interrupted by user")
+    finally:
+        # Run cleanup
+        shutdown_handler.cleanup()
+        shutdown_handler.uninstall()
+        logger.info("Scraper finished")
 
 
 if __name__ == "__main__":

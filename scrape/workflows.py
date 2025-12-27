@@ -101,6 +101,7 @@ def scrape_dynamic_category(
     max_pages: int,
     force_refresh: bool,
     existing_urls: Set[str],
+    overnight: bool = False,
 ) -> List[Product]:
     """Scrape a dynamically discovered category."""
     print(f"\n{'='*60}")
@@ -116,6 +117,7 @@ def scrape_dynamic_category(
         max_pages=max_pages,
         use_db=True,
         db_path=db_path,
+        overnight=overnight,
     )
 
     return products
@@ -129,6 +131,7 @@ def discover_and_scrape_workflow(
     skip_field_discovery: bool = False,
     field_sample_size: int = 15,
     dry_run: bool = False,
+    overnight: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """Main workflow: discover subcategories, run field discovery, then scrape.
     
@@ -140,6 +143,7 @@ def discover_and_scrape_workflow(
         skip_field_discovery: Skip field discovery step
         field_sample_size: Sample size for field discovery
         dry_run: Show plan without executing
+        overnight: Use longer delays between requests
         
     Returns:
         Summary dict with results, or None if dry_run
@@ -210,6 +214,7 @@ def discover_and_scrape_workflow(
                 max_pages=max_pages,
                 force_refresh=force_refresh,
                 existing_urls=existing_urls,
+                overnight=overnight,
             )
 
             # Update existing URLs for next category

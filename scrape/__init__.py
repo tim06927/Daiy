@@ -12,8 +12,11 @@ from scrape.config import (
 )
 from scrape.csv_utils import export_db_to_csv
 from scrape.db import get_existing_urls, get_product_count, init_db
+from scrape.logging_config import get_logger, setup_logging
 from scrape.models import Product
 from scrape.scraper import scrape_category
+from scrape.shutdown import get_shutdown_handler, shutdown_requested
+from scrape.url_validation import URLValidationError, validate_url
 from scrape.workflows import discover_and_scrape_workflow
 
 __all__ = [
@@ -34,4 +37,13 @@ __all__ = [
     "get_product_count",
     "export_db_to_csv",
     "discover_and_scrape_workflow",
+    # Logging
+    "setup_logging",
+    "get_logger",
+    # Shutdown
+    "get_shutdown_handler",
+    "shutdown_requested",
+    # URL validation
+    "validate_url",
+    "URLValidationError",
 ]
