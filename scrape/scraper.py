@@ -23,10 +23,8 @@ from scrape.config import (
     DELAY_MIN,
     HEADERS,
     REQUEST_TIMEOUT,
-    get_spec_config,
 )
 from scrape.db import (
-    get_existing_urls,
     get_spec_table_for_category,
     init_db,
     update_scrape_state,
@@ -35,7 +33,6 @@ from scrape.db import (
 )
 from scrape.html_utils import (
     extract_breadcrumbs,
-    extract_current_page,
     extract_description_and_specs,
     extract_next_page_url,
     extract_primary_image_url,
@@ -174,34 +171,34 @@ def scrape_category(
         List of Product objects scraped
     """
     print(f"Scraping category {category_key}: {url}")
-    
+
     if use_db:
         init_db(db_path)
-    
+
     products: List[Product] = []
     seen_urls = existing_urls if existing_urls is not None else set()
-    
+
     current_url = url
     page_num = 0
     total_pages: Optional[int] = None
-    
+
     while current_url and page_num < max_pages:
         page_num += 1
         print(f"  Page {page_num}" + (f"/{total_pages}" if total_pages else "") + f": {current_url}")
-        
+
         html = fetch_html(current_url)
         soup = BeautifulSoup(html, "html.parser")
-        
+
         # Extract pagination info on first page
         if page_num == 1:
             total_pages = extract_total_pages(soup)
             if total_pages:
                 print(f"  Found {total_pages} total pages")
-        
+
         # Extract product links from this page
         product_links = extract_product_links(html)
         print(f"    Found {len(product_links)} product links on page {page_num}")
-        
+
         # Scrape each product
         for i, product_url in enumerate(product_links, start=1):
             if not force_refresh and product_url in seen_urls:
@@ -214,29 +211,28 @@ def scrape_category(
                 product = parse_product_page(category_key, product_html, product_url)
                 products.append(product)
                 seen_urls.add(product_url)
-                
+
                 # Save to database immediately
                 if use_db:
                     save_product_to_db(product, db_path)
-                    
+
             except Exception as e:
                 print(f"        ERROR fetching/parsing {product_url}: {e}")
-        
+
         # Update scrape state after each page
         if use_db:
             update_scrape_state(db_path, category_key, page_num, total_pages)
-        
+
         # Get next page URL
         next_url = extract_next_page_url(soup, current_url)
         if next_url and next_url != current_url:
             current_url = next_url
         else:
-            current_url = None  # type: ignore
-            print(f"  No more pages found after page {page_num}")
-    
+            break
+
     if page_num >= max_pages:
         print(f"  Reached max pages limit ({max_pages})")
-    
+
     print(f"  Category {category_key} complete: {len(products)} new products scraped")
     return products
 
@@ -258,7 +254,7 @@ def save_product_to_db(product: Product, db_path: str = DB_PATH) -> None:
         specs=product.specs,
     )
     product.id = product_id
-    
+
     # Save category-specific specs
     if product.category_specs:
         spec_table = get_spec_table_for_category(product.category)

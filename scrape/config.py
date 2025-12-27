@@ -1,6 +1,6 @@
 """Configuration and constants for the scraper."""
 
-from typing import Callable, Dict, List, Optional, Any
+from typing import Any, Dict, Optional
 
 __all__ = [
     "BASE_URL",
