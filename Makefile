@@ -48,6 +48,7 @@ help:
 	@echo "  make pipeline SUPER=accessories MAX_PAGES=10 OVERNIGHT=1"
 	@echo ""
 	@echo "Background/Overnight Pipelines (recommended for large scrapes):"
+	@echo "  mkdir -p logs"
 	@echo "  nohup make pipeline-overnight SUPER=components MAX_PAGES=100 > logs/pipeline.log 2>&1 &"
 	@echo "  make pipeline-full SUPER=accessories MAX_PAGES=50 OVERNIGHT=1 2>&1 | tee logs/overnight.log"
 
