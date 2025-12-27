@@ -23,13 +23,24 @@ __all__ = [
 # Default database path
 DEFAULT_DB_PATH = "data/products.db"
 
+
+def _get_valid_spec_tables() -> frozenset:
+    """Generate whitelist of valid spec tables from CATEGORY_SPECS registry.
+
+    This provides SQL injection prevention by validating table names against
+    the known spec tables defined in the configuration.
+    """
+    from scrape.config import CATEGORY_SPECS
+
+    tables = set()
+    for spec_config in CATEGORY_SPECS.values():
+        if "spec_table" in spec_config:
+            tables.add(spec_config["spec_table"])
+    return frozenset(tables)
+
+
 # Whitelist of valid spec tables for SQL injection prevention
-VALID_SPEC_TABLES = frozenset([
-    "chain_specs",
-    "cassette_specs",
-    "glove_specs",
-    "tool_specs",
-])
+VALID_SPEC_TABLES = _get_valid_spec_tables()
 
 
 @contextmanager

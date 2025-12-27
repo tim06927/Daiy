@@ -228,6 +228,7 @@ def scrape_category(
         if next_url and next_url != current_url:
             current_url = next_url
         else:
+            # No more pages to scrape
             break
 
     if page_num >= max_pages:
