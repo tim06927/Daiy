@@ -195,14 +195,17 @@ def validate_image_url(url: str) -> str:
         raise URLValidationError(f"Invalid image URL scheme: {scheme}")
     
     # Validate domain - enforce same allowed-domain policy as other URLs
-    hostname = parsed.hostname
-    if not hostname:
+    # Use netloc and strip port for consistency with validate_url()
+    domain = parsed.netloc
+    if not domain:
         raise URLValidationError("Image URL must include a hostname")
     
-    hostname = hostname.lower()
-    # Check against allowed domains (exact match only, matching validate_url behavior)
-    if hostname not in ALLOWED_DOMAINS:
-        raise URLValidationError(f"Disallowed image URL domain: {hostname}")
+    # Strip port if present for domain check
+    domain_without_port = domain.lower().split(":")[0]
+    
+    # Check against allowed domains (exact match only)
+    if domain_without_port not in ALLOWED_DOMAINS:
+        raise URLValidationError(f"Disallowed image URL domain: {domain_without_port}")
     
     # Basic format check - should look like an image URL
     if not IMAGE_URL_PATTERN.match(url):
