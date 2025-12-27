@@ -24,7 +24,7 @@ __all__ = [
 DEFAULT_DB_PATH = "data/products.db"
 
 
-def _get_valid_spec_tables() -> set:
+def _get_valid_spec_tables() -> frozenset:
     """Generate whitelist of valid spec tables from CATEGORY_SPECS registry.
 
     This provides SQL injection prevention by validating table names against
@@ -38,7 +38,7 @@ def _get_valid_spec_tables() -> set:
     for spec_config in CATEGORY_SPECS.values():
         if "spec_table" in spec_config:
             tables.add(spec_config["spec_table"])
-    return tables
+    return frozenset(tables)
 
 
 @contextmanager

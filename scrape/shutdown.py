@@ -7,7 +7,8 @@ saving state and closing connections properly.
 import signal
 import sys
 import threading
-from typing import Callable, Optional
+from types import FrameType
+from typing import Callable, List, Optional
 
 __all__ = [
     "ShutdownHandler",
@@ -36,7 +37,8 @@ class ShutdownHandler:
 
     def __init__(self) -> None:
         self._shutdown_requested = threading.Event()
-        self._cleanup_callbacks: list[Callable[[], None]] = []
+        self._cleanup_callbacks: List[Callable[[], None]] = []
+        self._cleanup_lock = threading.Lock()
         self._original_sigint = None
         self._original_sigterm = None
         self._installed = False
@@ -80,7 +82,7 @@ class ShutdownHandler:
 
         self._installed = False
 
-    def _handle_signal(self, signum: int, frame) -> None:
+    def _handle_signal(self, signum: int, frame: Optional[FrameType]) -> None:
         """Handle shutdown signal."""
         signal_name = "SIGINT" if signum == signal.SIGINT else "SIGTERM"
         print(f"\n\n⚠️  Received {signal_name} - initiating graceful shutdown...")
@@ -92,7 +94,7 @@ class ShutdownHandler:
         # On second signal, force exit
         signal.signal(signum, self._force_exit)
 
-    def _force_exit(self, signum: int, frame) -> None:
+    def _force_exit(self, signum: int, frame: Optional[FrameType]) -> None:
         """Force exit on second signal."""
         print("\n❌ Force quitting...")
         self.cleanup()
@@ -118,17 +120,20 @@ class ShutdownHandler:
         Args:
             callback: Function to call during cleanup
         """
-        self._cleanup_callbacks.append(callback)
+        with self._cleanup_lock:
+            self._cleanup_callbacks.append(callback)
 
     def cleanup(self) -> None:
         """Run all registered cleanup callbacks."""
-        for callback in self._cleanup_callbacks:
+        with self._cleanup_lock:
+            callbacks = list(self._cleanup_callbacks)
+            self._cleanup_callbacks.clear()
+        
+        for callback in callbacks:
             try:
                 callback()
             except Exception as e:
                 print(f"Warning: Cleanup callback failed: {e}")
-
-        self._cleanup_callbacks.clear()
 
     def reset(self) -> None:
         """Reset shutdown state (for testing or reuse)."""
