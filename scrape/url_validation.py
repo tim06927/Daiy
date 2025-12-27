@@ -129,7 +129,6 @@ def validate_url(
         r"%2e%2e",           # Encoded path traversal
         r"<script",          # XSS attempt
         r"javascript:",      # JS injection
-        r"\x00",             # Null byte
     ]
     
     url_lower = url.lower()
