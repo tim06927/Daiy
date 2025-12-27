@@ -12,6 +12,7 @@ __all__ = [
     "validate_product_url",
     "validate_image_url",
     "sanitize_url",
+    "is_safe_url",
     "URLValidationError",
     "ALLOWED_DOMAINS",
 ]
@@ -178,8 +179,7 @@ def validate_image_url(url: str) -> str:
     if not url:
         return ""
     
-    # For images, we allow a broader set of domains (CDNs, etc.)
-    # but still check the format
+    # Sanitize first
     url = sanitize_url(url)
     
     try:
@@ -193,6 +193,19 @@ def validate_image_url(url: str) -> str:
     
     if scheme not in ("http", "https"):
         raise URLValidationError(f"Invalid image URL scheme: {scheme}")
+    
+    # Validate domain - enforce same allowed-domain policy as other URLs
+    hostname = parsed.hostname
+    if not hostname:
+        raise URLValidationError("Image URL must include a hostname")
+    
+    hostname = hostname.lower()
+    # Allow both exact matches and subdomains of allowed domains
+    if not any(
+        hostname == allowed or hostname.endswith("." + allowed)
+        for allowed in ALLOWED_DOMAINS
+    ):
+        raise URLValidationError(f"Disallowed image URL domain: {hostname}")
     
     # Basic format check - should look like an image URL
     if not IMAGE_URL_PATTERN.match(url):

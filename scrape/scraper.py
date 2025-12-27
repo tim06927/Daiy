@@ -26,6 +26,7 @@ from scrape.config import (
     DELAY_OVERNIGHT_MIN,
     HEADERS,
     MAX_RETRIES,
+    MAX_RETRY_BACKOFF,
     REQUEST_TIMEOUT,
     RETRY_BACKOFF_BASE,
     RETRY_STATUS_CODES,
@@ -49,7 +50,7 @@ from scrape.html_utils import (
 )
 from scrape.logging_config import get_logger, log_scrape_event
 from scrape.models import Product
-from scrape.shutdown import get_shutdown_handler, shutdown_requested
+from scrape.shutdown import shutdown_requested
 from scrape.url_validation import (
     URLValidationError,
     sanitize_url,
@@ -130,7 +131,7 @@ def fetch_html(
             # Check if we should retry based on status code
             if resp.status_code in RETRY_STATUS_CODES:
                 if attempt < MAX_RETRIES:
-                    backoff = RETRY_BACKOFF_BASE ** attempt + random.uniform(0, 1)
+                    backoff = min(RETRY_BACKOFF_BASE ** attempt, MAX_RETRY_BACKOFF) + random.uniform(0, 1)
                     logger.warning(
                         f"Received {resp.status_code}, backing off {backoff:.1f}s "
                         f"(attempt {attempt + 1}/{MAX_RETRIES})"
@@ -138,8 +139,13 @@ def fetch_html(
                     time.sleep(backoff)
                     continue
                 else:
-                    resp.raise_for_status()
+                    # Exhausted retries, raise the error
+                    raise requests.exceptions.HTTPError(
+                        f"Received {resp.status_code} after {MAX_RETRIES} retries",
+                        response=resp
+                    )
             
+            # For non-retryable status codes, raise immediately
             resp.raise_for_status()
             
             # Success - apply polite delay before returning
@@ -148,18 +154,19 @@ def fetch_html(
             
         except requests.exceptions.HTTPError as e:
             last_exception = e
-            # Non-retryable HTTP error
             logger.error(f"HTTP error fetching {url}: {e}")
+            status_code = e.response.status_code if e.response else "unknown"
+            reason = e.response.reason if e.response else "unknown"
             raise ValueError(
-                f"Invalid URL in scrape/config.py: {url}\n"
-                f"HTTP Error {e.response.status_code}: {e.response.reason}\n"
+                f"HTTP Error {status_code}: {reason}\n"
+                f"Failed to fetch: {url}\n"
                 f"Please verify the URL is correct and accessible."
             ) from e
             
         except requests.exceptions.ConnectionError as e:
             last_exception = e
             if attempt < MAX_RETRIES:
-                backoff = RETRY_BACKOFF_BASE ** attempt + random.uniform(0, 1)
+                backoff = min(RETRY_BACKOFF_BASE ** attempt, MAX_RETRY_BACKOFF) + random.uniform(0, 1)
                 logger.warning(
                     f"Connection error, backing off {backoff:.1f}s "
                     f"(attempt {attempt + 1}/{MAX_RETRIES})"
@@ -169,13 +176,13 @@ def fetch_html(
             logger.error(f"Connection error fetching {url}: {e}")
             raise ValueError(
                 f"Failed to fetch {url}: {e}\n"
-                f"Please check your internet connection and the URL in scrape/config.py"
+                f"Please check your internet connection and verify the URL is accessible."
             ) from e
             
         except requests.exceptions.Timeout as e:
             last_exception = e
             if attempt < MAX_RETRIES:
-                backoff = RETRY_BACKOFF_BASE ** attempt + random.uniform(0, 1)
+                backoff = min(RETRY_BACKOFF_BASE ** attempt, MAX_RETRY_BACKOFF) + random.uniform(0, 1)
                 logger.warning(
                     f"Timeout, backing off {backoff:.1f}s "
                     f"(attempt {attempt + 1}/{MAX_RETRIES})"
@@ -193,7 +200,7 @@ def fetch_html(
             logger.error(f"Request error fetching {url}: {e}")
             raise ValueError(
                 f"Failed to fetch {url}: {e}\n"
-                f"Please check your internet connection and the URL in scrape/config.py"
+                f"Please check your internet connection and verify the URL is accessible."
             ) from e
     
     # Should not reach here, but just in case

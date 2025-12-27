@@ -13,6 +13,7 @@ __all__ = [
     "DELAY_OVERNIGHT_MAX",
     "MAX_RETRIES",
     "RETRY_BACKOFF_BASE",
+    "MAX_RETRY_BACKOFF",
     "RETRY_STATUS_CODES",
     "MAX_PAGES_PER_CATEGORY",
     "DEFAULT_MAX_PAGES",
@@ -53,6 +54,7 @@ DELAY_OVERNIGHT_MAX = 30.0
 # Retry settings with exponential backoff
 MAX_RETRIES = 5  # Maximum retry attempts
 RETRY_BACKOFF_BASE = 2.0  # Base for exponential backoff (2^attempt seconds)
+MAX_RETRY_BACKOFF = 60.0  # Maximum backoff time in seconds
 RETRY_STATUS_CODES = {429, 500, 502, 503, 504}  # Status codes to retry on
 
 # Pagination settings

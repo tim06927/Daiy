@@ -31,16 +31,12 @@ class JSONLFileHandler(logging.Handler):
         self.log_dir.mkdir(exist_ok=True)
         self.prefix = prefix
         self._current_date: Optional[str] = None
-        self._file_handle = None
 
     def _get_log_file(self) -> Path:
         """Get log file path, rotating daily."""
         today = datetime.now().strftime("%Y%m%d")
         if today != self._current_date:
             self._current_date = today
-            if self._file_handle:
-                self._file_handle.close()
-            self._file_handle = None
         return self.log_dir / f"{self.prefix}_{today}.jsonl"
 
     def emit(self, record: logging.LogRecord) -> None:
@@ -68,8 +64,6 @@ class JSONLFileHandler(logging.Handler):
             self.handleError(record)
 
     def close(self) -> None:
-        if self._file_handle:
-            self._file_handle.close()
         super().close()
 
 

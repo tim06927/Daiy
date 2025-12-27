@@ -99,9 +99,6 @@ SUPER ?=
 OVERNIGHT ?=
 OVERNIGHT_FLAG := $(if $(OVERNIGHT),--overnight,)
 
-# Timestamp for logs
-TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
-
 # Generic incremental pipeline
 pipeline:
 	@if [ -z "$(SUPER)" ]; then \
