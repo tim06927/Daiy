@@ -2,6 +2,7 @@
 # Run `make help` to see available targets
 
 .PHONY: help install run scrape scrape-full export refresh-data discover-categories discover-fields clean
+.PHONY: pipeline pipeline-full pipeline-drivetrain pipeline-drivetrain-full pipeline-accessories pipeline-accessories-full
 
 # Default target
 help:
@@ -22,6 +23,14 @@ help:
 	@echo "  scrape-drivetrain  Scrape all drivetrain subcategories"
 	@echo "  scrape-accessories Scrape all accessories subcategories"
 	@echo ""
+	@echo "Full Pipelines (discover + scrape + export):"
+	@echo "  pipeline SUPER=<path>           Incremental pipeline for a super-category"
+	@echo "  pipeline-full SUPER=<path>      Full pipeline for a super-category"
+	@echo "  pipeline-drivetrain             Incremental: components/drivetrain"
+	@echo "  pipeline-drivetrain-full        Full: components/drivetrain"
+	@echo "  pipeline-accessories            Incremental: accessories"
+	@echo "  pipeline-accessories-full       Full: accessories"
+	@echo ""
 	@echo "Data Management:"
 	@echo "  export           Export database to CSV"
 	@echo "  refresh-data     Scrape + export + show git diff"
@@ -37,6 +46,11 @@ help:
 	@echo "  make refresh-data"
 	@echo "  make discover-fields CAT=cassettes"
 	@echo "  make scrape-drivetrain MAX_PAGES=3"
+	@echo ""
+	@echo "Background/Overnight Pipelines:"
+	@echo "  make pipeline-drivetrain-full MAX_PAGES=50 &"
+	@echo "  nohup make pipeline SUPER=components/drivetrain MAX_PAGES=100 > logs/pipeline.log 2>&1 &"
+	@echo "  make pipeline-accessories-full MAX_PAGES=20 2>&1 | tee logs/accessories.log"
 
 # =============================================================================
 # Setup
@@ -78,6 +92,67 @@ scrape-drivetrain:
 
 scrape-accessories:
 	python -m scrape.cli --discover-scrape accessories --max-pages $(MAX_PAGES) --skip-field-discovery
+
+# =============================================================================
+# Full Pipelines (discover + scrape + export) - ideal for overnight runs
+# =============================================================================
+
+# Super-category path (e.g., components/drivetrain, accessories)
+SUPER ?= components/drivetrain
+
+# Timestamp for logs
+TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
+
+# Generic incremental pipeline
+pipeline:
+	@echo "=== Starting Incremental Pipeline for $(SUPER) ==="
+	@echo "Started at: $$(date)"
+	@echo ""
+	@echo "Step 1/3: Discovering categories..."
+	python -m scrape.discover_categories --output data/discovered_categories.json
+	@echo ""
+	@echo "Step 2/3: Scraping (incremental mode)..."
+	python -m scrape.cli --discover-scrape $(SUPER) --max-pages $(MAX_PAGES) --skip-field-discovery
+	@echo ""
+	@echo "Step 3/3: Exporting to CSV..."
+	python -c "from scrape.csv_utils import export_db_to_csv; export_db_to_csv('$(DB_PATH)', '$(CSV_PATH)')"
+	@echo ""
+	@echo "=== Pipeline Complete ==="
+	@echo "Finished at: $$(date)"
+	@echo "Database: $(DB_PATH)"
+	@echo "CSV: $(CSV_PATH)"
+
+# Generic full pipeline (re-scrape everything)
+pipeline-full:
+	@echo "=== Starting Full Pipeline for $(SUPER) ==="
+	@echo "Started at: $$(date)"
+	@echo ""
+	@echo "Step 1/3: Discovering categories..."
+	python -m scrape.discover_categories --output data/discovered_categories.json
+	@echo ""
+	@echo "Step 2/3: Scraping (full mode - ignoring existing data)..."
+	python -m scrape.cli --discover-scrape $(SUPER) --max-pages $(MAX_PAGES) --skip-field-discovery --mode full
+	@echo ""
+	@echo "Step 3/3: Exporting to CSV..."
+	python -c "from scrape.csv_utils import export_db_to_csv; export_db_to_csv('$(DB_PATH)', '$(CSV_PATH)')"
+	@echo ""
+	@echo "=== Pipeline Complete ==="
+	@echo "Finished at: $$(date)"
+	@echo "Database: $(DB_PATH)"
+	@echo "CSV: $(CSV_PATH)"
+
+# Convenience shortcuts for common super-categories
+pipeline-drivetrain:
+	$(MAKE) pipeline SUPER=components/drivetrain MAX_PAGES=$(MAX_PAGES)
+
+pipeline-drivetrain-full:
+	$(MAKE) pipeline-full SUPER=components/drivetrain MAX_PAGES=$(MAX_PAGES)
+
+pipeline-accessories:
+	$(MAKE) pipeline SUPER=accessories MAX_PAGES=$(MAX_PAGES)
+
+pipeline-accessories-full:
+	$(MAKE) pipeline-full SUPER=accessories MAX_PAGES=$(MAX_PAGES)
 
 # =============================================================================
 # Data Management

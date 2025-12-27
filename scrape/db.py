@@ -24,11 +24,13 @@ __all__ = [
 DEFAULT_DB_PATH = "data/products.db"
 
 
-def _get_valid_spec_tables() -> frozenset:
+def _get_valid_spec_tables() -> set:
     """Generate whitelist of valid spec tables from CATEGORY_SPECS registry.
 
     This provides SQL injection prevention by validating table names against
     the known spec tables defined in the configuration.
+    
+    Called dynamically to support adding new categories without restart.
     """
     from scrape.config import CATEGORY_SPECS
 
@@ -36,11 +38,7 @@ def _get_valid_spec_tables() -> frozenset:
     for spec_config in CATEGORY_SPECS.values():
         if "spec_table" in spec_config:
             tables.add(spec_config["spec_table"])
-    return frozenset(tables)
-
-
-# Whitelist of valid spec tables for SQL injection prevention
-VALID_SPEC_TABLES = _get_valid_spec_tables()
+    return tables
 
 
 @contextmanager
@@ -238,8 +236,9 @@ def upsert_category_specs(
         return
 
     # Validate table name against whitelist to prevent SQL injection
-    if table_name not in VALID_SPEC_TABLES:
-        raise ValueError(f"Invalid table name: {table_name}. Must be one of {VALID_SPEC_TABLES}")
+    valid_tables = _get_valid_spec_tables()
+    if table_name not in valid_tables:
+        raise ValueError(f"Invalid table name: {table_name}. Must be one of {valid_tables}")
 
     with get_connection(db_path) as conn:
         cursor = conn.cursor()
@@ -339,8 +338,9 @@ def get_all_products(
                 spec_table = get_spec_table_for_category(product["category"])
                 if spec_table:
                     # Validate table name against whitelist to prevent SQL injection
-                    if spec_table not in VALID_SPEC_TABLES:
-                        raise ValueError(f"Invalid table name: {spec_table}. Must be one of {VALID_SPEC_TABLES}")
+                    valid_tables = _get_valid_spec_tables()
+                    if spec_table not in valid_tables:
+                        raise ValueError(f"Invalid table name: {spec_table}. Must be one of {valid_tables}")
 
                     cursor.execute(
                         f"SELECT * FROM {spec_table} WHERE product_id = ?",
