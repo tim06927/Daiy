@@ -8,6 +8,7 @@ import base64
 import json
 import os
 import re
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -22,17 +23,42 @@ from openai import OpenAI
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-from config import (  # noqa: E402
-    CSV_PATH,
-    FLASK_DEBUG,
-    FLASK_HOST,
-    FLASK_PORT,
-    LLM_MODEL,
-    MAX_CASSETTES,
-    MAX_CHAINS,
-    MAX_TOOLS,
-    SHOW_DEMO_NOTICE,
-)
+# Handle imports for both direct execution and package import
+# When run directly (python web/app.py), __package__ is None
+# When imported as module (from web.app import app), __package__ is "web"
+if __package__ is None or __package__ == "":
+    # Running directly - add parent to path for absolute imports
+    sys.path.insert(0, str(Path(__file__).parent))
+    from config import (
+        CSV_PATH,
+        FLASK_DEBUG,
+        FLASK_HOST,
+        FLASK_PORT,
+        LLM_MODEL,
+        MAX_CASSETTES,
+        MAX_CHAINS,
+        MAX_TOOLS,
+        SHOW_DEMO_NOTICE,
+    )
+    from logging_utils import log_interaction
+    from image_utils import process_image_for_openai as _process_image_for_openai
+    from catalog import CATALOG_DF, load_catalog
+else:
+    # Running as package
+    from .config import (
+        CSV_PATH,
+        FLASK_DEBUG,
+        FLASK_HOST,
+        FLASK_PORT,
+        LLM_MODEL,
+        MAX_CASSETTES,
+        MAX_CHAINS,
+        MAX_TOOLS,
+        SHOW_DEMO_NOTICE,
+    )
+    from .logging_utils import log_interaction
+    from .image_utils import process_image_for_openai as _process_image_for_openai
+    from .catalog import CATALOG_DF, load_catalog
 
 # Initialize OpenAI client with API key from environment
 api_key = os.getenv("OPENAI_API_KEY")
@@ -41,121 +67,14 @@ if not api_key or api_key == "your-api-key-here":
 client = OpenAI(api_key=api_key)
 app = Flask(__name__)
 
-# Setup LLM interaction logging
-LOG_DIR = Path(__file__).parent / "logs"
-LOG_DIR.mkdir(exist_ok=True)
-LOG_FILE = LOG_DIR / f"llm_interactions_{datetime.now().strftime('%Y%m%d')}.jsonl"
-
-
-def log_interaction(event_type: str, data: Dict[str, Any]) -> None:
-    """Log LLM interactions to a structured JSONL file.
-
-    Args:
-        event_type: Type of event (user_input, regex_inference, llm_call, llm_response, etc.)
-        data: Event-specific data to log
-    """
-    log_entry = {"timestamp": datetime.now().isoformat(), "event_type": event_type, **data}
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+# Register v2 API blueprint (only when running as package to avoid circular imports)
+if __package__ is not None and __package__ != "":
+    from .api_v2 import api_v2
+    app.register_blueprint(api_v2)
 
 
 # Maximum image size in bytes (5MB)
 MAX_IMAGE_SIZE = 5 * 1024 * 1024
-
-# Register HEIF/HEIC support for Pillow (for iPad images)
-try:
-    from pillow_heif import register_heif_opener
-
-    register_heif_opener()
-except ImportError:
-    pass  # pillow-heif not installed, HEIC support disabled
-
-
-def _process_image_for_openai(
-    image_base64: Optional[str],
-) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-    """Process and convert image to a format OpenAI accepts.
-
-    Accepts any image format (including HEIC from iPad) and converts to PNG.
-    Rejects images larger than 5MB.
-
-    Args:
-        image_base64: Raw base64 string (may include data URL prefix or not).
-
-    Returns:
-        Tuple of (processed_base64, mime_type, error_message).
-        - If successful: (base64_string, "image/png", None)
-        - If image too large: (None, None, "error message for user")
-        - If invalid/no image: (None, None, None)
-    """
-    if not image_base64 or not isinstance(image_base64, str):
-        return None, None, None
-
-    # Strip whitespace
-    clean = image_base64.strip()
-    if not clean:
-        return None, None, None
-
-    # If it's a data URL, extract the base64 part
-    if clean.startswith("data:"):
-        # Format: data:image/jpeg;base64,/9j/4AAQ...
-        try:
-            _, b64_data = clean.split(",", 1)
-            clean = b64_data
-        except ValueError:
-            return None, None, None
-
-    # Try to decode base64
-    try:
-        decoded = base64.b64decode(clean, validate=True)
-    except Exception:
-        return None, None, None
-
-    # Check size limit (5MB)
-    if len(decoded) > MAX_IMAGE_SIZE:
-        size_mb = len(decoded) / (1024 * 1024)
-        return None, None, f"Image too large ({size_mb:.1f}MB). Please use an image smaller than 5MB."
-
-    # Try to open and convert the image using Pillow
-    try:
-        from io import BytesIO
-
-        from PIL import Image
-
-        img = Image.open(BytesIO(decoded))
-
-        # Convert to RGB if necessary (handles RGBA, P mode, etc.)
-        if img.mode in ("RGBA", "LA", "P"):
-            # For images with transparency, convert to RGB with white background
-            if img.mode == "P":
-                img = img.convert("RGBA")
-            background = Image.new("RGB", img.size, (255, 255, 255))
-            if img.mode in ("RGBA", "LA"):
-                background.paste(img, mask=img.split()[-1])  # Use alpha channel as mask
-            else:
-                background.paste(img)
-            img = background
-        elif img.mode != "RGB":
-            img = img.convert("RGB")
-
-        # Save as PNG to preserve quality (no compression artifacts)
-        output = BytesIO()
-        img.save(output, format="PNG")
-        output.seek(0)
-
-        # Check if converted image is too large
-        png_data = output.read()
-        if len(png_data) > MAX_IMAGE_SIZE:
-            size_mb = len(png_data) / (1024 * 1024)
-            return None, None, f"Image too large after processing ({size_mb:.1f}MB). Please use a smaller image."
-
-        # Encode back to base64
-        processed_b64 = base64.b64encode(png_data).decode("utf-8")
-        return processed_b64, "image/png", None
-
-    except Exception as e:
-        log_interaction("image_processing_error", {"error": str(e)})
-        return None, None, None
 
 
 # ---------- BASIC AUTH ----------
@@ -201,6 +120,8 @@ def require_basic_auth() -> Optional[Response]:
 
 # ---------- DATA MODEL & CATALOG LOADING ----------
 
+# CATALOG_DF and load_catalog are imported at the top of the file
+
 
 @dataclass
 class Product:
@@ -214,111 +135,15 @@ class Product:
     specs: Dict
 
 
-def _parse_specs(s: str) -> Dict[str, Any]:
-    """Parse JSON specs string, handling common CSV encoding issues.
-
-    Args:
-        s: JSON string, possibly with doubled quotes from CSV export.
-
-    Returns:
-        Parsed dict or empty dict if parsing fails.
-    """
-    if not isinstance(s, str) or not s.strip():
-        return {}
-    try:
-        result = json.loads(s)
-        return dict(result) if isinstance(result, dict) else {}
-    except json.JSONDecodeError:
-        # Handle doubled quotes from CSV export
-        s2 = s.replace('""', '"')
-        try:
-            result = json.loads(s2)
-            return dict(result) if isinstance(result, dict) else {}
-        except json.JSONDecodeError:
-            return {}
-
-
-def load_catalog(path: str = CSV_PATH) -> pd.DataFrame:
-    """Load and parse product catalog from CSV.
-
-    Derives speed and application fields from raw data.
-
-    Args:
-        path: Path to product CSV file.
-
-    Returns:
-        DataFrame with parsed specs, derived speed, and application.
-    """
-    df = pd.read_csv(path)
-
-    # Parse specs JSON
-    if "specs" in df.columns:
-        df["specs_dict"] = df["specs"].apply(_parse_specs)
-    else:
-        df["specs_dict"] = [{} for _ in range(len(df))]
-
-    # Derive speed from chain gearing, specs, or product name
-    def derive_speed(row: pd.Series) -> Optional[int]:
-        # Try chain_gearing field first
-        cg = row.get("chain_gearing")
-        if isinstance(cg, str):
-            m = re.search(r"\d+", cg)
-            if m:
-                return int(m.group())
-
-        # Try specs Gearing
-        specs = row["specs_dict"]
-        g = specs.get("Gearing")
-        if isinstance(g, str):
-            m = re.search(r"\d+", g)
-            if m:
-                return int(m.group())
-
-        # Fallback: extract speed from product name (e.g., "11-Speed", "12s")
-        name = row.get("name", "")
-        if isinstance(name, str):
-            # Match patterns like "11-Speed", "11 Speed", "11s", "11-speed"
-            m = re.search(r"(\d{1,2})[\-\s]?(?:speed|s(?:pd)?)\b", name, re.IGNORECASE)
-            if m:
-                return int(m.group(1))
-
-        return None
-
-    df["speed"] = df.apply(derive_speed, axis=1)
-
-    # Derive application from chain application, specs, or product name
-    def derive_application(row: pd.Series) -> Optional[str]:
-        ca = row.get("chain_application")
-        if isinstance(ca, str):
-            return ca
-        specs = row["specs_dict"]
-        app = specs.get("Application")
-        if isinstance(app, str):
-            return app
-
-        # Fallback: extract application keywords from product name
-        name = row.get("name", "")
-        if isinstance(name, str):
-            name_lower = name.lower()
-            # Check for common application keywords
-            for keyword in ["road", "gravel", "mtb", "mountain", "e-bike", "ebike", "touring", "cx", "cyclocross"]:
-                if keyword in name_lower:
-                    return keyword.title()
-
-        return None
-
-    df["application"] = df.apply(derive_application, axis=1)
-
-    return df
-
-
-# ---------- CATALOG INITIALIZATION ----------
-
-# load once at startup
-CATALOG_DF = load_catalog()
-
-
 # ---------- CANDIDATE SELECTION & CONTEXT BUILDING ----------
+
+# Category name mapping for v1 API compatibility
+# The new scraper uses "drivetrain_cassettes" etc, but v1 API expects "cassettes"
+_V1_CATEGORY_MAP = {
+    "cassettes": "drivetrain_cassettes",
+    "chains": "drivetrain_chains",
+    "drivetrain_tools": "drivetrain_tools",  # This one stayed the same
+}
 
 
 def select_candidates(
@@ -340,23 +165,28 @@ def select_candidates(
         a list of products. Each product is a dict with: name, url, brand, price,
         application, speed, specs.
     """
+    # Use category mapping for new scraper format
+    cassette_cat = _V1_CATEGORY_MAP.get("cassettes", "cassettes")
+    chain_cat = _V1_CATEGORY_MAP.get("chains", "chains")
+    tools_cat = _V1_CATEGORY_MAP.get("drivetrain_tools", "drivetrain_tools")
+    
     # Cassettes: try to filter by speed AND application, fall back to speed only
     cassettes = df[
-        (df["category"] == "cassettes")
+        (df["category"] == cassette_cat)
         & (df["speed"] == bike_speed)
         & df["application"].fillna("").str.contains(use_case_substring, case=False)
     ]
     if cassettes.empty:
         # Fall back to just speed filter if no application matches
         cassettes = df[
-            (df["category"] == "cassettes") & (df["speed"] == bike_speed)
+            (df["category"] == cassette_cat) & (df["speed"] == bike_speed)
         ]
     cassettes = cassettes.head(MAX_CASSETTES)
 
     # Chains: filter by speed only
-    chains = df[(df["category"] == "chains") & (df["speed"] == bike_speed)].head(MAX_CHAINS)
+    chains = df[(df["category"] == chain_cat) & (df["speed"] == bike_speed)].head(MAX_CHAINS)
 
-    tools = df[df["category"] == "drivetrain_tools"]
+    tools = df[df["category"] == tools_cat]
     if use_case_substring:
         filtered_tools = tools[
             tools["application"].fillna("").str.contains(use_case_substring, case=False)
