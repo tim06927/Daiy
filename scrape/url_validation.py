@@ -200,11 +200,8 @@ def validate_image_url(url: str) -> str:
         raise URLValidationError("Image URL must include a hostname")
     
     hostname = hostname.lower()
-    # Allow both exact matches and subdomains of allowed domains
-    if not any(
-        hostname == allowed or hostname.endswith("." + allowed)
-        for allowed in ALLOWED_DOMAINS
-    ):
+    # Check against allowed domains (exact match only, matching validate_url behavior)
+    if hostname not in ALLOWED_DOMAINS:
         raise URLValidationError(f"Disallowed image URL domain: {hostname}")
     
     # Basic format check - should look like an image URL
