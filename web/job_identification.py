@@ -225,6 +225,39 @@ RULES:
 """
 
 
+def _ensure_required_dimensions(job: "JobIdentification") -> None:
+    """Ensure all required fit dimensions for identified categories are tracked.
+    
+    If a required dimension is not in inferred_values AND not in missing_dimensions,
+    add it to missing_dimensions. This ensures the clarification flow will ask
+    for necessary information.
+    
+    Args:
+        job: JobIdentification result to modify in place.
+    """
+    # Collect all required fit dimensions from identified categories
+    all_categories = job.primary_categories + job.optional_categories
+    required_dims = set()
+    
+    for cat in all_categories:
+        cat_config = PRODUCT_CATEGORIES.get(cat, {})
+        for dim in cat_config.get("required_fit", []):
+            required_dims.add(dim)
+    
+    # Check which required dimensions are missing
+    inferred = job.inferred_values or {}
+    missing = set(job.missing_dimensions or [])
+    
+    for dim in required_dims:
+        # If not inferred (or inferred as None) and not already marked as missing
+        if inferred.get(dim) is None and dim not in missing:
+            missing.add(dim)
+            logger.debug(f"Added required dimension '{dim}' to missing_dimensions")
+    
+    # Update job's missing_dimensions
+    job.missing_dimensions = list(missing)
+
+
 def identify_job(
     problem_text: str,
     image_base64: Optional[str] = None,
@@ -350,6 +383,10 @@ def identify_job(
                         confidence=float(parsed.get("confidence", 0.5)),
                         reasoning=parsed.get("reasoning", ""),
                     )
+                    
+                    # Ensure all required fit dimensions are tracked
+                    # If LLM didn't infer a required dimension, add it to missing
+                    _ensure_required_dimensions(result)
                     
                     log_interaction("job_identification_result", result.to_dict())
                     return result
