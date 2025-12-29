@@ -126,6 +126,7 @@ def get_data_quality(db_path: Path) -> Dict[str, Any]:
         return {}
     
     # Allowlist of valid field and table names to prevent SQL injection
+    # These are the only values that can be used in SQL queries
     VALID_FIELDS = ["name", "url", "brand", "price_text", "sku", "description", "image_url"]
     VALID_SPEC_TABLES = ["chain_specs", "cassette_specs", "glove_specs", "tool_specs"]
     
@@ -135,9 +136,10 @@ def get_data_quality(db_path: Path) -> Dict[str, Any]:
         
         quality = {}
         
-        # Missing fields analysis
+        # Missing fields analysis - field names are validated against VALID_FIELDS allowlist
         missing = {}
         for field in VALID_FIELDS:
+            # Safe: field is from hardcoded allowlist, not user input
             cursor.execute(f"SELECT COUNT(*) as count FROM products WHERE {field} IS NULL OR {field} = ''")
             missing[field] = cursor.fetchone()["count"]
         quality["missing_fields"] = missing
@@ -155,10 +157,11 @@ def get_data_quality(db_path: Path) -> Dict[str, Any]:
         cursor.execute("SELECT COUNT(*) as count FROM products WHERE specs_json IS NULL OR specs_json = ''")
         quality["missing_specs"] = cursor.fetchone()["count"]
         
-        # Category spec coverage
+        # Category spec coverage - table names are validated against VALID_SPEC_TABLES allowlist
         spec_coverage = {}
         for table in VALID_SPEC_TABLES:
             try:
+                # Safe: table is from hardcoded allowlist, not user input
                 cursor.execute(f"SELECT COUNT(*) as count FROM {table}")
                 spec_coverage[table] = cursor.fetchone()["count"]
             except sqlite3.OperationalError:
