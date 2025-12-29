@@ -294,6 +294,12 @@ Examples:
         help="Max depth to show in tree view (default: 3)",
     )
 
+    parser.add_argument(
+        "--update-view",
+        action="store_true",
+        help="Regenerate the scrape data viewer HTML after discovery",
+    )
+
     return parser.parse_args()
 
 
@@ -358,6 +364,18 @@ def main() -> None:
         with open(args.output, 'w') as f:
             json.dump(output_data, f, indent=2, ensure_ascii=False)
         print(f"\nResults saved to {args.output}")
+
+    # Update data viewer
+    if args.update_view:
+        print("\n" + "-" * 60)
+        print("UPDATING DATA VIEWER")
+        print("-" * 60)
+        try:
+            from scrape.view_data import regenerate_report
+            output_path = regenerate_report(open_browser=False)
+            print(f"✅ Data viewer updated: {output_path}")
+        except Exception as e:
+            print(f"⚠️  Failed to update data viewer: {e}")
 
 
 if __name__ == "__main__":

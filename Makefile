@@ -1,7 +1,7 @@
 # Daiy Makefile
 # Run `make help` to see available targets
 
-.PHONY: help install run scrape scrape-full export refresh-data discover-categories discover-fields clean
+.PHONY: help install run scrape scrape-full export refresh-data discover-categories discover-fields view-data clean
 .PHONY: pipeline pipeline-full pipeline-overnight
 
 # Default target
@@ -34,9 +34,10 @@ help:
 	@echo "  export           Export database to CSV"
 	@echo "  refresh-data     Scrape + export + show git diff"
 	@echo ""
-	@echo "Discovery:"
+	@echo "Discovery & Visualization:"
 	@echo "  discover-categories  Discover categories from sitemap"
 	@echo "  discover-fields CAT=<category>  Discover fields for a category"
+	@echo "  view-data            Open scrape data viewer in browser"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  clean            Remove generated files and caches"
@@ -192,10 +193,13 @@ CAT ?= chains
 SAMPLE_SIZE ?= 15
 
 discover-categories:
-	python -m scrape.discover_categories --output data/discovered_categories.json
+	python -m scrape.discover_categories --output data/discovered_categories.json --update-view
 
 discover-fields:
 	python -m scrape.discover_fields $(CAT) --sample-size $(SAMPLE_SIZE)
+
+view-data:
+	python -m scrape.view_data --open
 
 # =============================================================================
 # Maintenance

@@ -38,6 +38,7 @@ This repository contains a proof of concept (PoC) for Daiy that demonstrates:
 │   ├── cli.py          # Command-line interface
 │   ├── discover_fields.py    # Auto-discover spec fields
 │   ├── discover_categories.py # Auto-discover categories
+│   ├── view_data.py          # HTML data viewer for scrape status
 │   ├── logging_config.py     # Structured JSONL logging
 │   ├── shutdown.py           # Graceful shutdown handling
 │   ├── url_validation.py     # URL security validation
@@ -49,7 +50,8 @@ This repository contains a proof of concept (PoC) for Daiy that demonstrates:
 ├── data/               # Product data
 │   ├── bc_products_sample.csv  # Scraped bike components (CSV)
 │   ├── products.db             # SQLite database (primary storage)
-│   └── discovered_categories.json  # Category hierarchy from sitemap
+│   ├── discovered_categories.json  # Category hierarchy from sitemap
+│   └── scrape_data_view.html   # Generated data viewer report
 ├── .env.example        # Environment template (copy to .env)
 ├── requirements.txt    # Python dependencies
 └── README.md           # This file
@@ -89,6 +91,7 @@ Modular scraper for bike-components.de with SQLite storage:
 - **Incremental mode** - Only scrapes new products (default)
 - **Auto-discovery** - Discover categories from sitemap, fields from sampling
 - **Discover-scrape workflow** - Bulk scrape entire category trees
+- **Data viewer** - HTML report showing scrape coverage and data quality
 - **Structured logging** - JSONL logs for debugging and auditing
 - **URL validation** - Security checks to prevent SSRF attacks
 - **Category support** - Cassettes, chains, drivetrain tools, gloves, and more
