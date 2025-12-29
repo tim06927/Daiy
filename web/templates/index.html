@@ -769,6 +769,36 @@
       display: block;
     }
 
+    /* Product Sections (Primary, Optional, Tools) */
+    .product-section {
+      margin-bottom: 1rem;
+    }
+
+    .product-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-header {
+      padding: 0.5rem 0;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-header h3 {
+      margin: 0;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .optional-products .section-header h3 {
+      color: var(--accent);
+    }
+
+    .tool-products .section-header h3 {
+      color: var(--accent);
+    }
+
     .category-section {
       margin-bottom: 0.5rem;
       background: var(--bg);
@@ -781,12 +811,21 @@
       padding: 0.35rem 0.5rem;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
     }
 
     .category-name {
       font-size: 0.8rem;
       font-weight: 600;
       color: var(--text);
+    }
+
+    .category-reason {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-style: italic;
     }
 
     .category-products {
@@ -1240,6 +1279,7 @@
     let compressedImage = null;
     let imageDataUrl = null;
     let currentQuery = '';
+    let cachedJob = null;  // Cache job identification for clarification flow
 
     // ========== DOM ELEMENTS ========== 
     const initialState = document.getElementById('initial-state');
@@ -1296,6 +1336,8 @@
       initialState.classList.remove('hidden');
       selectedSpeed = null;
       selectedUseCase = null;
+      selectedValues = {};
+      cachedJob = null;
       selectedOptionsEl.innerHTML = '';
       clarificationPanel.classList.remove('active');
       productCategories.classList.remove('active');
@@ -1434,14 +1476,19 @@
       switchToResultsState();
 
       try {
+        // Build selected_values from all sources
+        const allSelectedValues = { ...selectedValues };
+        if (selectedSpeed) allSelectedValues.gearing = selectedSpeed;
+        if (selectedUseCase) allSelectedValues.use_case = selectedUseCase;
+        
         const resp = await fetch("/api/recommend", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             problem_text: problemText,
-            selected_speed: selectedSpeed,
-            selected_use_case: selectedUseCase,
+            selected_values: allSelectedValues,
             image_base64: compressedImage,
+            identified_job: cachedJob,
           }),
         });
 
@@ -1452,7 +1499,21 @@
 
         const data = await resp.json();
 
-        // Persist any inferred values
+        // Cache job identification for subsequent requests
+        if (data.job) {
+          cachedJob = data.job;
+        }
+
+        // Persist any inferred values from the new API format
+        if (data.inferred_values) {
+          if (!selectedSpeed && data.inferred_values.gearing) {
+            selectedSpeed = data.inferred_values.gearing;
+          }
+          if (!selectedUseCase && data.inferred_values.use_case) {
+            selectedUseCase = data.inferred_values.use_case;
+          }
+        }
+        // Legacy format support
         if (!selectedSpeed && data.inferred_speed) {
           selectedSpeed = data.inferred_speed;
         }
@@ -1465,7 +1526,8 @@
           return;
         }
 
-        // Show results
+        // Show results - clear cached job for next search
+        cachedJob = null;
         showResults(data);
 
       } catch (error) {
@@ -1484,6 +1546,7 @@
 
     // Track which clarifications are needed for this query
     let pendingClarifications = [];
+    let selectedValues = {};  // Generic storage for all dimension selections
 
     function showClarification(data) {
       loadingState.classList.remove('active');
@@ -1493,94 +1556,74 @@
       
       // Show clarification panel
       clarificationContent.innerHTML = '';
-      const missing = data.missing || [];
+      
+      // Handle both old and new API format
+      const missing = data.missing_dimensions || data.missing || [];
       const options = data.options || {};
       const hints = data.hints || {};
       
       // Track what's needed
       pendingClarifications = [];
       
-      if (missing.includes('drivetrain_speed') && !selectedSpeed) {
-        pendingClarifications.push('speed');
-        const section = document.createElement('div');
-        section.className = 'clarification-section';
-        section.innerHTML = `
-          <div class="clarification-label">Drivetrain Speed:</div>
-          <div class="clarification-hint">${hints.drivetrain_speed || ''}</div>
-          <div class="option-buttons" id="speed-buttons"></div>
-          <div class="other-input-container" id="speed-other-container">
-            <input type="text" class="other-input" id="speed-other-input" placeholder="e.g., 12-speed, single speed...">
-          </div>
-        `;
-        clarificationContent.appendChild(section);
-        
-        const speedBtns = section.querySelector('#speed-buttons');
-        (options.speed_options || []).forEach(opt => {
-          const btn = document.createElement('button');
-          btn.className = 'option-btn';
-          btn.textContent = opt;
-          btn.dataset.value = opt;
-          btn.onclick = () => selectSpeed(opt, btn);
-          speedBtns.appendChild(btn);
-        });
-        
-        // Add "Other" button
-        const otherBtn = document.createElement('button');
-        otherBtn.className = 'option-btn';
-        otherBtn.textContent = 'Other';
-        otherBtn.onclick = () => showOtherInput('speed', otherBtn);
-        speedBtns.appendChild(otherBtn);
-        
-        // Handle other input
-        const otherInput = section.querySelector('#speed-other-input');
-        otherInput.addEventListener('input', () => {
-          if (otherInput.value.trim()) {
-            selectedSpeed = otherInput.value.trim();
-            updateSubmitButton();
-          }
-        });
-      }
+      // Dimension display config
+      const dimensionConfig = {
+        'gearing': { label: 'Drivetrain Speed', placeholder: 'e.g., 12-speed, single speed...' },
+        'drivetrain_speed': { label: 'Drivetrain Speed', placeholder: 'e.g., 12-speed, single speed...' },
+        'use_case': { label: 'Riding Style', placeholder: 'e.g., commuting, touring...' },
+        'size': { label: 'Size', placeholder: 'e.g., M, L, XL...' },
+        'freehub_compatibility': { label: 'Freehub Type', placeholder: 'e.g., Shimano HG, SRAM XD...' },
+        'season': { label: 'Season', placeholder: 'e.g., Summer, Winter...' },
+      };
       
-      if (missing.includes('use_case') && !selectedUseCase) {
-        pendingClarifications.push('usecase');
+      // Create a section for each missing dimension
+      missing.forEach(dim => {
+        // Skip if already selected
+        if (selectedValues[dim]) return;
+        
+        pendingClarifications.push(dim);
+        
+        const config = dimensionConfig[dim] || { label: dim.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), placeholder: '' };
+        const hint = hints[dim] || '';
+        const dimOptions = options[`${dim}_options`] || [];
+        
         const section = document.createElement('div');
         section.className = 'clarification-section';
         section.innerHTML = `
-          <div class="clarification-label">Use Case:</div>
-          <div class="clarification-hint">${hints.use_case || ''}</div>
-          <div class="option-buttons" id="usecase-buttons"></div>
-          <div class="other-input-container" id="usecase-other-container">
-            <input type="text" class="other-input" id="usecase-other-input" placeholder="e.g., commuting, touring...">
+          <div class="clarification-label">${config.label}:</div>
+          ${hint ? `<div class="clarification-hint">${hint}</div>` : ''}
+          <div class="option-buttons" id="${dim}-buttons"></div>
+          <div class="other-input-container" id="${dim}-other-container">
+            <input type="text" class="other-input" id="${dim}-other-input" placeholder="${config.placeholder}">
           </div>
         `;
         clarificationContent.appendChild(section);
         
-        const usecaseBtns = section.querySelector('#usecase-buttons');
-        (options.use_case_options || []).forEach(opt => {
+        const btnsContainer = section.querySelector(`#${dim}-buttons`);
+        dimOptions.forEach(opt => {
           const btn = document.createElement('button');
           btn.className = 'option-btn';
           btn.textContent = opt;
           btn.dataset.value = opt;
-          btn.onclick = () => selectUseCase(opt, btn);
-          usecaseBtns.appendChild(btn);
+          btn.onclick = () => selectDimension(dim, opt, btn);
+          btnsContainer.appendChild(btn);
         });
         
         // Add "Other" button
         const otherBtn = document.createElement('button');
         otherBtn.className = 'option-btn';
         otherBtn.textContent = 'Other';
-        otherBtn.onclick = () => showOtherInput('usecase', otherBtn);
-        usecaseBtns.appendChild(otherBtn);
+        otherBtn.onclick = () => showOtherInputGeneric(dim, otherBtn);
+        btnsContainer.appendChild(otherBtn);
         
         // Handle other input
-        const otherInput = section.querySelector('#usecase-other-input');
+        const otherInput = section.querySelector(`#${dim}-other-input`);
         otherInput.addEventListener('input', () => {
           if (otherInput.value.trim()) {
-            selectedUseCase = otherInput.value.trim();
+            selectedValues[dim] = otherInput.value.trim();
             updateSubmitButton();
           }
         });
-      }
+      });
       
       clarificationPanel.classList.add('active');
       productCategories.classList.add('active');
@@ -1588,20 +1631,51 @@
       updateSubmitButton();
     }
 
-    function showOtherInput(type, btn) {
-      const container = document.getElementById(`${type}-other-container`);
-      const buttonsContainer = document.getElementById(`${type === 'speed' ? 'speed' : 'usecase'}-buttons`);
+    function selectDimension(dim, value, btn) {
+      // Parse as int if it looks like a number or speed
+      if (/^\d+(-speed)?$/.test(value)) {
+        selectedValues[dim] = parseInt(value);
+      } else {
+        selectedValues[dim] = value;
+      }
+      
+      // Map to legacy variables for backward compat
+      if (dim === 'gearing' || dim === 'drivetrain_speed') {
+        selectedSpeed = selectedValues[dim];
+      } else if (dim === 'use_case') {
+        selectedUseCase = selectedValues[dim];
+      }
+      
+      // Update button states
+      const btnsContainer = document.getElementById(`${dim}-buttons`);
+      if (btnsContainer) {
+        btnsContainer.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+        if (btn) btn.classList.add('selected');
+      }
+      
+      // Hide other input if showing
+      const otherContainer = document.getElementById(`${dim}-other-container`);
+      if (otherContainer) {
+        otherContainer.classList.remove('active');
+        otherContainer.querySelector('.other-input').value = '';
+      }
+      
+      updateSelectedOptions();
+      updateSubmitButton();
+    }
+
+    function showOtherInputGeneric(dim, btn) {
+      const container = document.getElementById(`${dim}-other-container`);
+      const buttonsContainer = document.getElementById(`${dim}-buttons`);
       
       // Deselect all buttons in this section
       buttonsContainer.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
       
       // Clear the selection
-      if (type === 'speed') {
-        selectedSpeed = null;
-      } else {
-        selectedUseCase = null;
-      }
+      delete selectedValues[dim];
+      if (dim === 'gearing' || dim === 'drivetrain_speed') selectedSpeed = null;
+      if (dim === 'use_case') selectedUseCase = null;
       
       // Show input container
       container.classList.add('active');
@@ -1611,47 +1685,18 @@
       updateSubmitButton();
     }
 
+    function showOtherInput(type, btn) {
+      // Legacy function - map to generic
+      const dim = type === 'speed' ? 'gearing' : 'use_case';
+      showOtherInputGeneric(dim, btn);
+    }
+
     function selectSpeed(speed, btn) {
-      // Parse as int if it looks like a number
-      selectedSpeed = /^\d+$/.test(speed) ? parseInt(speed) : speed;
-      
-      // Update button states
-      const speedBtns = document.getElementById('speed-buttons');
-      if (speedBtns) {
-        speedBtns.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
-        if (btn) btn.classList.add('selected');
-      }
-      
-      // Hide other input if showing
-      const otherContainer = document.getElementById('speed-other-container');
-      if (otherContainer) {
-        otherContainer.classList.remove('active');
-        otherContainer.querySelector('.other-input').value = '';
-      }
-      
-      updateSelectedOptions();
-      updateSubmitButton();
+      selectDimension('gearing', speed, btn);
     }
 
     function selectUseCase(useCase, btn) {
-      selectedUseCase = useCase;
-      
-      // Update button states
-      const usecaseBtns = document.getElementById('usecase-buttons');
-      if (usecaseBtns) {
-        usecaseBtns.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
-        if (btn) btn.classList.add('selected');
-      }
-      
-      // Hide other input if showing
-      const otherContainer = document.getElementById('usecase-other-container');
-      if (otherContainer) {
-        otherContainer.classList.remove('active');
-        otherContainer.querySelector('.other-input').value = '';
-      }
-      
-      updateSelectedOptions();
-      updateSubmitButton();
+      selectDimension('use_case', useCase, btn);
     }
 
     function updateSubmitButton() {
@@ -1660,11 +1705,16 @@
       
       // Check if all pending clarifications have been answered
       let allAnswered = true;
-      if (pendingClarifications.includes('speed') && !selectedSpeed) {
-        allAnswered = false;
-      }
-      if (pendingClarifications.includes('usecase') && !selectedUseCase) {
-        allAnswered = false;
+      for (const dim of pendingClarifications) {
+        // Check both generic selectedValues and legacy variables
+        const hasValue = selectedValues[dim] || 
+          (dim === 'gearing' && selectedSpeed) ||
+          (dim === 'drivetrain_speed' && selectedSpeed) ||
+          (dim === 'use_case' && selectedUseCase);
+        if (!hasValue) {
+          allAnswered = false;
+          break;
+        }
       }
       
       if (allAnswered && pendingClarifications.length > 0) {
@@ -1727,8 +1777,14 @@
         diagnosisContainer.classList.add('hidden');
       }
       
-      // Render product categories
-      renderProductCategories(data.products_by_category || [], sections);
+      // Render product categories (using new structured format if available)
+      renderProductCategories(
+        data.products_by_category || [],
+        sections,
+        data.primary_products || [],
+        data.optional_products || [],
+        data.tool_products || []
+      );
       
       // Render instructions
       renderInstructions(sections);
@@ -1798,64 +1854,99 @@
       });
     }
 
-    function renderProductCategories(categories, sections) {
+    function renderProductCategories(categories, sections, primaryProducts, optionalProducts, toolProducts) {
       categoriesContainer.innerHTML = '';
       
       // Map category type to display name and icon
       const categoryMeta = {
+        'drivetrain_cassettes': { name: 'Cassette', icon: '⚙️' },
+        'drivetrain_chains': { name: 'Chain', icon: '⛓️' },
+        'drivetrain_tools': { name: 'Tools', icon: '🔧' },
         'cassettes': { name: 'Cassette', icon: '⚙️' },
         'chains': { name: 'Chain', icon: '⛓️' },
-        'drivetrain_tools': { name: 'Tools', icon: '🔧' },
+        'mtb_gloves': { name: 'Gloves', icon: '🧤' },
       };
       
-      categories.forEach((cat) => {
-        const meta = categoryMeta[cat.category_key] || { name: cat.category || 'Products', icon: '📦' };
+      // Helper function to render a product section
+      function renderSection(products, sectionTitle, sectionClass, showReason = false) {
+        if (!products || products.length === 0) return;
         
-        const section = document.createElement('div');
-        section.className = 'category-section';
+        const sectionDiv = document.createElement('div');
+        sectionDiv.className = `product-section ${sectionClass}`;
         
-        const header = document.createElement('div');
-        header.className = 'category-header';
-        header.innerHTML = `<span class="category-name">${meta.icon} ${meta.name}</span>`;
-        section.appendChild(header);
-        
-        const productsDiv = document.createElement('div');
-        productsDiv.className = 'category-products';
-        
-        // Best product
-        if (cat.best) {
-          const bestCard = createProductCard(cat.best, true, meta.icon);
-          productsDiv.appendChild(bestCard);
+        if (sectionTitle) {
+          const sectionHeader = document.createElement('div');
+          sectionHeader.className = 'section-header';
+          sectionHeader.innerHTML = `<h3>${sectionTitle}</h3>`;
+          sectionDiv.appendChild(sectionHeader);
         }
         
-        // Alternatives
-        if (cat.alternatives && cat.alternatives.length > 0) {
-          const altSection = document.createElement('div');
-          altSection.className = 'alternatives-section';
+        products.forEach((cat) => {
+          const meta = categoryMeta[cat.category_key] || { name: cat.category || 'Products', icon: '📦' };
           
-          const toggleBtn = document.createElement('button');
-          toggleBtn.className = 'alternatives-toggle';
-          toggleBtn.innerHTML = `<span class="arrow">▼</span> ${cat.alternatives.length} alternative${cat.alternatives.length > 1 ? 's' : ''}`;
-          toggleBtn.onclick = () => {
-            toggleBtn.classList.toggle('expanded');
-            altList.classList.toggle('expanded');
-          };
-          altSection.appendChild(toggleBtn);
+          const section = document.createElement('div');
+          section.className = 'category-section';
           
-          const altList = document.createElement('div');
-          altList.className = 'alternatives-list';
-          cat.alternatives.forEach(alt => {
-            const altCard = createAltProductCard(alt, meta.icon);
-            altList.appendChild(altCard);
-          });
-          altSection.appendChild(altList);
+          const header = document.createElement('div');
+          header.className = 'category-header';
+          let headerContent = `<span class="category-name">${meta.icon} ${meta.name}</span>`;
+          if (showReason && cat.reason) {
+            headerContent += `<span class="category-reason">${cat.reason}</span>`;
+          }
+          header.innerHTML = headerContent;
+          section.appendChild(header);
           
-          productsDiv.appendChild(altSection);
-        }
+          const productsDiv = document.createElement('div');
+          productsDiv.className = 'category-products';
+          
+          // Best product
+          if (cat.best) {
+            const bestCard = createProductCard(cat.best, true, meta.icon);
+            productsDiv.appendChild(bestCard);
+          }
+          
+          // Alternatives
+          if (cat.alternatives && cat.alternatives.length > 0) {
+            const altSection = document.createElement('div');
+            altSection.className = 'alternatives-section';
+            
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'alternatives-toggle';
+            toggleBtn.innerHTML = `<span class="arrow">▼</span> ${cat.alternatives.length} alternative${cat.alternatives.length > 1 ? 's' : ''}`;
+            toggleBtn.onclick = () => {
+              toggleBtn.classList.toggle('expanded');
+              altList.classList.toggle('expanded');
+            };
+            altSection.appendChild(toggleBtn);
+            
+            const altList = document.createElement('div');
+            altList.className = 'alternatives-list';
+            cat.alternatives.forEach(alt => {
+              const altCard = createAltProductCard(alt, meta.icon);
+              altList.appendChild(altCard);
+            });
+            altSection.appendChild(altList);
+            
+            productsDiv.appendChild(altSection);
+          }
+          
+          section.appendChild(productsDiv);
+          sectionDiv.appendChild(section);
+        });
         
-        section.appendChild(productsDiv);
-        categoriesContainer.appendChild(section);
-      });
+        categoriesContainer.appendChild(sectionDiv);
+      }
+      
+      // Use new structured format if available, fall back to legacy
+      if (primaryProducts && primaryProducts.length > 0) {
+        // New structured format
+        renderSection(primaryProducts, null, 'primary-products');
+        renderSection(optionalProducts, '💡 You Might Also Need', 'optional-products', true);
+        renderSection(toolProducts, '🔧 Tools for This Job', 'tool-products', true);
+      } else {
+        // Legacy format - render all as primary
+        renderSection(categories, null, 'primary-products');
+      }
     }
 
     function createProductCard(product, isBest, icon) {

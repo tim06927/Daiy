@@ -2,6 +2,34 @@
 
 A Flask-based web interface for AI-powered bike component recommendations with a modern split-panel UI.
 
+## Current Development Status (Dec 29, 2025)
+
+### Recently Completed
+- ✅ **Primary/Optional/Tools categorization** - JobIdentification now distinguishes:
+  - `primary_categories` - What user explicitly asked for
+  - `optional_categories` - LLM-suggested items for this specific job (with reasons)
+  - `required_tools` - Tools needed for the job (with reasons)
+- ✅ **API response restructured** - Returns `primary_products`, `optional_products`, `tool_products`
+- ✅ **Frontend updated** - Renders products in three sections with headers/reasons
+- ✅ **Import fixes** - App now works when run directly (`python web/app.py`)
+- ✅ **Clarification flow generalized** - Frontend handles any dimension from `SHARED_FIT_DIMENSIONS`
+
+### Known Issues / TODO
+- ⚠️ **Test the clarification flow** - Just rewrote to use generic dimension names. Need to verify:
+  - Options appear correctly for `gearing`, `use_case`, etc.
+  - Selection persists and submits correctly
+  - `cachedJob` is passed back to avoid re-identifying
+- ⚠️ **Test full recommendation flow** - End-to-end with new primary/optional/tools structure
+- ⚠️ **Category names mismatch** - Prompt expects `drivetrain_chains` but some code still uses `chains`
+- 📝 **updateSelectedOptions()** - May need updating to show generic selected values in UI
+
+### Key Files Changed
+- `job_identification.py` - New fields: `primary_categories`, `optional_categories`, `required_tools`, `optional_reasons`, `tool_reasons`
+- `api.py` - Fixed imports for direct execution, restructured response
+- `templates/index.html` - Generic `showClarification()`, `selectedValues` dict, `cachedJob`
+
+---
+
 ## Overview
 
 The web app provides a user-friendly interface to:
@@ -72,6 +100,18 @@ Product category definitions:
 - `SHARED_FIT_DIMENSIONS` - Common dimensions (gearing, use_case, etc.)
 - Helper functions for clarification fields
 
+### `job_identification.py`
+LLM-based job identification:
+- `JobIdentification` - Result dataclass with:
+  - `primary_categories` - What user explicitly requested (ordered by priority)
+  - `optional_categories` - LLM-suggested additions for this specific job
+  - `required_tools` - Tools needed for the job
+  - `optional_reasons` / `tool_reasons` - Why each was suggested
+  - `inferred_values` - Fit dimensions detected from input
+  - `categories` - Property combining all categories (backward compat)
+- `identify_job()` - Analyzes user input with LLM
+- `merge_inferred_with_user_selections()` - Combine LLM and user values
+
 ### `config.py`
 Centralized settings:
 - `CSV_PATH` - Absolute path to product data
@@ -80,10 +120,14 @@ Centralized settings:
 - `MAX_CASSETTES/CHAINS/TOOLS` - Candidate limits per category
 
 ### `templates/index.html`
-Single-page app (~1700 lines) with inline CSS and JavaScript:
+Single-page app (~2000 lines) with inline CSS and JavaScript:
 - **Two-state UI** - Initial search state and results state
 - **Tab selector** - Search (disabled) and AI modes
 - **Split-panel results** - Left panel (query context), right panel (products)
+- **Structured product sections**:
+  - Primary Products - What user asked for
+  - "You Might Also Need" - Optional products with reasons
+  - "Tools for This Job" - Required tools with reasons
 - **Clarification UI** - Speed/use-case selection with helpful hints
 - **Results tabs** - Products and Instructions views
 - **Responsive design** - Works on desktop and mobile
@@ -161,7 +205,8 @@ POST `/api/recommend`:
     "suggested_workflow": ["Remove old cassette", "Install new cassette"],
     "checklist": ["Cassette lockring tool", "Chain breaker"]
   },
-  "products_by_category": [
+  
+  "primary_products": [
     {
       "category": "Cassettes",
       "category_key": "drivetrain_cassettes",
@@ -174,9 +219,56 @@ POST `/api/recommend`:
       "alternatives": []
     }
   ],
-  "job": {"categories": ["drivetrain_cassettes"]},
+  
+  "optional_products": [
+    {
+      "category": "Chain",
+      "category_key": "drivetrain_chains",
+      "reason": "Inspect chain for wear - replacing worn chain with cassette extends life",
+      "best": {...},
+      "alternatives": []
+    }
+  ],
+  
+  "tool_products": [
+    {
+      "category": "Tools",
+      "category_key": "drivetrain_tools",
+      "reason": "Cassette lockring tool needed for installation",
+      "best": {...},
+      "alternatives": []
+    }
+  ],
+  
+  "products_by_category": [...],
+  
+  "job": {
+    "primary_categories": ["drivetrain_cassettes"],
+    "optional_categories": ["drivetrain_chains"],
+    "optional_reasons": {"drivetrain_chains": "Inspect chain for wear..."},
+    "required_tools": ["drivetrain_tools"],
+    "tool_reasons": {"drivetrain_tools": "Cassette lockring tool needed..."},
+    "inferred_values": {"gearing": 11, "use_case": "road"},
+    "missing_dimensions": [],
+    "confidence": 0.9,
+    "reasoning": "User wants climbing cassette upgrade for road bike"
+  },
+  
   "fit_values": {"gearing": 11, "use_case": "road"}
 }
+```
+
+### Response Structure
+
+The API response now includes **three product sections** to distinguish:
+
+| Section | Purpose | Contains |
+|---------|---------|----------|
+| `primary_products` | What the user explicitly asked for | Products ordered by user's priority |
+| `optional_products` | Items the LLM recommends for THIS specific job | Products with job-specific `reason` |
+| `tool_products` | Tools needed to complete the job | Tool products with `reason` explaining need |
+
+**Note:** `products_by_category` remains for backward compatibility (combines all three sections).
 ```
 
 ## Configuration

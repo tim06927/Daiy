@@ -40,10 +40,15 @@ else:
 
 app = Flask(__name__)
 
-# Register API blueprint (only when running as package to avoid circular imports)
+# Register API blueprint
 if __package__ is not None and __package__ != "":
+    # Running as package
     from .api import api
-    app.register_blueprint(api)
+else:
+    # Running directly
+    from api import api
+
+app.register_blueprint(api)
 
 
 # ---------- BASIC AUTH ----------

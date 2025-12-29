@@ -10,32 +10,62 @@ The /api/recommend endpoint uses this flow.
 
 import json
 import logging
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from flask import Blueprint, Response, jsonify, request
 
-from .candidate_selection import (
-    select_candidates_dynamic,
-    validate_categories_against_catalog,
-)
-from .catalog import get_catalog
-from .categories import (
-    PRODUCT_CATEGORIES,
-    SHARED_FIT_DIMENSIONS,
-    get_clarification_fields,
-    get_fit_dimensions_for_categories,
-)
-from .job_identification import (
-    JobIdentification,
-    identify_job,
-    merge_inferred_with_user_selections,
-)
-from .logging_utils import log_interaction
-from .prompts import (
-    build_grounding_context_dynamic,
-    make_clarification_prompt_dynamic,
-    make_recommendation_prompt,
-)
+# Handle imports for both direct execution and package import
+if __package__ is None or __package__ == "":
+    # Running directly - add parent to path for absolute imports
+    sys.path.insert(0, str(Path(__file__).parent))
+    from candidate_selection import (
+        select_candidates_dynamic,
+        validate_categories_against_catalog,
+    )
+    from catalog import get_catalog
+    from categories import (
+        PRODUCT_CATEGORIES,
+        SHARED_FIT_DIMENSIONS,
+        get_clarification_fields,
+        get_fit_dimensions_for_categories,
+    )
+    from job_identification import (
+        JobIdentification,
+        identify_job,
+        merge_inferred_with_user_selections,
+    )
+    from logging_utils import log_interaction
+    from prompts import (
+        build_grounding_context_dynamic,
+        make_clarification_prompt_dynamic,
+        make_recommendation_prompt,
+    )
+else:
+    # Running as package
+    from .candidate_selection import (
+        select_candidates_dynamic,
+        validate_categories_against_catalog,
+    )
+    from .catalog import get_catalog
+    from .categories import (
+        PRODUCT_CATEGORIES,
+        SHARED_FIT_DIMENSIONS,
+        get_clarification_fields,
+        get_fit_dimensions_for_categories,
+    )
+    from .job_identification import (
+        JobIdentification,
+        identify_job,
+        merge_inferred_with_user_selections,
+    )
+    from .logging_utils import log_interaction
+    from .prompts import (
+        build_grounding_context_dynamic,
+        make_clarification_prompt_dynamic,
+        make_recommendation_prompt,
+    )
 
 __all__ = ["api"]
 
@@ -52,7 +82,10 @@ def _process_image_for_openai(
     
     Returns (processed_base64, mime_type, error_message).
     """
-    from .image_utils import process_image_for_openai
+    if __package__ is None or __package__ == "":
+        from image_utils import process_image_for_openai
+    else:
+        from .image_utils import process_image_for_openai
     return process_image_for_openai(image_base64)
 
 
@@ -77,7 +110,10 @@ def _call_llm_recommendation(
         Parsed recommendation dict.
     """
     from openai import OpenAI
-    from .config import LLM_MODEL
+    if __package__ is None or __package__ == "":
+        from config import LLM_MODEL
+    else:
+        from .config import LLM_MODEL
     
     client = OpenAI()
     
@@ -151,7 +187,10 @@ def _call_llm_clarification(
         Dict with inferred_values and options.
     """
     from openai import OpenAI
-    from .config import LLM_MODEL
+    if __package__ is None or __package__ == "":
+        from config import LLM_MODEL
+    else:
+        from .config import LLM_MODEL
     
     client = OpenAI()
     
@@ -339,7 +378,7 @@ def recommend() -> Union[Tuple[Response, int], Response]:
                 "inferred_values": known_values,
             }), 200
     
-    # Step 4: Select candidates
+    # Step 4: Select candidates (for all categories: primary + optional + tools)
     candidates = select_candidates_dynamic(df, job.categories, known_values)
     
     # Check if we have any candidates
@@ -371,61 +410,80 @@ def recommend() -> Union[Tuple[Response, int], Response]:
     ranking = llm_payload.get("product_ranking", {})
     diagnosis = llm_payload.get("diagnosis", "")
     
-    # Build products_by_category response
-    products_by_category = []
+    # Helper function to build category product list
+    def _build_category_products(
+        category_list: List[str],
+        reasons: Optional[Dict[str, str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Build product list for a set of categories."""
+        result = []
+        for cat in category_list:
+            cat_candidates = candidates.get(cat, [])
+            if not cat_candidates:
+                continue
+            
+            config = PRODUCT_CATEGORIES.get(cat, {})
+            display_name = config.get("display_name", cat.replace("_", " ").title())
+            
+            rank_info = ranking.get(cat, {})
+            best_idx = rank_info.get("best_index", 0)
+            
+            # Validate index
+            if not isinstance(best_idx, int) or best_idx < 0 or best_idx >= len(cat_candidates):
+                best_idx = 0
+            
+            # Get alternatives
+            alt_indices = rank_info.get("alternatives", [])
+            if not isinstance(alt_indices, list):
+                alt_indices = []
+            alt_indices = [
+                i for i in alt_indices
+                if isinstance(i, int) and 0 <= i < len(cat_candidates) and i != best_idx
+            ]
+            
+            # Fill remaining
+            remaining = [
+                i for i in range(len(cat_candidates))
+                if i not in alt_indices and i != best_idx
+            ]
+            alt_indices = alt_indices + remaining
+            
+            # Get why_fits
+            why_fits = rank_info.get("why_fits", {})
+            if not isinstance(why_fits, dict):
+                why_fits = {}
+            
+            def _add_why_fits(prod: Dict[str, Any], idx: int) -> Dict[str, Any]:
+                prod_copy = dict(prod)
+                prod_copy["type"] = cat
+                why_text = why_fits.get(str(idx)) or why_fits.get(idx) or ""
+                prod_copy["why_it_fits"] = why_text if isinstance(why_text, str) else ""
+                return prod_copy
+            
+            best_prod = _add_why_fits(cat_candidates[best_idx], best_idx)
+            alt_prods = [_add_why_fits(cat_candidates[i], i) for i in alt_indices]
+            
+            cat_entry = {
+                "category": display_name,
+                "category_key": cat,
+                "best": best_prod,
+                "alternatives": alt_prods,
+            }
+            
+            # Add reason if provided (for optional/tool categories)
+            if reasons and cat in reasons:
+                cat_entry["reason"] = reasons[cat]
+            
+            result.append(cat_entry)
+        return result
     
-    for cat in job.categories:
-        cat_candidates = candidates.get(cat, [])
-        if not cat_candidates:
-            continue
-        
-        config = PRODUCT_CATEGORIES.get(cat, {})
-        display_name = config.get("display_name", cat.replace("_", " ").title())
-        
-        rank_info = ranking.get(cat, {})
-        best_idx = rank_info.get("best_index", 0)
-        
-        # Validate index
-        if not isinstance(best_idx, int) or best_idx < 0 or best_idx >= len(cat_candidates):
-            best_idx = 0
-        
-        # Get alternatives
-        alt_indices = rank_info.get("alternatives", [])
-        if not isinstance(alt_indices, list):
-            alt_indices = []
-        alt_indices = [
-            i for i in alt_indices
-            if isinstance(i, int) and 0 <= i < len(cat_candidates) and i != best_idx
-        ]
-        
-        # Fill remaining
-        remaining = [
-            i for i in range(len(cat_candidates))
-            if i not in alt_indices and i != best_idx
-        ]
-        alt_indices = alt_indices + remaining
-        
-        # Get why_fits
-        why_fits = rank_info.get("why_fits", {})
-        if not isinstance(why_fits, dict):
-            why_fits = {}
-        
-        def _add_why_fits(prod: Dict[str, Any], idx: int) -> Dict[str, Any]:
-            prod_copy = dict(prod)
-            prod_copy["type"] = cat
-            why_text = why_fits.get(str(idx)) or why_fits.get(idx) or ""
-            prod_copy["why_it_fits"] = why_text if isinstance(why_text, str) else ""
-            return prod_copy
-        
-        best_prod = _add_why_fits(cat_candidates[best_idx], best_idx)
-        alt_prods = [_add_why_fits(cat_candidates[i], i) for i in alt_indices]
-        
-        products_by_category.append({
-            "category": display_name,
-            "category_key": cat,
-            "best": best_prod,
-            "alternatives": alt_prods,
-        })
+    # Build separate product lists
+    primary_products = _build_category_products(job.primary_categories)
+    optional_products = _build_category_products(job.optional_categories, job.optional_reasons)
+    tool_products = _build_category_products(job.required_tools, job.tool_reasons)
+    
+    # Build legacy products_by_category for backward compatibility
+    products_by_category = primary_products + optional_products + tool_products
     
     if not products_by_category:
         return jsonify({
@@ -437,6 +495,11 @@ def recommend() -> Union[Tuple[Response, int], Response]:
     return jsonify({
         "diagnosis": diagnosis,
         "sections": sections,
+        # New structured response
+        "primary_products": primary_products,
+        "optional_products": optional_products,
+        "tool_products": tool_products,
+        # Legacy format for backward compatibility
         "products_by_category": products_by_category,
         "job": job.to_dict(),
         "fit_values": known_values,

@@ -9,7 +9,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Optional, Tuple
 
 # Handle imports for both direct execution and package import
 if __package__ is None or __package__ == "":
@@ -47,51 +47,103 @@ def _get_openai_client():
 
 
 class JobIdentification:
-    """Result of job identification step."""
+    """Result of job identification step.
+    
+    Distinguishes between:
+    - primary_categories: What the user explicitly requested
+    - optional_categories: Complementary products the LLM recommends for this specific job
+    - required_tools: Tools needed to complete the job
+    """
     
     def __init__(
         self,
-        categories: List[str],
+        primary_categories: List[str],
+        optional_categories: List[str],
+        required_tools: List[str],
         inferred_values: Dict[str, Any],
         missing_dimensions: List[str],
         confidence: float,
         reasoning: str,
+        optional_reasons: Optional[Dict[str, str]] = None,
+        tool_reasons: Optional[Dict[str, str]] = None,
     ):
         """Initialize job identification result.
         
         Args:
-            categories: List of identified product category keys.
+            primary_categories: Categories the user explicitly asked for (ordered by priority).
+            optional_categories: Complementary categories the LLM recommends for this job.
+            required_tools: Tool categories needed to complete the job.
             inferred_values: Dict of fit dimension values inferred from input.
             missing_dimensions: List of fit dimensions that need clarification.
             confidence: Confidence score (0-1) for the identification.
             reasoning: Brief explanation of why these categories were identified.
+            optional_reasons: Dict mapping optional category to reason why it's suggested.
+            tool_reasons: Dict mapping tool category to reason why it's needed.
         """
-        self.categories = categories
+        self.primary_categories = primary_categories
+        self.optional_categories = optional_categories
+        self.required_tools = required_tools
         self.inferred_values = inferred_values
         self.missing_dimensions = missing_dimensions
         self.confidence = confidence
         self.reasoning = reasoning
+        self.optional_reasons = optional_reasons or {}
+        self.tool_reasons = tool_reasons or {}
+    
+    @property
+    def categories(self) -> List[str]:
+        """All categories (for backwards compatibility)."""
+        return self.primary_categories + self.optional_categories + self.required_tools
+    
+    @categories.setter
+    def categories(self, value: List[str]) -> None:
+        """Set categories (for backwards compatibility during validation)."""
+        # When setting categories, assume they are all primary for backwards compat
+        self.primary_categories = value
         
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
-            "categories": self.categories,
+            "primary_categories": self.primary_categories,
+            "optional_categories": self.optional_categories,
+            "required_tools": self.required_tools,
+            "optional_reasons": self.optional_reasons,
+            "tool_reasons": self.tool_reasons,
             "inferred_values": self.inferred_values,
             "missing_dimensions": self.missing_dimensions,
             "confidence": self.confidence,
             "reasoning": self.reasoning,
+            # Backwards compatibility
+            "categories": self.categories,
         }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "JobIdentification":
         """Create from dictionary."""
-        return cls(
-            categories=data.get("categories", []),
-            inferred_values=data.get("inferred_values", {}),
-            missing_dimensions=data.get("missing_dimensions", []),
-            confidence=data.get("confidence", 0.0),
-            reasoning=data.get("reasoning", ""),
-        )
+        # Handle both new and old format
+        if "primary_categories" in data:
+            return cls(
+                primary_categories=data.get("primary_categories", []),
+                optional_categories=data.get("optional_categories", []),
+                required_tools=data.get("required_tools", []),
+                inferred_values=data.get("inferred_values", {}),
+                missing_dimensions=data.get("missing_dimensions", []),
+                confidence=data.get("confidence", 0.0),
+                reasoning=data.get("reasoning", ""),
+                optional_reasons=data.get("optional_reasons", {}),
+                tool_reasons=data.get("tool_reasons", {}),
+            )
+        else:
+            # Old format - treat all as primary
+            return cls(
+                primary_categories=data.get("categories", []),
+                optional_categories=[],
+                required_tools=[],
+                inferred_values=data.get("inferred_values", {}),
+                missing_dimensions=data.get("missing_dimensions", []),
+                confidence=data.get("confidence", 0.0),
+                reasoning=data.get("reasoning", ""),
+            )
 
 
 def _build_job_identification_prompt(
@@ -128,7 +180,7 @@ def _build_job_identification_prompt(
             "Use visual information to infer categories and fit values.\n"
         )
     
-    return f"""You are a bike shop assistant helping to identify what products a customer needs.
+    return f"""You are a bike shop assistant helping to identify what products a customer needs for their specific job.
 
 {category_descriptions}
 
@@ -138,28 +190,36 @@ USER REQUEST:
 \"\"\"{problem_text}\"\"\"
 {image_instruction}
 YOUR TASK:
-1. Identify which product categories are relevant to the user's request
-2. Infer any fit dimension values you can determine from the text (or image if provided)
-3. List which fit dimensions still need clarification
+Analyze the user's request and identify:
+1. PRIMARY PRODUCTS: What the user explicitly asked for (ordered by importance to the user)
+2. OPTIONAL PRODUCTS: Other products you'd recommend specifically for THIS job (not generic "often bought together")
+3. REQUIRED TOOLS: Tools necessary to complete this specific job
+4. Infer any fit dimension values from the text/image
+5. List which fit dimensions still need clarification
 
 Respond with pure JSON ONLY (no prose), using this exact structure:
 {{
-  "categories": ["cassettes", "chains"],  // List of relevant category keys from above
+  "primary_categories": ["drivetrain_chains"],  // What user explicitly requested, ordered by priority
+  "optional_categories": ["drivetrain_cassettes"],  // Products that make sense for THIS specific job
+  "optional_reasons": {{"drivetrain_cassettes": "Old chain may have worn the cassette - inspect and consider replacing"}},
+  "required_tools": ["drivetrain_tools"],  // Tool categories needed for installation
+  "tool_reasons": {{"drivetrain_tools": "Chain breaker or quick-link pliers needed for chain replacement"}},
   "inferred_values": {{
     "gearing": 11,  // Values you can determine, or null if unknown
     "use_case": "road"  // Set to null if not determinable
   }},
   "missing_dimensions": ["freehub_compatibility"],  // Dimensions that need user input
-  "confidence": 0.85,  // 0-1 score of confidence in category identification
-  "reasoning": "User mentions worn chain and cassette, appears to be road bike from image"
+  "confidence": 0.85,  // 0-1 score of confidence in job identification
+  "reasoning": "User needs chain replacement for their road bike drivetrain"
 }}
 
 RULES:
-- Only include categories from the available list above
-- Include a category ONLY if the user explicitly or implicitly needs that type of product
+- PRIMARY: Only include what the user explicitly asked for. Order by user's stated priority.
+- OPTIONAL: Only include if there's a specific reason for THIS job (e.g., worn chain damages cassette).
+  Do NOT include generic "often bought together" items without job-specific reasoning.
+- TOOLS: Include tool categories that are genuinely needed to complete the job.
 - For inferred_values: only include dimensions relevant to the identified categories
 - For missing_dimensions: list dimensions that ARE relevant but COULDN'T be determined
-- If user mentions tools/maintenance without specific products, include relevant tool categories
 - Keep reasoning brief (1-2 sentences)
 - Set confidence lower if the request is ambiguous
 """
@@ -238,30 +298,53 @@ def identify_job(
                 try:
                     parsed = json.loads(raw)
                     
-                    # Validate categories
+                    # Validate categories against known list
                     valid_categories = get_all_category_names()
-                    categories = [
-                        c for c in parsed.get("categories", [])
+                    
+                    # Parse new format with primary/optional/tools
+                    primary_categories = [
+                        c for c in parsed.get("primary_categories", [])
+                        if c in valid_categories
+                    ]
+                    optional_categories = [
+                        c for c in parsed.get("optional_categories", [])
+                        if c in valid_categories
+                    ]
+                    required_tools = [
+                        c for c in parsed.get("required_tools", [])
                         if c in valid_categories
                     ]
                     
-                    # If no valid categories, try to infer from context
-                    if not categories:
-                        logger.warning("No valid categories identified, using defaults")
+                    # Backwards compatibility: if old format used, treat as primary
+                    if not primary_categories and "categories" in parsed:
+                        primary_categories = [
+                            c for c in parsed.get("categories", [])
+                            if c in valid_categories
+                        ]
+                    
+                    # If no categories at all, try to infer from context
+                    if not primary_categories:
+                        logger.warning("No valid primary categories identified, using defaults")
                         # Check for common keywords and map to categories
                         text_lower = problem_text.lower()
                         if any(w in text_lower for w in ["chain", "cassette", "drivetrain", "gearing"]):
-                            categories = ["chains", "cassettes"]
+                            primary_categories = ["drivetrain_chains"]
+                            optional_categories = ["drivetrain_cassettes"]
+                            required_tools = ["drivetrain_tools"]
                         elif "glove" in text_lower:
-                            categories = ["mtb_gloves"]
+                            primary_categories = ["mtb_gloves"]
                         elif "tool" in text_lower:
-                            categories = ["drivetrain_tools"]
+                            primary_categories = ["drivetrain_tools"]
                         else:
                             # Default fallback
-                            categories = ["chains", "cassettes", "drivetrain_tools"]
+                            primary_categories = ["drivetrain_chains"]
                     
                     result = JobIdentification(
-                        categories=categories,
+                        primary_categories=primary_categories,
+                        optional_categories=optional_categories,
+                        required_tools=required_tools,
+                        optional_reasons=parsed.get("optional_reasons", {}),
+                        tool_reasons=parsed.get("tool_reasons", {}),
                         inferred_values=parsed.get("inferred_values", {}),
                         missing_dimensions=parsed.get("missing_dimensions", []),
                         confidence=float(parsed.get("confidence", 0.5)),
@@ -287,7 +370,9 @@ def identify_job(
     # Fallback: return drivetrain categories with unknown values
     logger.warning("Job identification failed, using fallback")
     return JobIdentification(
-        categories=["chains", "cassettes", "drivetrain_tools"],
+        primary_categories=["drivetrain_chains"],
+        optional_categories=["drivetrain_cassettes"],
+        required_tools=["drivetrain_tools"],
         inferred_values={},
         missing_dimensions=["gearing", "use_case"],
         confidence=0.0,
