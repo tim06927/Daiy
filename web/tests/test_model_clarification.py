@@ -12,14 +12,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# Load environment variables
-env_path = Path(__file__).parent.parent / ".env"
+# Load environment variables (tests are now in web/tests/, so go up two more levels)
+env_path = Path(__file__).resolve().parents[2] / ".env"
 load_dotenv(dotenv_path=env_path)
 
 client = OpenAI()
 
-# Test image path
-IMAGE_PATH = Path(__file__).parent.parent / "data" / "grizl_gears.jpeg"
+# Test image path (tests are now in web/tests/, image is in web/data/)
+IMAGE_PATH = Path(__file__).resolve().parents[2] / "data" / "grizl_gears.jpeg"
 
 # The prompt used in app.py for clarification (updated with image analysis emphasis)
 def get_clarification_prompt(has_image: bool) -> str:

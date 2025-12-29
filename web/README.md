@@ -29,35 +29,48 @@ The app uses a grounding pattern: all recommendations come from a real product c
 
 ```
 web/
-├── app.py              # Main Flask application
+├── app.py              # Flask app setup and routes
+├── api.py              # API endpoints (/api/recommend, /api/categories)
+├── categories.py       # Product category definitions
+├── candidate_selection.py  # Product filtering logic
+├── catalog.py          # Product catalog loading
 ├── config.py           # Centralized configuration
+├── image_utils.py      # Image processing for OpenAI
+├── job_identification.py  # LLM-based job/category identification
+├── logging_utils.py    # Interaction logging
+├── prompts.py          # Prompt building for LLM calls
 ├── templates/
 │   └── index.html      # Single-page app (CSS/JS inline)
 ├── logs/               # LLM interaction logs (JSONL)
 ├── tests/              # Test files
+│   ├── test_model_clarification.py
+│   ├── test_model_clarification_extended.py
+│   └── test_vision_flow.py
 └── README.md           # This file
 ```
 
 ## Files
 
 ### `app.py`
-Main application (1000+ lines) with:
-- **Product loading** - Reads CSV catalog at startup, derives speed from product names
-- **Candidate selection** - Filters products by speed and use case
-- **Smart clarification** - LLM tries to infer missing values before asking user
-- **Context building** - Prepares grounding data for recommendation LLM
-- **LLM integration** - Calls gpt-5-mini with structured JSON prompts
-- **Interaction logging** - All LLM calls logged to JSONL for debugging
-- **Flask routes** - GET `/` and POST `/api/recommend`
+Slim Flask application (~100 lines) with:
+- **Basic auth** - Optional HTTP Basic Auth for demos
+- **Flask setup** - App initialization and blueprint registration
+- **Index route** - GET `/` serves the main page
 
-Key functions:
-- `load_catalog()` - Parse CSV, derive speed/application from product names
-- `select_candidates()` - Filter cassettes/chains/tools by constraints
-- `_infer_bike_attributes()` - Regex-based speed/use-case extraction
-- `_request_clarification_options()` - LLM inference for missing values
-- `build_grounding_context()` - Create structured context for LLM
-- `make_prompt()` - Format prompt with product candidates
-- `call_llm()` - Call OpenAI API and parse JSON response
+### `api.py`
+API endpoints module with:
+- **Job identification** - LLM determines product categories from user input
+- **Smart clarification** - LLM infers missing values before asking user
+- **Candidate selection** - Filters products by category and fit dimensions
+- **Recommendation** - LLM generates grounded product recommendations
+- **POST `/api/recommend`** - Main recommendation endpoint
+- **GET `/api/categories`** - List available product categories
+
+### `categories.py`
+Product category definitions:
+- `PRODUCT_CATEGORIES` - Category configs with fit dimensions
+- `SHARED_FIT_DIMENSIONS` - Common dimensions (gearing, use_case, etc.)
+- Helper functions for clarification fields
 
 ### `config.py`
 Centralized settings:
@@ -115,8 +128,8 @@ POST `/api/recommend`:
 {
   "problem_text": "I want to upgrade my 11-speed road bike cassette for better climbing",
   "image_base64": "...",
-  "selected_speed": 11,
-  "selected_use_case": "road"
+  "selected_values": {"gearing": 11, "use_case": "road"},
+  "cached_job": null
 }
 ```
 
@@ -124,15 +137,18 @@ POST `/api/recommend`:
 ```json
 {
   "need_clarification": true,
-  "missing": ["drivetrain_speed"],
+  "job": {
+    "categories": ["drivetrain_cassettes"],
+    "inferred_values": {}
+  },
+  "missing_dimensions": ["gearing"],
   "options": {
-    "speed_options": ["10-speed", "11-speed", "12-speed"],
-    "use_case_options": []
+    "gearing_options": [10, 11, 12]
   },
   "hints": {
-    "drivetrain_speed": "Count the cogs on your rear cassette..."
+    "gearing": "Count the cogs on your rear cassette..."
   },
-  "inferred_use_case": "road"
+  "inferred_values": {}
 }
 ```
 
@@ -148,6 +164,7 @@ POST `/api/recommend`:
   "products_by_category": [
     {
       "category": "Cassettes",
+      "category_key": "drivetrain_cassettes",
       "best": {
         "name": "Shimano CS-HG700-11",
         "price": "44.99€",
@@ -157,8 +174,8 @@ POST `/api/recommend`:
       "alternatives": []
     }
   ],
-  "inferred_speed": 11,
-  "inferred_use_case": "road"
+  "job": {"categories": ["drivetrain_cassettes"]},
+  "fit_values": {"gearing": 11, "use_case": "road"}
 }
 ```
 

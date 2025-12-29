@@ -1,11 +1,11 @@
-"""Generalized API endpoints for product recommendations.
+"""API endpoints for product recommendations.
 
-This module provides the new category-agnostic recommendation flow:
+This module provides the category-agnostic recommendation flow:
 1. Job identification - determine categories and fit dimensions needed
 2. Clarification - gather missing fit information
 3. Recommendation - generate grounded product suggestions
 
-The /api/v2/recommend endpoint uses this flow.
+The /api/recommend endpoint uses this flow.
 """
 
 import json
@@ -37,12 +37,12 @@ from .prompts import (
     make_recommendation_prompt,
 )
 
-__all__ = ["api_v2"]
+__all__ = ["api"]
 
 logger = logging.getLogger(__name__)
 
-# Create blueprint for v2 API
-api_v2 = Blueprint("api_v2", __name__, url_prefix="/api/v2")
+# Create blueprint for API
+api = Blueprint("api", __name__, url_prefix="/api")
 
 
 def _process_image_for_openai(
@@ -204,7 +204,7 @@ def _call_llm_clarification(
     return {"inferred_values": {}, "options": {}}
 
 
-@api_v2.route("/recommend", methods=["POST"])
+@api.route("/recommend", methods=["POST"])
 def recommend() -> Union[Tuple[Response, int], Response]:
     """Generalized product recommendation endpoint.
     
@@ -443,7 +443,7 @@ def recommend() -> Union[Tuple[Response, int], Response]:
     })
 
 
-@api_v2.route("/categories", methods=["GET"])
+@api.route("/categories", methods=["GET"])
 def list_categories() -> Response:
     """List available product categories.
     

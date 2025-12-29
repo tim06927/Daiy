@@ -43,31 +43,46 @@ def run_vision_flow() -> dict:
         raise SystemExit("OPENAI_API_KEY is required to run this test.")
 
     # Import inside the function so missing API keys can short-circuit before module import.
-    from web import app as app_module
+    from web.prompts import build_grounding_context_dynamic, make_recommendation_prompt
+    from web.api import _call_llm_recommendation, _process_image_for_openai
 
     img_path = repo_root / "data" / "grizl_7_drivetrain.jpeg"
     if not img_path.exists():
         raise SystemExit(f"Test image missing at {img_path}")
 
-    img_b64 = _load_image_b64(img_path)
+    raw_img_b64 = _load_image_b64(img_path)
+    processed_image, image_mime, _ = _process_image_for_openai(raw_img_b64)
 
     problem_text = (
         "I ride an 11-speed gravel bike with Shimano GRX. "
         "I want easier climbing gears without losing too much on flats."
     )
 
-    context = app_module.build_grounding_context(
+    # Create mock candidates for grounding context
+    mock_candidates = {
+        "drivetrain_cassettes": [
+            {"name": "Shimano GRX 11-34T", "brand": "Shimano", "price_text": "$89"},
+            {"name": "SRAM XG-1150", "brand": "SRAM", "price_text": "$99"},
+        ],
+        "drivetrain_chains": [
+            {"name": "Shimano CN-HG701", "brand": "Shimano", "price_text": "$35"},
+            {"name": "KMC X11", "brand": "KMC", "price_text": "$30"},
+        ],
+    }
+    
+    categories = ["drivetrain_cassettes", "drivetrain_chains"]
+    known_values = {"gearing": 11, "use_case": "gravel"}
+
+    context = build_grounding_context_dynamic(
         problem_text=problem_text,
-        bike_speed=11,
-        use_case="gravel",
-        image_base64=img_b64,
+        categories=categories,
+        known_values=known_values,
+        candidates=mock_candidates,
+        image_base64=processed_image,
     )
-    prompt = app_module.make_prompt(context, image_attached=True)
-    result = app_module.call_llm(
-        prompt,
-        image_base64=img_b64,
-        image_meta={"source": "vision_flow_test"},
-    )
+    prompt = make_recommendation_prompt(context, image_attached=True)
+    image_meta = {"source": "vision_flow_test", "mime_type": image_mime}
+    result = _call_llm_recommendation(prompt, processed_image, image_meta)
 
     sections = result.get("sections") or {}
     ranking = result.get("product_ranking") or {}
@@ -77,8 +92,9 @@ def run_vision_flow() -> dict:
     assert sections.get("why_it_fits"), "why_it_fits should not be empty"
     assert sections.get("suggested_workflow"), "suggested_workflow should not be empty"
     assert sections.get("checklist"), "checklist should not be empty"
-    assert "cassettes" in ranking and ranking["cassettes"].get("best_index") is not None
-    assert "chains" in ranking and ranking["chains"].get("best_index") is not None
+    # Updated to use new category key names
+    assert "drivetrain_cassettes" in ranking and ranking["drivetrain_cassettes"].get("best_index") is not None
+    assert "drivetrain_chains" in ranking and ranking["drivetrain_chains"].get("best_index") is not None
 
     log_payload = {
         "problem_text": problem_text,
