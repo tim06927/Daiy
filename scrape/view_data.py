@@ -2,10 +2,11 @@
 """View scraped data and category discovery results in HTML format.
 
 Usage:
-    python -m scrape.view_data                    # View all data
-    python -m scrape.view_data --categories       # Categories only
-    python -m scrape.view_data --products         # Products only
-    python -m scrape.view_data --open             # Auto-open in browser
+    python -m scrape.view_data                                # View all data
+    python -m scrape.view_data --open                         # Auto-open in browser
+    python -m scrape.view_data --output PATH                  # Write HTML to PATH
+    python -m scrape.view_data --db PATH                      # Use alternative SQLite DB
+    python -m scrape.view_data --categories-json PATH         # Use alternative categories JSON
 """
 
 import argparse
@@ -15,7 +16,7 @@ import webbrowser
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 __all__ = [
     "regenerate_report",
@@ -56,47 +57,46 @@ def get_db_stats(db_path: Path) -> Dict[str, Any]:
     if not db_path.exists():
         return {"exists": False}
     
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        stats = {"exists": True}
+        
+        # Total products
+        cursor.execute("SELECT COUNT(*) as count FROM products")
+        stats["total_products"] = cursor.fetchone()["count"]
+        
+        # Products by category
+        cursor.execute("""
+            SELECT category, COUNT(*) as count 
+            FROM products 
+            GROUP BY category 
+            ORDER BY count DESC
+        """)
+        stats["by_category"] = {row["category"]: row["count"] for row in cursor.fetchall()}
+        
+        # Products by brand (top 20)
+        cursor.execute("""
+            SELECT brand, COUNT(*) as count 
+            FROM products 
+            WHERE brand IS NOT NULL AND brand != ''
+            GROUP BY brand 
+            ORDER BY count DESC 
+            LIMIT 20
+        """)
+        stats["top_brands"] = [(row["brand"], row["count"]) for row in cursor.fetchall()]
+        
+        # Date range
+        cursor.execute("SELECT MIN(created_at) as first, MAX(updated_at) as last FROM products")
+        row = cursor.fetchone()
+        stats["first_scraped"] = row["first"]
+        stats["last_updated"] = row["last"]
+        
+        # Get all unique URLs from products for coverage matching
+        cursor.execute("SELECT DISTINCT url FROM products")
+        stats["scraped_urls"] = {row["url"] for row in cursor.fetchall()}
     
-    stats = {"exists": True}
-    
-    # Total products
-    cursor.execute("SELECT COUNT(*) as count FROM products")
-    stats["total_products"] = cursor.fetchone()["count"]
-    
-    # Products by category
-    cursor.execute("""
-        SELECT category, COUNT(*) as count 
-        FROM products 
-        GROUP BY category 
-        ORDER BY count DESC
-    """)
-    stats["by_category"] = {row["category"]: row["count"] for row in cursor.fetchall()}
-    
-    # Products by brand (top 20)
-    cursor.execute("""
-        SELECT brand, COUNT(*) as count 
-        FROM products 
-        WHERE brand IS NOT NULL AND brand != ''
-        GROUP BY brand 
-        ORDER BY count DESC 
-        LIMIT 20
-    """)
-    stats["top_brands"] = [(row["brand"], row["count"]) for row in cursor.fetchall()]
-    
-    # Date range
-    cursor.execute("SELECT MIN(created_at) as first, MAX(updated_at) as last FROM products")
-    row = cursor.fetchone()
-    stats["first_scraped"] = row["first"]
-    stats["last_updated"] = row["last"]
-    
-    # Get all unique URLs from products for coverage matching
-    cursor.execute("SELECT DISTINCT url FROM products")
-    stats["scraped_urls"] = {row["url"] for row in cursor.fetchall()}
-    
-    conn.close()
     return stats
 
 
@@ -105,18 +105,18 @@ def get_scrape_state(db_path: Path) -> List[Dict[str, Any]]:
     if not db_path.exists():
         return []
     
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT category, last_page_scraped, last_scraped_at, total_pages_found
+            FROM scrape_state
+            ORDER BY category
+        """)
+        
+        states = [dict(row) for row in cursor.fetchall()]
     
-    cursor.execute("""
-        SELECT category, last_page_scraped, last_scraped_at, total_pages_found
-        FROM scrape_state
-        ORDER BY category
-    """)
-    
-    states = [dict(row) for row in cursor.fetchall()]
-    conn.close()
     return states
 
 
@@ -125,45 +125,49 @@ def get_data_quality(db_path: Path) -> Dict[str, Any]:
     if not db_path.exists():
         return {}
     
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    # Allowlist of valid field and table names to prevent SQL injection
+    # These are the only values that can be used in SQL queries
+    VALID_FIELDS = ["name", "url", "brand", "price_text", "sku", "description", "image_url"]
+    VALID_SPEC_TABLES = ["chain_specs", "cassette_specs", "glove_specs", "tool_specs"]
     
-    quality = {}
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        quality = {}
+        
+        # Missing fields analysis - field names are validated against VALID_FIELDS allowlist
+        missing = {}
+        for field in VALID_FIELDS:
+            # Safe: field is from hardcoded allowlist, not user input
+            cursor.execute(f"SELECT COUNT(*) as count FROM products WHERE {field} IS NULL OR {field} = ''")
+            missing[field] = cursor.fetchone()["count"]
+        quality["missing_fields"] = missing
+        
+        # Duplicate URLs
+        cursor.execute("""
+            SELECT url, COUNT(*) as count 
+            FROM products 
+            GROUP BY url 
+            HAVING count > 1
+        """)
+        quality["duplicate_urls"] = cursor.fetchall()
+        
+        # Products without specs
+        cursor.execute("SELECT COUNT(*) as count FROM products WHERE specs_json IS NULL OR specs_json = ''")
+        quality["missing_specs"] = cursor.fetchone()["count"]
+        
+        # Category spec coverage - table names are validated against VALID_SPEC_TABLES allowlist
+        spec_coverage = {}
+        for table in VALID_SPEC_TABLES:
+            try:
+                # Safe: table is from hardcoded allowlist, not user input
+                cursor.execute(f"SELECT COUNT(*) as count FROM {table}")
+                spec_coverage[table] = cursor.fetchone()["count"]
+            except sqlite3.OperationalError:
+                spec_coverage[table] = 0
+        quality["spec_table_counts"] = spec_coverage
     
-    # Missing fields analysis
-    fields = ["name", "url", "brand", "price_text", "sku", "description", "image_url"]
-    missing = {}
-    for field in fields:
-        cursor.execute(f"SELECT COUNT(*) as count FROM products WHERE {field} IS NULL OR {field} = ''")
-        missing[field] = cursor.fetchone()["count"]
-    quality["missing_fields"] = missing
-    
-    # Duplicate URLs
-    cursor.execute("""
-        SELECT url, COUNT(*) as count 
-        FROM products 
-        GROUP BY url 
-        HAVING count > 1
-    """)
-    quality["duplicate_urls"] = cursor.fetchall()
-    
-    # Products without specs
-    cursor.execute("SELECT COUNT(*) as count FROM products WHERE specs_json IS NULL OR specs_json = ''")
-    quality["missing_specs"] = cursor.fetchone()["count"]
-    
-    # Category spec coverage
-    spec_tables = ["chain_specs", "cassette_specs", "glove_specs", "tool_specs"]
-    spec_coverage = {}
-    for table in spec_tables:
-        try:
-            cursor.execute(f"SELECT COUNT(*) as count FROM {table}")
-            spec_coverage[table] = cursor.fetchone()["count"]
-        except sqlite3.OperationalError:
-            spec_coverage[table] = 0
-    quality["spec_table_counts"] = spec_coverage
-    
-    conn.close()
     return quality
 
 
@@ -172,28 +176,28 @@ def get_sample_products(db_path: Path, category: Optional[str] = None, limit: in
     if not db_path.exists():
         return []
     
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        if category:
+            cursor.execute("""
+                SELECT id, category, name, brand, price_text, url, sku
+                FROM products 
+                WHERE category = ?
+                ORDER BY updated_at DESC
+                LIMIT ?
+            """, (category, limit))
+        else:
+            cursor.execute("""
+                SELECT id, category, name, brand, price_text, url, sku
+                FROM products 
+                ORDER BY updated_at DESC
+                LIMIT ?
+            """, (limit,))
+        
+        products = [dict(row) for row in cursor.fetchall()]
     
-    if category:
-        cursor.execute("""
-            SELECT id, category, name, brand, price_text, url, sku
-            FROM products 
-            WHERE category = ?
-            ORDER BY updated_at DESC
-            LIMIT ?
-        """, (category, limit))
-    else:
-        cursor.execute("""
-            SELECT id, category, name, brand, price_text, url, sku
-            FROM products 
-            ORDER BY updated_at DESC
-            LIMIT ?
-        """, (limit,))
-    
-    products = [dict(row) for row in cursor.fetchall()]
-    conn.close()
     return products
 
 
@@ -204,9 +208,6 @@ def compute_category_coverage(category_data: Dict, db_stats: Dict) -> Dict[str, 
     """
     if not category_data.get("exists"):
         return {"exists": False}
-    
-    scraped_urls = db_stats.get("scraped_urls", set())
-    scraped_categories = set(db_stats.get("by_category", {}).keys())
     
     categories = category_data.get("categories", [])
     leaf_categories = category_data.get("leaf_categories", [])
@@ -230,14 +231,10 @@ def compute_category_coverage(category_data: Dict, db_stats: Dict) -> Dict[str, 
         is_scraped = False
         product_count = 0
         
-        # Direct key match
+        # Direct key match with exact match only to avoid false positives
         for scraped_key, count in db_stats.get("by_category", {}).items():
-            # Check various matching strategies
-            if (scraped_key == cat_key or 
-                scraped_key in cat_key or 
-                cat_key in scraped_key or
-                scraped_key.replace("_", "-") in cat_path or
-                any(seg in scraped_key for seg in cat.get("segments", []))):
+            # Use exact match only to prevent false positives like "chain" matching "chain-tool"
+            if scraped_key == cat_key:
                 is_scraped = True
                 product_count = count
                 break
@@ -277,11 +274,21 @@ def load_discovered_categories(json_path: Path) -> Dict[str, Any]:
     if not json_path.exists():
         return {"exists": False}
     
-    with open(json_path, "r") as f:
-        data = json.load(f)
+    try:
+        with open(json_path, "r") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        # Return a graceful error state instead of raising an unhandled exception
+        return {"exists": False, "error": str(exc)}
     
     data["exists"] = True
-    data["file_modified"] = datetime.fromtimestamp(json_path.stat().st_mtime).isoformat()
+    try:
+        mtime = json_path.stat().st_mtime
+    except OSError:
+        mtime = None
+    data["file_modified"] = (
+        datetime.fromtimestamp(mtime).isoformat() if mtime is not None else None
+    )
     return data
 
 
@@ -293,15 +300,20 @@ def build_category_tree_html(categories: List[Dict], max_depth: int = 4) -> str:
     # Group by top-level category
     by_top_level: Dict[str, List[Dict]] = defaultdict(list)
     for cat in categories:
-        if cat["segments"]:
-            by_top_level[cat["segments"][0]].append(cat)
+        segments = cat.get("segments") or []
+        if segments:
+            by_top_level[segments[0]].append(cat)
     
     # Build nested structure
     html = ['<div class="category-tree">']
     
     for top_level in sorted(by_top_level.keys()):
         cats = by_top_level[top_level]
-        leaf_count = sum(1 for c in cats if c.get("depth", 0) == max(cc.get("depth", 0) for cc in cats if cc["segments"][0] == top_level))
+        # Compute max depth for categories under this top-level, handling missing segments safely
+        top_level_cats = [
+            cc for cc in cats
+            if (cc.get("segments") or [None])[0] == top_level
+        ]
         
         html.append(f'<details class="tree-section" open>')
         html.append(f'<summary><span class="folder-icon">📁</span> <strong>{escape_html(top_level.replace("-", " ").title())}</strong> <span class="count">({len(cats)} categories)</span></summary>')
@@ -788,7 +800,6 @@ def _build_overview_section(db_stats: Dict, category_data: Dict, coverage_data: 
     if coverage_data.get("exists"):
         coverage_pct = coverage_data.get("coverage_pct", 0)
         scraped = coverage_data.get("scraped_count", 0)
-        total = coverage_data.get("total_leaf", 0)
         not_scraped = coverage_data.get("not_scraped_count", 0)
         
         if coverage_pct >= 50:
@@ -922,8 +933,9 @@ def _build_category_section(category_data: Dict) -> str:
     # Group stats by top-level
     by_top_level: Dict[str, int] = defaultdict(int)
     for cat in categories:
-        if cat.get("segments"):
-            by_top_level[cat["segments"][0]] += 1
+        segments = cat.get("segments")
+        if segments:
+            by_top_level[segments[0]] += 1
     
     summary_rows = "".join(
         f"<tr><td>{escape_html(k.replace('-', ' ').title())}</td><td>{v}</td></tr>"
@@ -1289,8 +1301,6 @@ def regenerate_report(open_browser: bool = False) -> Path:
     Returns:
         Path to the generated HTML file
     """
-    import webbrowser as wb
-    
     db_stats = get_db_stats(DB_PATH)
     scrape_states = get_scrape_state(DB_PATH)
     quality = get_data_quality(DB_PATH)
@@ -1305,7 +1315,7 @@ def regenerate_report(open_browser: bool = False) -> Path:
         f.write(html)
     
     if open_browser:
-        wb.open(f"file://{OUTPUT_HTML.absolute()}")
+        webbrowser.open(f"file://{OUTPUT_HTML.absolute()}")
     
     return OUTPUT_HTML
 
