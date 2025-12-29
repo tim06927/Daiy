@@ -42,6 +42,7 @@ scrape/
 ├── cli.py                   # Command-line interface with verbose/overnight modes
 ├── discover_fields.py       # Auto-discover spec fields from product sampling
 ├── discover_categories.py   # Auto-discover categories from sitemap
+├── view_data.py             # HTML data viewer for scraped data and category coverage
 ├── logging_config.py        # Structured JSONL logging with colored console output
 ├── shutdown.py              # Graceful shutdown signal handling
 ├── url_validation.py        # URL security validation
@@ -162,6 +163,18 @@ Category discovery tool:
 - Fetches sitemap from bike-components.de
 - Parses category URLs and builds hierarchy
 - Identifies leaf categories for scraping
+- Optional `--update-view` flag to regenerate data viewer
+
+#### `view_data.py`
+HTML data viewer for scrape status and coverage:
+- Generates a standalone HTML report from database and discovery data
+- **Overview** - Total products, categories scraped, discovery stats
+- **Coverage** - Hierarchical tree showing scraped vs not-scraped categories with counts at each level
+- **Categories** - Full category tree from sitemap discovery
+- **Scrape Progress** - Per-category pagination progress
+- **Data Quality** - Missing fields analysis, duplicate detection
+- **Products** - Sample product preview with top brands
+- Can be called programmatically via `regenerate_report()` after scraping
 
 ## Usage
 
@@ -245,6 +258,27 @@ python -m scrape.csv_utils --export data/products.csv
 # Export specific category
 python -m scrape.csv_utils --export data/chains.csv --category chains
 ```
+
+### View scrape data and coverage
+
+```bash
+# Generate HTML report and open in browser
+python -m scrape.view_data --open
+
+# Just regenerate the report (no browser)
+python -m scrape.view_data
+
+# Use via Makefile
+make view-data
+```
+
+The viewer shows:
+- **Overview**: Total products, categories, brands
+- **Coverage**: Hierarchical tree with scraped/total counts per category branch (e.g., "Drivetrain 12/45")
+- **Categories**: Full discovery tree from sitemap
+- **Scrape Progress**: Pagination status per category
+- **Data Quality**: Missing fields, duplicates, spec table coverage
+- **Products**: Sample products and top brands
 
 ### Use as a module
 
