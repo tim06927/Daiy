@@ -1,0 +1,321 @@
+/**
+ * Product rendering and display logic
+ */
+
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Build product image HTML with fallback icon
+ */
+function buildProductImage(product, icon) {
+  const imageUrl = product.image_url;
+  const safeAlt = escapeHtml(product.name || 'Product image');
+  const safeIcon = escapeHtml(icon || '📦');
+  const hasImageClass = imageUrl ? ' has-image' : '';
+  const imgTag = imageUrl
+    ? `<img src="${escapeHtml(imageUrl)}" alt="${safeAlt}" loading="lazy" onload="this.closest('.product-image')?.classList.add('has-image')" onerror="this.closest('.product-image')?.classList.remove('has-image')" />`
+    : '';
+
+  return `
+    <div class="product-image${hasImageClass}">
+      <span class="product-icon">${safeIcon}</span>
+      ${imgTag}
+    </div>
+  `;
+}
+
+/**
+ * Category metadata mapping
+ */
+const categoryMeta = {
+  'drivetrain_cassettes': { name: 'Cassette', icon: '⚙️' },
+  'drivetrain_chains': { name: 'Chain', icon: '⛓️' },
+  'drivetrain_tools': { name: 'Tools', icon: '🔧' },
+  'drivetrain_pedals': { name: 'Pedals', icon: '🦶' },
+  'drivetrain_cranks': { name: 'Crankset', icon: '⚙️' },
+  'drivetrain_chainrings': { name: 'Chainring', icon: '⚙️' },
+  'lighting_bicycle_lights_battery': { name: 'Battery Light', icon: '💡' },
+  'lighting_bicycle_lights_dynamo': { name: 'Dynamo Light', icon: '💡' },
+  'cassettes': { name: 'Cassette', icon: '⚙️' },
+  'chains': { name: 'Chain', icon: '⛓️' },
+  'mtb_gloves': { name: 'Gloves', icon: '🧤' },
+};
+
+/**
+ * Convert new product format to legacy format
+ */
+function normalizeProduct(item) {
+  // New format has {category, category_display, product, reasoning}
+  if (item.product) {
+    return {
+      category: item.category_display || item.category,
+      category_key: item.category,
+      best: {
+        ...item.product,
+        why_it_fits: item.reasoning || item.product.why_it_fits || ''
+      },
+      alternatives: [],
+      reason: item.reasoning,
+    };
+  }
+  // Legacy format
+  return item;
+}
+
+/**
+ * Create a product card element
+ */
+function createProductCard(product, isBest, icon) {
+  const card = document.createElement('a');
+  card.className = 'product-card' + (isBest ? ' best' : '');
+  card.href = product.url || '#';
+  card.target = '_blank';
+  card.rel = 'noopener noreferrer';
+  
+  const specs = [product.brand, product.application].filter(Boolean).join(' · ');
+  const imageMarkup = buildProductImage(product, icon);
+  const safeName = escapeHtml(product.name || 'Product');
+  const safeWhy = escapeHtml(product.why_it_fits || 'Compatible with your setup.');
+  const safePrice = escapeHtml(product.price || '');
+  const safeSpecs = escapeHtml(specs);
+  const addToCartName = (product.name || '').replace(/'/g, "\\'");
+  
+  card.innerHTML = `
+    ${imageMarkup}
+    <div class="product-info">
+      <div class="product-name">
+        ${safeName}
+        ${isBest ? '<span class="best-badge">Best</span>' : ''}
+      </div>
+      <div class="product-specs">${safeSpecs}</div>
+      <div class="product-fit">
+        <strong>Why this fits:</strong> ${safeWhy}
+      </div>
+    </div>
+    <div class="product-actions">
+      <div class="product-price">${safePrice}</div>
+      <button class="add-to-cart-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart('${addToCartName}')">
+        Add to Cart
+      </button>
+    </div>
+  `;
+  
+  return card;
+}
+
+/**
+ * Create an alternative product card element
+ */
+function createAltProductCard(product, icon) {
+  const card = document.createElement('a');
+  card.className = 'alt-product-card';
+  card.href = product.url || '#';
+  card.target = '_blank';
+  card.rel = 'noopener noreferrer';
+  
+  const imageMarkup = buildProductImage(product, icon);
+  const safeName = escapeHtml(product.name || 'Product');
+  const safeWhy = escapeHtml(product.why_it_fits || 'Alternative option.');
+  const safePrice = escapeHtml(product.price || '');
+  const addToCartName = (product.name || '').replace(/'/g, "\\'");
+  
+  card.innerHTML = `
+    ${imageMarkup}
+    <div class="product-info">
+      <div class="product-name">${safeName}</div>
+      <div class="product-fit">
+        <strong>Why:</strong> ${safeWhy}
+      </div>
+    </div>
+    <div class="product-actions">
+      <div class="product-price">${safePrice}</div>
+      <button class="add-to-cart-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart('${addToCartName}')">
+        Add
+      </button>
+    </div>
+  `;
+  
+  return card;
+}
+
+/**
+ * Render a product section (primary, tools, optional)
+ */
+function renderSection(products, sectionTitle, sectionClass, showReason = false) {
+  if (!products || products.length === 0) return null;
+  
+  const categoriesContainer = document.getElementById('categories-container');
+  
+  // Normalize products to legacy format
+  const normalizedProducts = products.map(normalizeProduct);
+  
+  const sectionDiv = document.createElement('div');
+  sectionDiv.className = `product-section ${sectionClass}`;
+  
+  if (sectionTitle) {
+    const sectionHeader = document.createElement('div');
+    sectionHeader.className = 'section-header';
+    sectionHeader.innerHTML = `<h3>${sectionTitle}</h3>`;
+    sectionDiv.appendChild(sectionHeader);
+  }
+  
+  normalizedProducts.forEach((cat) => {
+    const meta = categoryMeta[cat.category_key] || { name: cat.category || 'Products', icon: '📦' };
+    
+    const section = document.createElement('div');
+    section.className = 'category-section';
+    
+    const header = document.createElement('div');
+    header.className = 'category-header';
+    let headerContent = `<span class="category-name">${meta.icon} ${meta.name}</span>`;
+    if (showReason && cat.reason) {
+      headerContent += `<span class="category-reason">${cat.reason}</span>`;
+    }
+    header.innerHTML = headerContent;
+    section.appendChild(header);
+    
+    const productsDiv = document.createElement('div');
+    productsDiv.className = 'category-products';
+    
+    // Best product
+    if (cat.best) {
+      const bestCard = createProductCard(cat.best, true, meta.icon);
+      productsDiv.appendChild(bestCard);
+    }
+    
+    // Alternatives
+    if (cat.alternatives && cat.alternatives.length > 0) {
+      const altSection = document.createElement('div');
+      altSection.className = 'alternatives-section';
+      
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'alternatives-toggle';
+      toggleBtn.innerHTML = `<span class="arrow">▼</span> ${cat.alternatives.length} alternative${cat.alternatives.length > 1 ? 's' : ''}`;
+      toggleBtn.onclick = () => {
+        toggleBtn.classList.toggle('expanded');
+        altList.classList.toggle('expanded');
+      };
+      altSection.appendChild(toggleBtn);
+      
+      const altList = document.createElement('div');
+      altList.className = 'alternatives-list';
+      cat.alternatives.forEach(alt => {
+        const altCard = createAltProductCard(alt, meta.icon);
+        altList.appendChild(altCard);
+      });
+      altSection.appendChild(altList);
+      
+      productsDiv.appendChild(altSection);
+    }
+    
+    section.appendChild(productsDiv);
+    sectionDiv.appendChild(section);
+  });
+  
+  categoriesContainer.appendChild(sectionDiv);
+}
+
+/**
+ * Render all product categories
+ */
+function renderProductCategories(categories, sections, primaryProducts, optionalProducts, toolProducts) {
+  const categoriesContainer = document.getElementById('categories-container');
+  categoriesContainer.innerHTML = '';
+  
+  // Use new structured format if available, fall back to legacy
+  if (primaryProducts && primaryProducts.length > 0) {
+    // New structured format
+    renderSection(primaryProducts, '🛠️ Primary Parts & Accessories', 'primary-products');
+    renderSection(toolProducts, '🔧 Tools for This Job', 'tool-products', true);
+    renderSection(optionalProducts, '💡 Optional Extras', 'optional-products', true);
+  } else {
+    // Legacy format - render all as primary
+    renderSection(categories, '🛠️ Primary Parts & Accessories', 'primary-products');
+  }
+}
+
+/**
+ * Render instructions tab content
+ */
+function renderInstructions(sections, finalInstructions) {
+  const container = document.getElementById('instructions-content');
+  container.innerHTML = '';
+  
+  // Prefer final_instructions from new format
+  const workflow = finalInstructions.length > 0 
+    ? finalInstructions 
+    : (sections.suggested_workflow || []);
+  const checklist = sections.checklist || [];
+  
+  if (workflow.length > 0) {
+    const workflowSection = document.createElement('div');
+    workflowSection.className = 'instructions-section';
+    workflowSection.innerHTML = `
+      <h4>🔧 Step-by-Step Instructions</h4>
+      <ol class="instruction-steps">${workflow.map(item => `<li>${item}</li>`).join('')}</ol>
+    `;
+    container.appendChild(workflowSection);
+  }
+  
+  if (checklist.length > 0) {
+    const checklistSection = document.createElement('div');
+    checklistSection.className = 'instructions-section';
+    checklistSection.innerHTML = `
+      <h4>✅ Checklist</h4>
+      <ul>${checklist.map(item => `<li>${item}</li>`).join('')}</ul>
+    `;
+    container.appendChild(checklistSection);
+  }
+  
+  if (workflow.length === 0 && checklist.length === 0) {
+    container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.8rem;">No instructions available.</p>';
+  }
+}
+
+/**
+ * Setup results tabs (Products/Instructions)
+ */
+function setupResultsTabs() {
+  const tabs = document.querySelectorAll('.results-tab');
+  const productsTab = document.getElementById('products-tab');
+  const instructionsTab = document.getElementById('instructions-tab');
+  
+  // Reset to products tab
+  tabs.forEach(t => t.classList.remove('active'));
+  tabs[0].classList.add('active');
+  productsTab.classList.add('active');
+  instructionsTab.classList.remove('active');
+  
+  tabs.forEach(tab => {
+    tab.onclick = () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      
+      if (tab.dataset.tab === 'products') {
+        productsTab.classList.add('active');
+        instructionsTab.classList.remove('active');
+      } else {
+        productsTab.classList.remove('active');
+        instructionsTab.classList.add('active');
+      }
+    };
+  });
+}
+
+/**
+ * Placeholder cart function
+ */
+function addToCart(productName) {
+  alert(`Added "${productName}" to cart! (Demo)`);
+}

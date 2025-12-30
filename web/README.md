@@ -1,8 +1,8 @@
 # Daiy Web App
 
-A Flask-based web interface for AI-powered bike component recommendations with a modern split-panel UI.
+A Flask-based web interface for AI-powered bike component recommendations with a modular frontend and three-phase LLM workflow.
 
-## Architecture & Recent Changes (Dec 30, 2025)
+## Architecture Overview
 
 ### Three-Phase LLM Flow
 
@@ -42,48 +42,23 @@ Display Results with Answered Questions
   - Left panel shows all answered questions as labeled bubbles
 ```
 
-### What's New (Dec 30, 2025)
+### Key Capabilities
 
-#### ✅ Completed
-- **Removed legacy clarification flow** - No more hardcoded gearing/use_case dimensions
-- **Dynamic clarification questions** - Any spec the LLM identifies can be asked (not just speed/use_case)
-- **Answered questions display** - Shows all clarifications answered by user in results view
-- **Comprehensive logging** - Every step logged with event types:
-  - `user_input` - Initial query + any clarification answers
+- **Dynamic Clarification** - LLM identifies which specifications are unclear (confidence < 0.8) and generates targeted questions
+- **Flexible Questions** - Any number of specifications can be asked, not limited to predefined dimensions
+- **Comprehensive Logging** - All interactions logged with event types:
+  - `user_input` - Initial query + clarification answers
   - `clarification_required` - Questions being asked
-  - `llm_call_*` / `llm_response_*` - All LLM interactions with stage name
+  - `llm_call_*` / `llm_response_*` - All LLM interactions
   - `recommendation_result` - Final output with summary
-- **HTML log viewer** - `view_logs.py` displays logs by session with filters
-- **Updated documentation** - FLOW.md with mermaid diagrams and data structures
+- **HTML Log Viewer** - `view_logs.py` displays logs by session with filters
+- **Modular Frontend** - Separate CSS and JavaScript files for maintainability (see `static/README.md`)
 
-#### 🔄 Architecture Changes
-| Component | Before | After |
-|-----------|--------|-------|
-| Clarification | Hardcoded gearing + use_case | LLM-identified unclear specs |
-| Questions | 2 fixed dimensions | Dynamic, any number |
-| Flow | Check dimensions → ask → continue | Ask unclear specs → continue |
-| UI Display | Speed/Use case bubbles | All answered questions as bubbles |
-| Logging | Old v2/v3 naming | Clean event types with stages |
+### Current Limitations
 
-#### 🔮 Future Enhancements
-- **Catalog-wide optional product search** - Currently limited to already-mentioned categories
-
-### Key Files & Changes
-
-| File | Changes |
-|------|---------|
-| `job_identification.py` | New `UnclearSpecification` class, instructions-based format |
-| `api.py` | Removed legacy dimension checking, only uses unclear_specifications |
-| `templates/index.html` | Removed ~70 lines of legacy code, dynamic clarification display |
-| `view_logs.py` | New handlers for clarification_required and recommendation_result events |
-| `FLOW.md` | Complete rewrite with new mermaid diagrams |
-| `logging_utils.py` | No changes (already flexible) |
-
----
-
-## Overview
-
-The web app provides a user-friendly interface to:
+- Optional products only suggested from already-mentioned categories
+- Product images may not be available for all items
+- Clarification flow requires full page reload between phases
 1. Describe a bike upgrade project (text + optional image)
 2. Get smart clarification if speed/use-case is unclear
 3. View AI recommendations grounded in real product data
@@ -118,8 +93,22 @@ web/
 ├── job_identification.py  # LLM-based job/category identification
 ├── logging_utils.py    # Interaction logging
 ├── prompts.py          # Prompt building for LLM calls
+├── static/             # Frontend assets (modular structure)
+│   ├── css/            # Stylesheets
+│   │   ├── base.css            # Variables, resets, layout
+│   │   ├── components.css      # Forms, buttons, panels
+│   │   └── products.css        # Product cards, categories
+│   ├── js/             # JavaScript modules
+│   │   ├── config.js           # Constants
+│   │   ├── state.js            # State management
+│   │   ├── image.js            # Image handling
+│   │   ├── api.js              # Backend communication
+│   │   ├── clarification.js    # Clarification UI
+│   │   ├── products.js         # Product rendering
+│   │   └── main.js             # Initialization
+│   └── README.md       # Frontend architecture guide
 ├── templates/
-│   └── index.html      # Single-page app (CSS/JS inline)
+│   └── index.html      # Clean HTML template (154 lines)
 ├── logs/               # LLM interaction logs (JSONL)
 ├── tests/              # Test files
 │   ├── test_model_clarification.py
@@ -236,18 +225,29 @@ Flask application setup:
 - Error handling
 
 #### `templates/index.html`
-Single-page web app (~2100 lines):
-- **Query Input** - Text + image upload
-- **Clarification Panel** - Dynamic question rendering
-  - Shows question, hint, options, "Other" button
-  - All questions shown at once
-  - Updates answered questions display in real-time
-- **Results Display** - Two tabs
-  - **Products Tab** - Primary products, tools, optional extras
-  - **Instructions Tab** - Step-by-step final instructions
-- **Answered Questions** - Bubbles showing all clarifications user provided
-  - Dynamically populated from selectedValues
-  - Shows any spec type (not just speed/use_case)
+Clean HTML template (154 lines) that references external CSS and JavaScript:
+- Structured semantic HTML
+- Links to modular CSS files in `static/css/`
+- Links to modular JavaScript files in `static/js/`
+- Minimal inline styling
+- See `static/README.md` for frontend architecture details
+
+#### `static/` - Frontend Assets
+Modular frontend architecture with separation of concerns:
+- **CSS Modules** (3 files):
+  - `base.css` - Variables, resets, layout, header
+  - `components.css` - Forms, buttons, clarification panels
+  - `products.css` - Product cards, categories, alternatives
+- **JavaScript Modules** (7 files):
+  - `config.js` - Application constants
+  - `state.js` - Centralized state management
+  - `image.js` - Image upload and compression
+  - `api.js` - Backend API communication
+  - `clarification.js` - Clarification UI rendering
+  - `products.js` - Product display logic
+  - `main.js` - Application initialization
+
+See detailed documentation in `static/README.md`
 
 ### App Flow
 

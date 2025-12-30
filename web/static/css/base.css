@@ -1,0 +1,230 @@
+/* ========== CSS VARIABLES ========== */
+:root {
+  --bg: #ffffff;
+  --surface: #f8f9fa;
+  --accent: #0066cc;
+  --accent-hover: #0052a3;
+  --accent-light: #e6f0fa;
+  --text: #1a1a1a;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --border: #e0e0e0;
+  --border-light: #f0f0f0;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.12);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+}
+
+/* ========== GLOBAL RESETS ========== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ========== HEADER ========== */
+.header {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.logo-icon {
+  font-size: 1.25rem;
+}
+
+.nav {
+  display: flex;
+  gap: 1.5rem;
+  list-style: none;
+}
+
+.nav a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+
+.nav a:hover {
+  color: var(--text);
+}
+
+/* ========== LAYOUT ========== */
+.app-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* Initial State - Shop-style search */
+.initial-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: calc(100vh - 60px);
+  padding: 3rem 2rem 2rem;
+  text-align: center;
+}
+
+.initial-state.hidden {
+  display: none;
+}
+
+.hero-section {
+  margin-top: 2rem;
+  max-width: 500px;
+  text-align: center;
+}
+
+.hero-tagline {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.hero-subtitle {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin-bottom: 0;
+  max-width: 500px;
+}
+
+.disclaimer {
+  margin-top: 3rem;
+  padding: 1rem 1.5rem;
+  max-width: 600px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  border-top: 1px solid var(--border);
+}
+
+.disclaimer strong {
+  color: var(--text-secondary);
+}
+
+.disclaimer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.disclaimer a:hover {
+  text-decoration: underline;
+}
+
+/* Results State - Split Panel */
+.results-state {
+  display: none;
+  min-height: calc(100vh - 60px);
+}
+
+.results-state.active {
+  display: block;
+}
+
+.split-panel {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 60px);
+}
+
+/* Left Panel - Query Context */
+.query-panel {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 60px);
+  position: sticky;
+  top: 60px;
+}
+
+/* Right Panel - Results */
+.results-panel {
+  padding: 0.5rem 0.75rem;
+  overflow-y: auto;
+}
+
+/* ========== UTILITIES ========== */
+.hidden {
+  display: none !important;
+}
+
+/* ========== ANIMATIONS ========== */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 900px) {
+  .split-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .query-panel {
+    position: relative;
+    top: 0;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .query-image-container {
+    max-width: 300px;
+  }
+
+  .nav {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .initial-state {
+    padding: 1.5rem;
+  }
+
+  .results-panel {
+    padding: 1rem;
+  }
+}

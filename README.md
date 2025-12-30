@@ -2,25 +2,45 @@
 
 ## Current Status (Dec 30, 2025)
 
-**Major Prompt Rework & Architecture Update - Simplified, Generalized, Production-Ready**
+**Major Prompt Rework & Frontend Restructuring - Production-Ready Architecture**
 
-Just completed significant restructuring of the LLM prompt flow:
+Just completed significant improvements to both backend and frontend:
 
-### What Changed
-1. **Job Identification** - Now generates step-by-step instructions with `[category_key]` placeholders instead of static category lists
-2. **Clarification** - Simplified to only ask for LLM-identified unclear specs (no more hardcoded dimension lists)
-3. **Recommendation** - Final pass replaces placeholders with actual product names and provides reasoning
+### Backend: LLM Prompt Flow (Previously completed)
+1. **Job Identification** - Generates step-by-step instructions with `[category_key]` placeholders
+2. **Clarification** - Simplified to only ask LLM-identified unclear specs (no hardcoded lists)
+3. **Recommendation** - Replaces placeholders with actual products and provides reasoning
 
-### Key Improvements
-- ✅ All clarification questions are **dynamic** and **LLM-generated** (confidence-based)
-- ✅ **Answered questions appear as bubbles** in results view (any spec type)
-- ✅ **Comprehensive logging** - User inputs, clarifications, LLM calls/responses, final results
+### Frontend: Modular Architecture (NEW - Just Completed)
+Restructured monolithic 2200-line `index.html` into maintainable modules:
+
+**Before:** Single `index.html` (2199 lines - CSS + JS + HTML)  
+**After:** Clean separation into 10 focused files:
+- **3 CSS modules** (base, components, products) - 1190 lines
+- **7 JavaScript modules** (config, state, image, api, clarification, products, main) - 1107 lines  
+- **Clean HTML template** - 153 lines (93% reduction)
+
+**Benefits:**
+- ✅ **Maintainable** - Each module has a single responsibility
+- ✅ **Collaborative** - Multiple developers can work in parallel
+- ✅ **Debuggable** - Browser DevTools shows precise file/line numbers
+- ✅ **Performant** - Better caching, non-blocking CSS, optimized load order
+- ✅ **Documented** - Comprehensive architecture guide in `/web/static/README.md`
+
+See [RESTRUCTURING_SUMMARY.md](RESTRUCTURING_SUMMARY.md) for full details of the frontend refactoring.
+
+### Key Improvements (Full Stack)
+- ✅ All clarification questions are **dynamic** and **LLM-generated**
+- ✅ **Comprehensive logging** - User inputs, clarifications, LLM calls/responses
 - ✅ **HTML log viewer** - Sessions organized with filters and collapsible sections
-- ✅ **Cleaner architecture** - Clear three-phase flow with proper data structures
-- ✅ **Better documentation** - FLOW.md with mermaid diagrams, data structure examples
+- ✅ **Modular frontend** - Separate CSS/JS files for easy maintenance
+- ✅ **Clear architecture** - Three-phase LLM flow with proper separation of concerns
+- ✅ **Better documentation** - FLOW.md, static/README.md, architecture diagrams
 
 ### For Developers
-See [web/README.md](web/README.md) and [web/FLOW.md](web/FLOW.md) for detailed technical documentation.
+- Backend flow: [web/README.md](web/README.md) and [web/FLOW.md](web/FLOW.md)
+- Frontend architecture: [web/static/README.md](web/static/README.md)
+- Restructuring details: [RESTRUCTURING_SUMMARY.md](RESTRUCTURING_SUMMARY.md)
 
 ---
 
@@ -56,7 +76,22 @@ The system is:
 ├── web/                # Flask web app (main application)
 │   ├── app.py          # Flask application with LLM integration
 │   ├── config.py       # Centralized configuration
-│   ├── templates/      # HTML templates (index.html)
+│   ├── static/         # Frontend assets (NEW - modular structure)
+│   │   ├── css/        # Stylesheets
+│   │   │   ├── base.css        # Variables, resets, layout
+│   │   │   ├── components.css  # Forms, buttons, panels
+│   │   │   └── products.css    # Product cards, categories
+│   │   ├── js/         # JavaScript modules
+│   │   │   ├── config.js       # Constants
+│   │   │   ├── state.js        # State management
+│   │   │   ├── image.js        # Image handling
+│   │   │   ├── api.js          # Backend communication
+│   │   │   ├── clarification.js # Clarification UI
+│   │   │   ├── products.js     # Product rendering
+│   │   │   └── main.js         # Initialization
+│   │   └── README.md   # Frontend architecture guide
+│   ├── templates/      # HTML templates
+│   │   └── index.html  # Clean HTML (153 lines, down from 2199)
 │   ├── logs/           # LLM interaction logs (JSONL)
 │   └── README.md       # Web app documentation
 ├── scrape/             # Web scraper for bike-components.de
