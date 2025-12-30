@@ -366,7 +366,9 @@ RULES FOR INSTRUCTIONS:
 
 RULES FOR UNCLEAR SPECIFICATIONS:
 - Self-assess confidence (0-1) for EVERY technical specification mentioned
-- Include ANY spec with confidence < 0.8 in unclear_specifications
+- Include ANY spec with confidence < 0.8 in unclear_specifications, but only if it is clearly distinct
+- Do NOT include multiple variations of the same spec (merge overlapping specs into one question)
+- Do NOT ask implied specs twice (e.g., drivetrain_speed covers cassette/chain speed; tire_width covers rim width if already specified)
 - The "hint" must be a simple, practical instruction the user can follow
 - Provide 2-5 realistic options that cover common scenarios
 - spec_name should be a clear identifier (e.g., "drivetrain_speed", "brake_rotor_diameter", "tire_width")

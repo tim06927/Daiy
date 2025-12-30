@@ -541,6 +541,10 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       margin-bottom: 1rem;
+      position: relative;
+      display: none;
+      flex-direction: column;
+      gap: 0.75rem;
     }
 
     .clarification-panel.active {
@@ -654,8 +658,8 @@
 
     .clarification-submit {
       display: none;
-      margin-top: 1rem;
-      padding: 0.6rem 1.5rem;
+      width: 100%;
+      padding: 0.75rem 1.5rem;
       background: var(--accent);
       color: white;
       border: none;
@@ -664,6 +668,7 @@
       font-weight: 500;
       cursor: pointer;
       transition: background 0.15s;
+      text-align: center;
     }
 
     .clarification-submit:hover {
@@ -672,6 +677,14 @@
 
     .clarification-submit.visible {
       display: inline-block;
+    }
+
+    .clarification-actions {
+      position: sticky;
+      bottom: 0;
+      background: linear-gradient(to top, var(--surface), rgba(248, 249, 250, 0.5));
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
     }
 
     /* Right Panel - Results */
@@ -1289,7 +1302,9 @@
             <div id="clarification-content">
               <!-- Dynamically populated with speed/use-case buttons -->
             </div>
-            <button class="clarification-submit" id="clarification-submit" onclick="submitClarifications()">Find Parts →</button>
+            <div class="clarification-actions">
+              <button class="clarification-submit" id="clarification-submit" onclick="submitClarifications()">Find Parts →</button>
+            </div>
           </div>
 
           <div class="error-message hidden" id="error-message"></div>
@@ -1851,12 +1866,13 @@
       const imageUrl = product.image_url;
       const safeAlt = escapeHtml(product.name || 'Product image');
       const safeIcon = escapeHtml(icon || '📦');
+      const hasImageClass = imageUrl ? ' has-image' : '';
       const imgTag = imageUrl
         ? `<img src="${escapeHtml(imageUrl)}" alt="${safeAlt}" loading="lazy" onload="this.closest('.product-image')?.classList.add('has-image')" onerror="this.closest('.product-image')?.classList.remove('has-image')" />`
         : '';
 
       return `
-        <div class="product-image">
+        <div class="product-image${hasImageClass}">
           <span class="product-icon">${safeIcon}</span>
           ${imgTag}
         </div>
