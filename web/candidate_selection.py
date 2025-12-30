@@ -35,6 +35,36 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+def _clean_value(value: Any) -> Any:
+    """Convert pandas NA values to None while leaving other types intact."""
+    try:
+        return None if pd.isna(value) else value
+    except TypeError:
+        return value
+
+
+def _normalize_image_url(value: Any) -> Optional[str]:
+    """Normalize image URLs from the catalog for browser use."""
+    cleaned = _clean_value(value)
+    if not cleaned:
+        return None
+    if not isinstance(cleaned, str):
+        return None
+
+    url = cleaned.strip()
+    if not url:
+        return None
+
+    if url.startswith("//"):
+        return f"https:{url}"
+    if url.startswith("/"):
+        return f"{_IMAGE_BASE_URL}{url}"
+    if not re.match(r"^https?://", url):
+        return f"https://{url}"
+    return url
+
+_IMAGE_BASE_URL = "https://www.bike-components.de"
+
 
 def _parse_gearing_value(value: Any) -> Optional[int]:
     """Parse a gearing/speed value to an integer.
@@ -190,21 +220,15 @@ def prepare_product_for_response(row: pd.Series) -> Dict[str, Any]:
     Returns:
         Dict with standardized product fields.
     """
-    def _clean(value: Any) -> Any:
-        """Clean a value, converting NaN to None."""
-        try:
-            return None if pd.isna(value) else value
-        except TypeError:
-            return value
-    
     return {
-        "name": _clean(row.get("name")),
-        "url": _clean(row.get("url")),
-        "brand": _clean(row.get("brand")),
-        "price": _clean(row.get("price_text")),
-        "application": _clean(row.get("application")),
-        "speed": _clean(row.get("speed")),
+        "name": _clean_value(row.get("name")),
+        "url": _clean_value(row.get("url")),
+        "brand": _clean_value(row.get("brand")),
+        "price": _clean_value(row.get("price_text")),
+        "application": _clean_value(row.get("application")),
+        "speed": _clean_value(row.get("speed")),
         "specs": row.get("specs_dict", {}),
+        "image_url": _normalize_image_url(row.get("image_url")),
     }
 
 

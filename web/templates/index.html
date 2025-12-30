@@ -893,6 +893,31 @@
       font-size: 1.1rem;
       color: var(--text-secondary);
       border: 1px solid var(--border);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .product-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+
+    .product-image.has-image img {
+      display: block;
+    }
+
+    .product-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    .product-image.has-image .product-icon {
+      display: none;
     }
 
     .product-info {
@@ -1812,6 +1837,32 @@
       }
     }
 
+    function escapeHtml(value) {
+      if (value === null || value === undefined) return '';
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function buildProductImage(product, icon) {
+      const imageUrl = product.image_url;
+      const safeAlt = escapeHtml(product.name || 'Product image');
+      const safeIcon = escapeHtml(icon || '📦');
+      const imgTag = imageUrl
+        ? `<img src="${escapeHtml(imageUrl)}" alt="${safeAlt}" loading="lazy" onload="this.closest('.product-image')?.classList.add('has-image')" onerror="this.closest('.product-image')?.classList.remove('has-image')" />`
+        : '';
+
+      return `
+        <div class="product-image">
+          <span class="product-icon">${safeIcon}</span>
+          ${imgTag}
+        </div>
+      `;
+    }
+
     // ========== RESULTS RENDERING ========== 
     function showResults(data) {
       loadingState.classList.remove('active');
@@ -2026,12 +2077,12 @@
       // Use new structured format if available, fall back to legacy
       if (primaryProducts && primaryProducts.length > 0) {
         // New structured format
-        renderSection(primaryProducts, null, 'primary-products');
-        renderSection(optionalProducts, '💡 Optional Extras', 'optional-products', true);
+        renderSection(primaryProducts, '🛠️ Primary Parts & Accessories', 'primary-products');
         renderSection(toolProducts, '🔧 Tools for This Job', 'tool-products', true);
+        renderSection(optionalProducts, '💡 Optional Extras', 'optional-products', true);
       } else {
         // Legacy format - render all as primary
-        renderSection(categories, null, 'primary-products');
+        renderSection(categories, '🛠️ Primary Parts & Accessories', 'primary-products');
       }
     }
 
@@ -2043,22 +2094,28 @@
       card.rel = 'noopener noreferrer';
       
       const specs = [product.brand, product.application].filter(Boolean).join(' · ');
+      const imageMarkup = buildProductImage(product, icon);
+      const safeName = escapeHtml(product.name || 'Product');
+      const safeWhy = escapeHtml(product.why_it_fits || 'Compatible with your setup.');
+      const safePrice = escapeHtml(product.price || '');
+      const safeSpecs = escapeHtml(specs);
+      const addToCartName = (product.name || '').replace(/'/g, "\\'");
       
       card.innerHTML = `
-        <div class="product-image">${icon}</div>
+        ${imageMarkup}
         <div class="product-info">
           <div class="product-name">
-            ${product.name || 'Product'}
+            ${safeName}
             ${isBest ? '<span class="best-badge">Best</span>' : ''}
           </div>
-          <div class="product-specs">${specs}</div>
+          <div class="product-specs">${safeSpecs}</div>
           <div class="product-fit">
-            <strong>Why this fits:</strong> ${product.why_it_fits || 'Compatible with your setup.'}
+            <strong>Why this fits:</strong> ${safeWhy}
           </div>
         </div>
         <div class="product-actions">
-          <div class="product-price">${product.price || ''}</div>
-          <button class="add-to-cart-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart('${(product.name || '').replace(/'/g, "\\'")}')">
+          <div class="product-price">${safePrice}</div>
+          <button class="add-to-cart-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart('${addToCartName}')">
             Add to Cart
           </button>
         </div>
@@ -2074,17 +2131,23 @@
       card.target = '_blank';
       card.rel = 'noopener noreferrer';
       
+      const imageMarkup = buildProductImage(product, icon);
+      const safeName = escapeHtml(product.name || 'Product');
+      const safeWhy = escapeHtml(product.why_it_fits || 'Alternative option.');
+      const safePrice = escapeHtml(product.price || '');
+      const addToCartName = (product.name || '').replace(/'/g, "\\'");
+      
       card.innerHTML = `
-        <div class="product-image">${icon}</div>
+        ${imageMarkup}
         <div class="product-info">
-          <div class="product-name">${product.name || 'Product'}</div>
+          <div class="product-name">${safeName}</div>
           <div class="product-fit">
-            <strong>Why:</strong> ${product.why_it_fits || 'Alternative option.'}
+            <strong>Why:</strong> ${safeWhy}
           </div>
         </div>
         <div class="product-actions">
-          <div class="product-price">${product.price || ''}</div>
-          <button class="add-to-cart-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart('${(product.name || '').replace(/'/g, "\\'")}')">
+          <div class="product-price">${safePrice}</div>
+          <button class="add-to-cart-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart('${addToCartName}')">
             Add
           </button>
         </div>
