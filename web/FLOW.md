@@ -14,46 +14,40 @@ flowchart TD
         C -->|No| E[🤖 LLM: identify_job]
         E --> F[JobIdentification result]
         D --> F
-        F --> G[_ensure_required_dimensions]
+        F --> G[Extract categories from instructions]
         G --> H[Validate categories against catalog]
     end
 
     subgraph "3. Clarification Check"
-        H --> I[Merge inferred + user selections]
-        I --> J[Get required fit dimensions]
-        J --> K{Required dims missing?}
-        K -->|No| M[Skip to recommendation]
-        K -->|Yes| L[🤖 LLM: clarification inference]
-        L --> N{Still missing after LLM?}
-        N -->|No| M
-        N -->|Yes| O[Return need_clarification response]
-        O --> P[User selects options]
-        P --> B
+        H --> I[Check unclear_specifications]
+        I --> J{Unanswered specs OR<br/>required dims missing?}
+        J -->|No| M[Skip to recommendation]
+        J -->|Yes| K[Return clarification_questions]
+        K --> L[User answers ALL questions at once]
+        L --> B
     end
 
     subgraph "4. Product Selection"
-        M --> Q[select_candidates_dynamic]
-        Q --> R{Candidates found?}
-        R -->|No| S[Return 404 error]
-        R -->|Yes| T[Build grounding context]
+        M --> N[select_candidates_dynamic]
+        N --> O[Get products for each referenced category]
     end
 
-    subgraph "5. Recommendation"
-        T --> U[🤖 LLM: recommendation]
-        U --> V[Parse product rankings]
-        V --> W[Build response with primary/optional/tools]
-        W --> X[Return JSON to frontend]
+    subgraph "5. Final Recommendation"
+        O --> P[Build recommendation context]
+        P --> Q[🤖 LLM: final recommendation]
+        Q --> R[Finalize instructions with product names]
+        R --> S[Return response to frontend]
     end
 
     subgraph "6. Frontend Display"
-        X --> Y[Render product sections]
-        Y --> Z[Primary Products]
-        Y --> AA[Optional Products with reasons]
-        Y --> AB[Tools with reasons]
+        S --> T[Render final instructions]
+        T --> U[Primary Products with reasoning]
+        T --> V[Tools with reasoning]
+        T --> W[Optional Extras max 3]
     end
 ```
 
-## Sequence Diagram - Happy Path
+## Sequence Diagram - Happy Path (No Clarification)
 
 ```mermaid
 sequenceDiagram
@@ -64,26 +58,27 @@ sequenceDiagram
     participant CS as candidate_selection
     participant LLM as OpenAI LLM
 
-    U->>FE: Enter "I need a 12-speed chain"
+    U->>FE: Enter "Replace my 12-speed chain"
     FE->>API: POST {problem_text, image_base64?}
     
     API->>JI: identify_job(problem_text)
     JI->>LLM: 🤖 Job identification prompt
-    LLM-->>JI: {primary_categories, inferred_values, missing_dimensions}
-    JI->>JI: _ensure_required_dimensions()
+    Note over LLM: Returns step-by-step instructions<br/>with [category_key] references<br/>+ unclear_specifications (if any)
+    LLM-->>JI: {instructions: [...], unclear_specifications: [], confidence: 0.9}
     JI-->>API: JobIdentification result
     
-    API->>API: Check required dimensions
-    Note over API: gearing=12 inferred ✓<br/>No missing required dims
+    API->>API: Extract categories from instructions
+    Note over API: Found: [drivetrain_chains], [drivetrain_tools]<br/>No unclear specs - proceed!
     
     API->>CS: select_candidates_dynamic(categories, fit_values)
-    CS-->>API: {drivetrain_chains: [...], drivetrain_cassettes: [...]}
+    CS-->>API: {drivetrain_chains: [...], drivetrain_tools: [...]}
     
-    API->>LLM: 🤖 Recommendation prompt with candidates
-    LLM-->>API: {diagnosis, product_ranking, sections}
+    API->>LLM: 🤖 Final recommendation prompt
+    Note over LLM: Gets: instructions, clarifications,<br/>and all products per category
+    LLM-->>API: {final_instructions, primary_products, tools, optional_extras}
     
-    API-->>FE: {primary_products, optional_products, tool_products}
-    FE->>U: Display product cards
+    API-->>FE: Full response with finalized instructions
+    FE->>U: Display step-by-step + product cards
 ```
 
 ## Sequence Diagram - Clarification Needed
@@ -101,89 +96,171 @@ sequenceDiagram
     
     API->>JI: identify_job(problem_text)
     JI->>LLM: 🤖 Job identification prompt
-    LLM-->>JI: {primary_categories: [chains], inferred_values: {}, missing: [gearing]}
-    JI->>JI: _ensure_required_dimensions()
-    JI-->>API: JobIdentification (missing: [gearing])
+    LLM-->>JI: {instructions: [...], unclear_specifications: [{spec_name: "drivetrain_speed", confidence: 0.3, ...}]}
+    JI-->>API: JobIdentification with unclear specs
     
-    API->>API: Check required dimensions
-    Note over API: gearing required but missing!
+    API->>API: Check unclear specifications
+    Note over API: Found spec with confidence < 0.8<br/>Return clarification questions
     
-    API->>LLM: 🤖 Clarification prompt
-    LLM-->>API: {inferred_values: {}, options: {gearing_options: [...]}}
-    Note over API: LLM couldn't infer either
+    API-->>FE: {need_clarification: true, clarification_questions: [...], instructions_preview: [...]}
     
-    API-->>FE: {need_clarification: true, missing_dimensions: [gearing]}
-    FE->>U: Show "Drivetrain Speed" options
+    Note over FE: Shows ALL questions at once<br/>with hints and options
+    FE->>U: Show clarification panel
     
-    U->>FE: Select "12-speed"
-    FE->>API: POST {problem_text, selected_values: {gearing: 12}, identified_job: {...}}
+    U->>FE: Answer: "12-speed"
+    FE->>API: POST {problem_text, clarification_answers: [{spec_name, answer}], identified_job: {...}}
     
-    Note over API: Continue with cached job + user selection
-    API-->>FE: {primary_products, ...}
+    Note over API: Answers received, continue flow
+    API->>LLM: 🤖 Final recommendation prompt
+    LLM-->>API: {final_instructions, primary_products, tools, optional_extras}
+    
+    API-->>FE: {diagnosis, final_instructions, primary_products, ...}
+    FE->>U: Display finalized results
 ```
 
 ## Data Flow Summary
 
 | Step | Input | LLM Call? | Output |
 |------|-------|-----------|--------|
-| 1. Job Identification | problem_text, image | ✅ Yes | categories, inferred_values, missing_dimensions |
-| 2. Dimension Check | JobIdentification | ❌ No | required_missing list |
-| 3. Clarification | missing dims, context | ✅ Maybe | inferred_values OR need_clarification |
-| 4. Candidate Selection | categories, fit_values | ❌ No | filtered products per category |
-| 5. Recommendation | candidates, context | ✅ Yes | rankings, diagnosis, sections |
+| 1. Job Identification | problem_text, image | ✅ Yes | instructions, unclear_specifications |
+| 2. Category Extraction | instructions | ❌ No | list of category keys |
+| 3. Clarification Check | unclear_specs | ❌ No | clarification_questions OR proceed |
+| 4. Product Selection | categories, answers | ❌ No | products per category |
+| 5. Final Recommendation | context + products | ✅ Yes | final_instructions, product selections |
 
 ## Key Data Structures
 
-### JobIdentification
+### JobIdentification (New Format)
 ```python
 {
-    "primary_categories": ["drivetrain_chains"],      # User asked for
-    "optional_categories": ["drivetrain_cassettes"],  # LLM suggests for job
-    "required_tools": ["tools_by_category_drivetrains"],
-    "optional_reasons": {"drivetrain_cassettes": "Worn chain may have damaged cassette"},
-    "tool_reasons": {"tools_by_category_drivetrains": "Chain tool needed"},
-    "inferred_values": {"gearing": 12, "use_case": null},
-    "missing_dimensions": ["use_case"],  # Couldn't determine
+    "instructions": [
+        "Step 1: Remove the old chain using a chain tool [drivetrain_tools].",
+        "Step 2: Measure the new [drivetrain_chains] to match the old chain length.",
+        "Step 3: Install the new chain and connect with a quick-link."
+    ],
+    "unclear_specifications": [
+        {
+            "spec_name": "drivetrain_speed",
+            "confidence": 0.3,
+            "question": "How many speeds is your drivetrain?",
+            "hint": "Count the cogs on your rear cassette or check your shifter.",
+            "options": ["8-speed", "9-speed", "10-speed", "11-speed", "12-speed"]
+        }
+    ],
+    "referenced_categories": ["drivetrain_chains", "drivetrain_tools"],
     "confidence": 0.85,
-    "reasoning": "User needs 12-speed chain replacement"
+    "reasoning": "User needs to replace their bicycle chain"
 }
 ```
 
-### API Response (Success)
+### Clarification Question
 ```python
 {
-    "diagnosis": "...",
-    "sections": {"why_it_fits": [...], "suggested_workflow": [...], "checklist": [...]},
-    "primary_products": [{"category": "Chains", "best": {...}, "alternatives": [...]}],
-    "optional_products": [{"category": "Cassettes", "reason": "...", ...}],
-    "tool_products": [{"category": "Tools", "reason": "...", ...}],
+    "spec_name": "brake_rotor_diameter",
+    "confidence": 0.4,
+    "question": "What is the diameter of your brake rotors?",
+    "hint": "Measure across the rotor or check the number printed on it (e.g., 160mm, 180mm).",
+    "options": ["140mm", "160mm", "180mm", "200mm", "203mm"]
+}
+```
+
+### API Response - Need Clarification
+```python
+{
+    "need_clarification": true,
+    "job": {...},  # Full JobIdentification
+    "clarification_questions": [
+        {"spec_name": "...", "question": "...", "hint": "...", "options": [...]}
+    ],
+    "instructions_preview": [  # Shows preliminary instructions
+        "Step 1: ...",
+        "Step 2: ..."
+    ],
+    "inferred_values": {"use_case": "road"}
+}
+```
+
+### API Response - Success
+```python
+{
+    "diagnosis": "Complete chain replacement with proper tools.",
+    "final_instructions": [
+        "Step 1: Remove the old chain using the Park Tool CT-3.2 Chain Tool.",
+        "Step 2: Measure and cut the new Shimano CN-M8100 12-Speed Chain to match.",
+        "Step 3: Install with the included quick-link, ensuring proper direction."
+    ],
+    "primary_products": [
+        {
+            "category": "drivetrain_chains",
+            "category_display": "Chains",
+            "product": {"name": "...", "brand": "...", "price": "...", "url": "..."},
+            "reasoning": "12-speed chain compatible with your Shimano drivetrain."
+        }
+    ],
+    "tools": [
+        {
+            "category": "drivetrain_tools",
+            "category_display": "Drivetrain Tools",
+            "product": {...},
+            "reasoning": "Required for chain removal and installation."
+        }
+    ],
+    "optional_extras": [  # Max 3 items
+        {
+            "category": "drivetrain_cassettes",
+            "product": {...},
+            "reasoning": "Worn chains often damage cassettes - consider replacing together."
+        }
+    ],
     "job": {...},
     "fit_values": {"gearing": 12, "use_case": "road"}
 }
 ```
 
-### API Response (Need Clarification)
-```python
-{
-    "need_clarification": true,
-    "job": {...},
-    "missing_dimensions": ["gearing"],
-    "options": {"gearing_options": ["8-speed", "9-speed", ...]},
-    "hints": {"gearing": "Count the cogs on your rear cassette..."},
-    "inferred_values": {}
-}
-```
+## LLM Prompts
+
+### 1. Job Identification Prompt
+**Input:** User problem text, optional image, list of valid category keys
+**Output:** Step-by-step instructions with `[category_key]` references, unclear specifications
+
+Key prompt features:
+- Instructions must reference categories using exact keys in `[brackets]`
+- LLM self-assesses confidence for ALL technical specifications
+- Specs with confidence < 0.8 go into `unclear_specifications`
+- Each unclear spec includes question, hint, and 2-5 options
+
+### 2. Final Recommendation Prompt
+**Input:** Original request, instructions, clarification answers, products by category
+**Output:** Finalized instructions with product names, product selections with reasoning
+
+Key prompt features:
+- Replace category references with actual product names from data
+- If no matching product: note "no fitting product available" and suggest what to look for
+- Select primary products, tools, and max 3 optional extras
+- Each product selection includes 1-2 sentence reasoning
 
 ## Files & Responsibilities
 
 | File | Responsibility |
 |------|----------------|
 | `api.py` | Orchestrates flow, routes, response building |
-| `job_identification.py` | LLM call #1: identify categories & dimensions |
+| `job_identification.py` | LLM call #1: generate instructions & identify unclear specs |
 | `categories.py` | Category definitions, required_fit dimensions |
 | `candidate_selection.py` | Filter products by category & fit values |
-| `prompts.py` | Build LLM prompts for clarification & recommendation |
-| `templates/index.html` | Frontend state machine, API calls, rendering |
+| `prompts.py` | Build LLM prompts for recommendation |
+| `templates/index.html` | Frontend: clarification UI, product display |
+
+## Frontend Clarification UI
+
+When `need_clarification: true`:
+1. Show **all** clarification questions at once
+2. Each question displays:
+   - The question text
+   - A hint with 💡 icon (styled as info box)
+   - Option buttons (2-5 options)
+   - "Other" button for custom text entry
+3. User can answer in any order
+4. Submit button enabled when all answered
 
 ## VS Code Extensions for Viewing
 

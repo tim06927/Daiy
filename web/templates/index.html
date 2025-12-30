@@ -562,11 +562,28 @@
       margin-bottom: 0;
     }
 
-    .clarification-label {
+    .clarification-preview {
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .clarification-preview .preview-instructions {
+      margin: 0.5rem 0;
+      padding-left: 1.25rem;
       font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .clarification-preview .preview-instructions li {
+      margin-bottom: 0.25rem;
+    }
+
+    .clarification-label {
+      font-size: 0.85rem;
       font-weight: 600;
       color: var(--text);
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.35rem;
     }
 
     .clarification-hint {
@@ -574,7 +591,10 @@
       color: var(--text-secondary);
       margin-bottom: 0.5rem;
       line-height: 1.4;
-      font-style: italic;
+      background: var(--accent-light);
+      padding: 0.4rem 0.6rem;
+      border-radius: var(--radius-xs);
+      border-left: 3px solid var(--accent);
     }
 
     .option-buttons {
@@ -1476,7 +1496,13 @@
       switchToResultsState();
 
       try {
-        // Build selected_values from all sources
+        // Build clarification_answers from selected values (new format)
+        const clarificationAnswersToSend = Object.entries(selectedValues).map(([key, value]) => ({
+          spec_name: key,
+          answer: value
+        }));
+        
+        // Build selected_values for legacy support
         const allSelectedValues = { ...selectedValues };
         if (selectedSpeed) allSelectedValues.gearing = selectedSpeed;
         if (selectedUseCase) allSelectedValues.use_case = selectedUseCase;
@@ -1486,7 +1512,8 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             problem_text: problemText,
-            selected_values: allSelectedValues,
+            clarification_answers: clarificationAnswersToSend,
+            selected_values: allSelectedValues,  // Legacy support
             image_base64: compressedImage,
             identified_job: cachedJob,
           }),
@@ -1547,6 +1574,7 @@
     // Track which clarifications are needed for this query
     let pendingClarifications = [];
     let selectedValues = {};  // Generic storage for all dimension selections
+    let clarificationAnswers = [];  // New format: [{spec_name, answer}, ...]
 
     function showClarification(data) {
       loadingState.classList.remove('active');
@@ -1557,73 +1585,75 @@
       // Show clarification panel
       clarificationContent.innerHTML = '';
       
-      // Handle both old and new API format
-      const missing = data.missing_dimensions || data.missing || [];
-      const options = data.options || {};
-      const hints = data.hints || {};
+      // Handle new clarification_questions format
+      const questions = data.clarification_questions || [];
       
       // Track what's needed
       pendingClarifications = [];
+      clarificationAnswers = [];
       
-      // Dimension display config
-      const dimensionConfig = {
-        'gearing': { label: 'Drivetrain Speed', placeholder: 'e.g., 12-speed, single speed...' },
-        'drivetrain_speed': { label: 'Drivetrain Speed', placeholder: 'e.g., 12-speed, single speed...' },
-        'use_case': { label: 'Riding Style', placeholder: 'e.g., commuting, touring...' },
-        'size': { label: 'Size', placeholder: 'e.g., M, L, XL...' },
-        'freehub_compatibility': { label: 'Freehub Type', placeholder: 'e.g., Shimano HG, SRAM XD...' },
-        'season': { label: 'Season', placeholder: 'e.g., Summer, Winter...' },
-      };
-      
-      // Create a section for each missing dimension
-      missing.forEach(dim => {
-        // Skip if already selected
-        if (selectedValues[dim]) return;
-        
-        pendingClarifications.push(dim);
-        
-        const config = dimensionConfig[dim] || { label: dim.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), placeholder: '' };
-        const hint = hints[dim] || '';
-        const dimOptions = options[`${dim}_options`] || [];
-        
-        const section = document.createElement('div');
-        section.className = 'clarification-section';
-        section.innerHTML = `
-          <div class="clarification-label">${config.label}:</div>
-          ${hint ? `<div class="clarification-hint">${hint}</div>` : ''}
-          <div class="option-buttons" id="${dim}-buttons"></div>
-          <div class="other-input-container" id="${dim}-other-container">
-            <input type="text" class="other-input" id="${dim}-other-input" placeholder="${config.placeholder}">
-          </div>
+      // Show instructions preview if available
+      const instructionsPreview = data.instructions_preview || [];
+      if (instructionsPreview.length > 0) {
+        const previewSection = document.createElement('div');
+        previewSection.className = 'clarification-preview';
+        previewSection.innerHTML = `
+          <div class="clarification-label">Preliminary Instructions:</div>
+          <ul class="preview-instructions">
+            ${instructionsPreview.map(step => `<li>${step}</li>`).join('')}
+          </ul>
+          <div class="clarification-hint">Answer the questions below to get specific product recommendations.</div>
         `;
-        clarificationContent.appendChild(section);
-        
-        const btnsContainer = section.querySelector(`#${dim}-buttons`);
-        dimOptions.forEach(opt => {
-          const btn = document.createElement('button');
-          btn.className = 'option-btn';
-          btn.textContent = opt;
-          btn.dataset.value = opt;
-          btn.onclick = () => selectDimension(dim, opt, btn);
-          btnsContainer.appendChild(btn);
+        clarificationContent.appendChild(previewSection);
+      }
+      
+      // Process clarification questions
+      if (questions.length > 0) {
+        questions.forEach(q => {
+          // Skip if already answered
+          if (selectedValues[q.spec_name]) return;
+          
+          pendingClarifications.push(q.spec_name);
+          
+          const section = document.createElement('div');
+          section.className = 'clarification-section';
+          section.innerHTML = `
+            <div class="clarification-label">${q.question}</div>
+            ${q.hint ? `<div class="clarification-hint">💡 ${q.hint}</div>` : ''}
+            <div class="option-buttons" id="${q.spec_name}-buttons"></div>
+            <div class="other-input-container" id="${q.spec_name}-other-container">
+              <input type="text" class="other-input" id="${q.spec_name}-other-input" placeholder="Enter your answer...">
+            </div>
+          `;
+          clarificationContent.appendChild(section);
+          
+          const btnsContainer = section.querySelector(`#${q.spec_name}-buttons`);
+          (q.options || []).forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.textContent = opt;
+            btn.dataset.value = opt;
+            btn.onclick = () => selectDimension(q.spec_name, opt, btn);
+            btnsContainer.appendChild(btn);
+          });
+          
+          // Add "Other" button
+          const otherBtn = document.createElement('button');
+          otherBtn.className = 'option-btn';
+          otherBtn.textContent = 'Other';
+          otherBtn.onclick = () => showOtherInputGeneric(q.spec_name, otherBtn);
+          btnsContainer.appendChild(otherBtn);
+          
+          // Handle other input
+          const otherInput = section.querySelector(`#${q.spec_name}-other-input`);
+          otherInput.addEventListener('input', () => {
+            if (otherInput.value.trim()) {
+              selectedValues[q.spec_name] = otherInput.value.trim();
+              updateSubmitButton();
+            }
+          });
         });
-        
-        // Add "Other" button
-        const otherBtn = document.createElement('button');
-        otherBtn.className = 'option-btn';
-        otherBtn.textContent = 'Other';
-        otherBtn.onclick = () => showOtherInputGeneric(dim, otherBtn);
-        btnsContainer.appendChild(otherBtn);
-        
-        // Handle other input
-        const otherInput = section.querySelector(`#${dim}-other-input`);
-        otherInput.addEventListener('input', () => {
-          if (otherInput.value.trim()) {
-            selectedValues[dim] = otherInput.value.trim();
-            updateSubmitButton();
-          }
-        });
-      });
+      }
       
       clarificationPanel.classList.add('active');
       productCategories.classList.add('active');
@@ -1734,7 +1764,32 @@
     function updateSelectedOptions() {
       selectedOptionsEl.innerHTML = '';
       
-      if (selectedSpeed) {
+      // Show all selected values from clarifications (new format)
+      Object.entries(selectedValues).forEach(([specName, value]) => {
+        const opt = document.createElement('div');
+        opt.className = 'selected-option';
+        
+        // Format label: convert spec_name to readable format
+        const label = specName
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, c => c.toUpperCase());
+        
+        // Format value
+        let displayValue = value;
+        if (typeof value === 'number' && specName.includes('speed')) {
+          displayValue = `${value}-speed`;
+        }
+        
+        opt.innerHTML = `
+          <span class="label">${label}:</span>
+          <span class="value">${displayValue}</span>
+          <span class="check">✓</span>
+        `;
+        selectedOptionsEl.appendChild(opt);
+      });
+      
+      // Legacy support: show speed/use_case if set but not in selectedValues
+      if (selectedSpeed && !selectedValues['gearing'] && !selectedValues['drivetrain_speed']) {
         const opt = document.createElement('div');
         opt.className = 'selected-option';
         opt.innerHTML = `
@@ -1745,7 +1800,7 @@
         selectedOptionsEl.appendChild(opt);
       }
       
-      if (selectedUseCase) {
+      if (selectedUseCase && !selectedValues['use_case']) {
         const opt = document.createElement('div');
         opt.className = 'selected-option';
         opt.innerHTML = `
@@ -1766,6 +1821,7 @@
       // Use diagnosis from LLM if available
       const diagnosis = data.diagnosis || '';
       const sections = data.sections || {};
+      const finalInstructions = data.final_instructions || [];
       
       // Show diagnosis in left panel
       const diagnosisContainer = document.getElementById('diagnosis-container');
@@ -1782,12 +1838,12 @@
         data.products_by_category || [],
         sections,
         data.primary_products || [],
-        data.optional_products || [],
-        data.tool_products || []
+        data.optional_extras || data.optional_products || [],
+        data.tools || data.tool_products || []
       );
       
-      // Render instructions
-      renderInstructions(sections);
+      // Render instructions (prefer final_instructions over sections)
+      renderInstructions(sections, finalInstructions);
       
       // Setup tabs
       setupResultsTabs();
@@ -1795,19 +1851,22 @@
       productCategories.classList.add('active');
     }
 
-    function renderInstructions(sections) {
+    function renderInstructions(sections, finalInstructions) {
       const container = document.getElementById('instructions-content');
       container.innerHTML = '';
       
-      const workflow = sections.suggested_workflow || [];
+      // Prefer final_instructions from new format
+      const workflow = finalInstructions.length > 0 
+        ? finalInstructions 
+        : (sections.suggested_workflow || []);
       const checklist = sections.checklist || [];
       
       if (workflow.length > 0) {
         const workflowSection = document.createElement('div');
         workflowSection.className = 'instructions-section';
         workflowSection.innerHTML = `
-          <h4>🔧 Installation Steps</h4>
-          <ul>${workflow.map(item => `<li>${item}</li>`).join('')}</ul>
+          <h4>🔧 Step-by-Step Instructions</h4>
+          <ol class="instruction-steps">${workflow.map(item => `<li>${item}</li>`).join('')}</ol>
         `;
         container.appendChild(workflowSection);
       }
@@ -1862,14 +1921,41 @@
         'drivetrain_cassettes': { name: 'Cassette', icon: '⚙️' },
         'drivetrain_chains': { name: 'Chain', icon: '⛓️' },
         'drivetrain_tools': { name: 'Tools', icon: '🔧' },
+        'drivetrain_pedals': { name: 'Pedals', icon: '🦶' },
+        'drivetrain_cranks': { name: 'Crankset', icon: '⚙️' },
+        'drivetrain_chainrings': { name: 'Chainring', icon: '⚙️' },
+        'lighting_bicycle_lights_battery': { name: 'Battery Light', icon: '💡' },
+        'lighting_bicycle_lights_dynamo': { name: 'Dynamo Light', icon: '💡' },
         'cassettes': { name: 'Cassette', icon: '⚙️' },
         'chains': { name: 'Chain', icon: '⛓️' },
         'mtb_gloves': { name: 'Gloves', icon: '🧤' },
       };
       
+      // Helper function to convert new product format to legacy format
+      function normalizeProduct(item) {
+        // New format has {category, category_display, product, reasoning}
+        if (item.product) {
+          return {
+            category: item.category_display || item.category,
+            category_key: item.category,
+            best: {
+              ...item.product,
+              why_it_fits: item.reasoning || item.product.why_it_fits || ''
+            },
+            alternatives: [],
+            reason: item.reasoning,
+          };
+        }
+        // Legacy format
+        return item;
+      }
+      
       // Helper function to render a product section
       function renderSection(products, sectionTitle, sectionClass, showReason = false) {
         if (!products || products.length === 0) return;
+        
+        // Normalize products to legacy format
+        const normalizedProducts = products.map(normalizeProduct);
         
         const sectionDiv = document.createElement('div');
         sectionDiv.className = `product-section ${sectionClass}`;
@@ -1881,7 +1967,7 @@
           sectionDiv.appendChild(sectionHeader);
         }
         
-        products.forEach((cat) => {
+        normalizedProducts.forEach((cat) => {
           const meta = categoryMeta[cat.category_key] || { name: cat.category || 'Products', icon: '📦' };
           
           const section = document.createElement('div');
@@ -1941,7 +2027,7 @@
       if (primaryProducts && primaryProducts.length > 0) {
         // New structured format
         renderSection(primaryProducts, null, 'primary-products');
-        renderSection(optionalProducts, '💡 You Might Also Need', 'optional-products', true);
+        renderSection(optionalProducts, '💡 Optional Extras', 'optional-products', true);
         renderSection(toolProducts, '🔧 Tools for This Job', 'tool-products', true);
       } else {
         // Legacy format - render all as primary

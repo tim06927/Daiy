@@ -1,7 +1,8 @@
 """Dynamic prompt generation for LLM recommendations.
 
-This module provides category-agnostic prompt building, replacing
-the hardcoded make_prompt() function.
+This module provides category-agnostic prompt building for the recommendation flow:
+1. Job identification (in job_identification.py)
+2. Final recommendation with product matching
 """
 
 import json
@@ -20,16 +21,75 @@ else:
 __all__ = [
     "make_recommendation_prompt",
     "build_grounding_context_dynamic",
+    "build_recommendation_context",
 ]
 
 logger = logging.getLogger(__name__)
+
+
+def _format_product_for_prompt(product: Dict[str, Any]) -> str:
+    """Format a single product for inclusion in prompt.
+    
+    Args:
+        product: Product dict with name, brand, price, etc.
+        
+    Returns:
+        Formatted product string.
+    """
+    parts = [f"{product.get('name', 'Unknown')}"]
+    
+    if product.get('brand'):
+        parts.append(f"brand: {product['brand']}")
+    if product.get('speed'):
+        parts.append(f"speed: {product['speed']}")
+    if product.get('application'):
+        parts.append(f"application: {product['application']}")
+    if product.get('price'):
+        parts.append(f"price: {product['price']}")
+    
+    return " | ".join(parts)
+
+
+def _format_category_products_json(
+    category_key: str,
+    products: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Format products for a category as a JSON-serializable dict.
+    
+    Args:
+        category_key: Category key.
+        products: List of product dicts.
+        
+    Returns:
+        Dict with category info and products.
+    """
+    config = get_category_config(category_key)
+    display_name = config["display_name"] if config else category_key.replace("_", " ").title()
+    
+    formatted_products = []
+    for idx, p in enumerate(products):
+        formatted_products.append({
+            "index": idx,
+            "name": p.get("name", "Unknown"),
+            "brand": p.get("brand"),
+            "speed": p.get("speed"),
+            "application": p.get("application"),
+            "price": p.get("price"),
+            "url": p.get("url"),
+        })
+    
+    return {
+        "category_key": category_key,
+        "display_name": display_name,
+        "products": formatted_products,
+    }
 
 
 def _format_product_list(
     category_key: str,
     products: List[Dict[str, Any]],
 ) -> str:
-    """Format a product list for the prompt.
+    """Format a product list for the prompt (legacy format).
     
     Args:
         category_key: Category key for labeling.
@@ -64,7 +124,7 @@ def build_grounding_context_dynamic(
     candidates: Dict[str, List[Dict[str, Any]]],
     image_base64: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Build grounding context for dynamic recommendation.
+    """Build grounding context for dynamic recommendation (legacy).
     
     Args:
         problem_text: User's problem description.
@@ -94,11 +154,171 @@ def build_grounding_context_dynamic(
     }
 
 
+def build_recommendation_context(
+    problem_text: str,
+    instructions: List[str],
+    clarifications: List[Dict[str, Any]],
+    category_products: Dict[str, List[Dict[str, Any]]],
+    image_base64: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build context for the final recommendation prompt.
+    
+    Args:
+        problem_text: Original user's problem description.
+        instructions: Step-by-step instructions from job identification.
+        clarifications: List of clarification Q&As with user's answers.
+        category_products: Dict mapping category keys to product lists.
+        image_base64: Optional base64 image.
+        
+    Returns:
+        Context dict for the recommendation prompt.
+    """
+    # Format category products as JSON structure
+    categories_data = []
+    for cat_key, products in category_products.items():
+        categories_data.append(_format_category_products_json(cat_key, products))
+    
+    return {
+        "user_request": problem_text,
+        "instructions": instructions,
+        "clarifications": clarifications,
+        "category_products": categories_data,
+        "image_base64": image_base64,
+    }
+
+
 def make_recommendation_prompt(
     context: Dict[str, Any],
     image_attached: bool = False,
 ) -> str:
-    """Generate a category-agnostic recommendation prompt.
+    """Generate the final recommendation prompt.
+    
+    Takes the job identification instructions, clarification answers,
+    and available products to generate specific product recommendations.
+    
+    Args:
+        context: Context from build_recommendation_context or build_grounding_context_dynamic.
+        image_attached: Whether user image is attached.
+        
+    Returns:
+        Prompt string for LLM.
+    """
+    # Handle both new and legacy context formats
+    if "instructions" in context:
+        return _make_recommendation_prompt_new(context, image_attached)
+    else:
+        return _make_recommendation_prompt_legacy(context, image_attached)
+
+
+def _make_recommendation_prompt_new(
+    context: Dict[str, Any],
+    image_attached: bool = False,
+) -> str:
+    """Generate recommendation prompt using new format with instructions.
+    
+    Args:
+        context: Context with instructions, clarifications, and category_products.
+        image_attached: Whether user image is attached.
+        
+    Returns:
+        Prompt string for LLM.
+    """
+    user_text = context.get("user_request", "")
+    instructions = context.get("instructions", [])
+    clarifications = context.get("clarifications", [])
+    category_products = context.get("category_products", [])
+    
+    # Format instructions
+    instructions_text = "\n".join(f"  {i+1}. {step}" for i, step in enumerate(instructions))
+    
+    # Format clarifications with answers
+    clarifications_text = ""
+    if clarifications:
+        clarif_lines = []
+        for c in clarifications:
+            spec = c.get("spec_name", "Unknown")
+            answer = c.get("answer", "Not provided")
+            clarif_lines.append(f"  - {spec}: {answer}")
+        clarifications_text = "User-provided specifications:\n" + "\n".join(clarif_lines)
+    else:
+        clarifications_text = "No additional specifications provided."
+    
+    # Format available products as JSON
+    products_json = json.dumps(category_products, indent=2)
+    
+    image_note = ""
+    if image_attached:
+        image_note = """
+IMPORTANT - IMAGE REFERENCE:
+The user's original photo is attached. Use visual information to verify product fit.
+"""
+    
+    return f"""You are an expert bicycle mechanic finalizing product recommendations.
+
+ORIGINAL USER REQUEST:
+\"\"\"{user_text}\"\"\"
+
+PRELIMINARY INSTRUCTIONS (from initial analysis):
+{instructions_text}
+
+{clarifications_text}
+{image_note}
+AVAILABLE PRODUCTS BY CATEGORY:
+{products_json}
+
+YOUR TASK:
+1. Finalize the step-by-step instructions, replacing category references with SPECIFIC PRODUCTS from the available products
+2. If NO suitable product exists in a category, note "no fitting product available" and suggest what to look for
+3. Compile lists of primary products, tools, and optional extras
+
+RESPONSE FORMAT (return pure JSON only, no prose):
+{{
+  "final_instructions": [
+    "Step 1: Finalized instruction with specific product name from the data.",
+    "Step 2: Continue with specific products. If none fit: 'Use [product description] - no fitting product available'.",
+    "Step 3: More steps as needed."
+  ],
+  "primary_products": [
+    {{
+      "category": "category_key",
+      "product_index": 0,
+      "reasoning": "1-2 sentence explanation why this product fits the job."
+    }}
+  ],
+  "tools": [
+    {{
+      "category": "category_key",
+      "product_index": 0,
+      "reasoning": "1-2 sentence explanation why this tool is needed."
+    }}
+  ],
+  "optional_extras": [
+    {{
+      "category": "category_key",
+      "product_index": 0,
+      "reasoning": "1-2 sentence explanation of why this might be useful but isn't required."
+    }}
+  ],
+  "diagnosis": "One sentence summary of the complete solution."
+}}
+
+RULES:
+- Use ONLY products from the AVAILABLE PRODUCTS list above
+- product_index refers to the "index" field in each product
+- primary_products: Products explicitly needed for the job (from instructions)
+- tools: Tool products needed to complete the work
+- optional_extras: Maximum 3 items NOT in instructions but potentially useful
+- If a category has no suitable products, still mention it in final_instructions with "no fitting product available"
+- Each reasoning should be specific to this user's situation (not generic)
+- Verify product specifications match the clarified values
+"""
+
+
+def _make_recommendation_prompt_legacy(
+    context: Dict[str, Any],
+    image_attached: bool = False,
+) -> str:
+    """Generate recommendation prompt using legacy format.
     
     Args:
         context: Grounding context from build_grounding_context_dynamic.
@@ -146,7 +366,6 @@ def make_recommendation_prompt(
         else ""
     )
     
-    # Build the prompt
     return f"""You are an experienced bike shop assistant. Recommend ONE best product from EACH category from the provided candidates only.
 
 User request:
@@ -190,7 +409,10 @@ def make_clarification_prompt_dynamic(
     missing_dimensions: List[str],
     image_attached: bool = False,
 ) -> str:
-    """Generate a prompt for dynamic clarification.
+    """Generate a prompt for dynamic clarification (legacy).
+    
+    Note: With the new flow, clarification questions come from job_identification.
+    This function is kept for backwards compatibility.
     
     Args:
         problem_text: User's problem description.

@@ -1,5 +1,29 @@
 # Daiy
 
+## Current Status (Dec 30, 2025)
+
+**Major Prompt Rework & Architecture Update - Simplified, Generalized, Production-Ready**
+
+Just completed significant restructuring of the LLM prompt flow:
+
+### What Changed
+1. **Job Identification** - Now generates step-by-step instructions with `[category_key]` placeholders instead of static category lists
+2. **Clarification** - Simplified to only ask for LLM-identified unclear specs (no more hardcoded dimension lists)
+3. **Recommendation** - Final pass replaces placeholders with actual product names and provides reasoning
+
+### Key Improvements
+- ✅ All clarification questions are **dynamic** and **LLM-generated** (confidence-based)
+- ✅ **Answered questions appear as bubbles** in results view (any spec type)
+- ✅ **Comprehensive logging** - User inputs, clarifications, LLM calls/responses, final results
+- ✅ **HTML log viewer** - Sessions organized with filters and collapsible sections
+- ✅ **Cleaner architecture** - Clear three-phase flow with proper data structures
+- ✅ **Better documentation** - FLOW.md with mermaid diagrams, data structure examples
+
+### For Developers
+See [web/README.md](web/README.md) and [web/FLOW.md](web/FLOW.md) for detailed technical documentation.
+
+---
+
 ## About Daiy
 
 A startup that aims to help every DIYer find the right parts and tools using multimodal AI.
@@ -8,14 +32,23 @@ A startup that aims to help every DIYer find the right parts and tools using mul
 
 Large parts of this project are vibe-coded using GitHub Copilot, ChatGPT, and more. Further, this is a proof of concept and not a production-ready project. Parts of this repo (CODING_STANDARDS, somewhat excessive documentation, ...) exist to make the AI do a good job and not to put an overbearing burden on humans. Proceed with fun and care when using.
 
-## Daiy PoC
+## Daiy PoC Architecture
 
-This repository contains a proof of concept (PoC) for Daiy that demonstrates:
-- **Web scraping** - Automated extraction of real bike component data
-- **Grounded AI** - LLM recommendations using only real products from inventory
-- **Multimodal input** - Text descriptions and optional image uploads
-- **Smart clarification** - AI infers missing info or asks targeted questions
-- **Product database** - Structured storage and retrieval of bike parts
+This repository demonstrates a **three-phase LLM-powered recommendation system** with grounded product suggestions:
+
+1. **Job Identification** (`identify_job`) - LLM analyzes user input and generates step-by-step instructions
+2. **Smart Clarification** (optional) - If specs are unclear (confidence < 0.8), ask user targeted questions
+3. **Grounded Recommendation** - LLM selects from real catalog and provides per-product reasoning
+
+**Key principle:** All recommendations use actual products from inventory; no hallucinations.
+
+The system is:
+- **Multimodal** - Accepts text queries and optional bike photos
+- **Generalized** - Job identification prompts are neutral to repair type (not hardcoded to bikes)
+- **Observable** - Comprehensive JSONL logging of all LLM interactions
+- **Maintainable** - Clear separation of concerns with focused modules
+
+### Three Main Components
 
 ## Project Structure
 

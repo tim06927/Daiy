@@ -72,6 +72,19 @@ def format_event_html(event: Dict[str, Any]) -> str:
     if event_type == "user_input":
         html_parts.append("<p><strong>📝 User Input:</strong></p>")
         html_parts.append(f'<p><code>{escape_html(event.get("problem_text", ""))}</code></p>')
+        
+        # Show clarification answers if present
+        clarifications = event.get("clarification_answers", [])
+        if clarifications:
+            html_parts.append("<p><strong>💡 User Clarifications:</strong></p>")
+            html_parts.append("<ul>")
+            for clarif in clarifications:
+                spec_name = clarif.get("spec_name", "unknown")
+                answer = clarif.get("answer", "")
+                html_parts.append(f"<li><strong>{spec_name}:</strong> {answer}</li>")
+            html_parts.append("</ul>")
+        
+        # Legacy selected values
         if event.get("selected_speed"):
             html_parts.append(f'<p><strong>Selected Speed:</strong> {event["selected_speed"]}</p>')
         if event.get("selected_use_case"):
@@ -79,6 +92,40 @@ def format_event_html(event: Dict[str, Any]) -> str:
                 f'<p><strong>Selected Use Case:</strong> {event["selected_use_case"]}</p>'
             )
         html_parts.append(render_image_meta(event.get("image_meta")))
+
+    elif event_type == "clarification_required":
+        html_parts.append("<p><strong>❓ Clarification Required:</strong></p>")
+        questions = event.get("questions", [])
+        html_parts.append(f"<p><strong>Number of Questions:</strong> {len(questions)}</p>")
+        
+        if questions:
+            html_parts.append("<details><summary>View Questions</summary>")
+            html_parts.append("<ul>")
+            for q in questions:
+                spec_name = q.get("spec_name", "unknown")
+                question = q.get("question", "")
+                hint = q.get("hint", "")
+                options = q.get("options", [])
+                confidence = q.get("confidence", 1.0)
+                
+                html_parts.append(f"<li><strong>{spec_name}</strong> (confidence: {confidence:.2f})")
+                html_parts.append(f"<br/>Q: {escape_html(question)}")
+                if hint:
+                    html_parts.append(f"<br/>💡 {escape_html(hint)}")
+                if options:
+                    html_parts.append(f"<br/>Options: {', '.join(options)}")
+                html_parts.append("</li>")
+            html_parts.append("</ul>")
+            html_parts.append("</details>")
+        
+        instructions_preview = event.get("instructions_preview", [])
+        if instructions_preview:
+            html_parts.append("<details><summary>Preview Instructions</summary>")
+            html_parts.append("<ol>")
+            for inst in instructions_preview:
+                html_parts.append(f"<li>{escape_html(inst)}</li>")
+            html_parts.append("</ol>")
+            html_parts.append("</details>")
 
     elif event_type == "regex_inference":
         html_parts.append("<p><strong>🔍 Regex Inference:</strong></p>")
@@ -95,11 +142,17 @@ def format_event_html(event: Dict[str, Any]) -> str:
         )
         html_parts.append("</ul>")
 
-    elif event_type == "llm_call_clarification":
-        html_parts.append("<p><strong>🤖 LLM Call (Clarification):</strong></p>")
+    elif event_type in ["llm_call_clarification", "llm_call_recommendation", "llm_call_job_identification"]:
+        stage_name = event_type.replace("llm_call_", "").title()
+        html_parts.append(f"<p><strong>🤖 LLM Call ({stage_name}):</strong></p>")
         html_parts.append("<ul>")
         html_parts.append(f'<li>Model: <code>{event.get("model", "unknown")}</code></li>')
-        html_parts.append(f'<li>Missing Keys: <code>{event.get("missing_keys", [])}</code></li>')
+        if "missing_keys" in event:
+            html_parts.append(f'<li>Missing Keys: <code>{event.get("missing_keys", [])}</code></li>')
+        if "user_text" in event:
+            html_parts.append(
+                f'<li>User Text: <code>{escape_html(event.get("user_text", "")[:100])}</code></li>'
+            )
         html_parts.append(render_image_meta(event.get("image_meta")))
         html_parts.append("</ul>")
         html_parts.append("<details><summary>View Prompt</summary>")
@@ -107,44 +160,13 @@ def format_event_html(event: Dict[str, Any]) -> str:
         html_parts.append(f"<pre>{prompt}</pre>")
         html_parts.append("</details>")
 
-    elif event_type == "llm_response_clarification":
-        html_parts.append("<p><strong>💬 LLM Response (Clarification):</strong></p>")
-        html_parts.append("<ul>")
-        html_parts.append(f'<li>Model: <code>{event.get("model", "unknown")}</code></li>')
-        html_parts.append("</ul>")
-        html_parts.append("<details><summary>View Response</summary>")
-        response = escape_html(event.get("raw_response", ""))
-        html_parts.append(f"<pre>{response}</pre>")
-        html_parts.append("</details>")
-
-    elif event_type == "llm_inference_result":
-        html_parts.append("<p><strong>✅ LLM Inference Result:</strong></p>")
-        html_parts.append("<ul>")
-        html_parts.append(
-            f'<li>Inferred Speed: <code>{event.get("inferred_speed", "None")}</code></li>'
-        )
-        html_parts.append(
-            f'<li>Inferred Use Case: <code>{event.get("inferred_use_case", "None")}</code></li>'
-        )
-        html_parts.append(f'<li>Speed Options: <code>{event.get("speed_options", [])}</code></li>')
-        html_parts.append(
-            f'<li>Use Case Options: <code>{event.get("use_case_options", [])}</code></li>'
-        )
-        html_parts.append("</ul>")
-
-    elif event_type == "llm_call_recommendation":
-        html_parts.append("<p><strong>🤖 LLM Call (Recommendation):</strong></p>")
-        html_parts.append("<ul>")
-        html_parts.append(f'<li>Model: <code>{event.get("model", "unknown")}</code></li>')
-        html_parts.append(render_image_meta(event.get("image_meta")))
-        html_parts.append("</ul>")
-        html_parts.append("<details><summary>View Prompt</summary>")
-        prompt = escape_html(event.get("prompt", ""))
-        html_parts.append(f"<pre>{prompt}</pre>")
-        html_parts.append("</details>")
-
-    elif event_type == "llm_response_recommendation":
-        html_parts.append("<p><strong>💬 LLM Response (Recommendation):</strong></p>")
+    elif event_type in [
+        "llm_response_clarification",
+        "llm_response_recommendation",
+        "llm_response_job_identification",
+    ]:
+        stage_name = event_type.replace("llm_response_", "").title()
+        html_parts.append(f"<p><strong>💬 LLM Response ({stage_name}):</strong></p>")
         html_parts.append("<ul>")
         html_parts.append(f'<li>Model: <code>{event.get("model", "unknown")}</code></li>')
         html_parts.append("</ul>")
@@ -157,12 +179,58 @@ def format_event_html(event: Dict[str, Any]) -> str:
         html_parts.append("<p><strong>❌ LLM Parse Error:</strong></p>")
         html_parts.append("<ul>")
         html_parts.append(
+            f'<li>Stage: <code>{escape_html(event.get("stage", "unknown"))}</code></li>'
+        )
+        html_parts.append(
             f'<li>Error: <code>{escape_html(event.get("error", "unknown"))}</code></li>'
         )
         html_parts.append(
             f'<li>Raw: <code>{escape_html(event.get("raw", "")[:200])}</code>...</li>'
         )
         html_parts.append("</ul>")
+
+    elif event_type in ["llm_error", "job_identification_result", "candidate_selection"]:
+        html_parts.append("<p><strong>❌ LLM Parse Error:</strong></p>")
+        html_parts.append("<ul>")
+        html_parts.append(
+            f'<li>Error: <code>{escape_html(event.get("error", "unknown"))}</code></li>'
+        )
+        html_parts.append(
+            f'<li>Raw: <code>{escape_html(event.get("raw", "")[:200])}</code>...</li>'
+        )
+        html_parts.append("</ul>")
+
+    elif event_type == "recommendation_result":
+        html_parts.append("<p><strong>✅ Recommendation Result:</strong></p>")
+        html_parts.append("<ul>")
+        html_parts.append(
+            f'<li><strong>Diagnosis:</strong> {escape_html(event.get("diagnosis", "N/A")[:150])}</li>'
+        )
+        html_parts.append(
+            f'<li><strong>Primary Products:</strong> {event.get("primary_products_count", 0)}</li>'
+        )
+        html_parts.append(f'<li><strong>Tools:</strong> {event.get("tools_count", 0)}</li>')
+        html_parts.append(
+            f'<li><strong>Optional Extras:</strong> {event.get("optional_extras_count", 0)}</li>'
+        )
+        html_parts.append("</ul>")
+        
+        final_instructions = event.get("final_instructions", [])
+        if final_instructions:
+            html_parts.append("<details><summary>View Final Instructions</summary>")
+            html_parts.append("<ol>")
+            for inst in final_instructions:
+                html_parts.append(f"<li>{escape_html(inst)}</li>")
+            html_parts.append("</ol>")
+            html_parts.append("</details>")
+        
+        fit_values = event.get("fit_values", {})
+        if fit_values:
+            html_parts.append("<p><strong>Fit Values:</strong></p>")
+            html_parts.append("<ul>")
+            for key, value in fit_values.items():
+                html_parts.append(f"<li><strong>{key}:</strong> {value}</li>")
+            html_parts.append("</ul>")
 
     elif event_type == "user_selection":
         html_parts.append("<p><strong>🎯 User Selection:</strong></p>")
@@ -428,13 +496,19 @@ def create_html_log(log_file: Path) -> str:
 
         .event-user_input .event-header {{ border-left: 4px solid #10b981; }}
         .event-user_selection .event-header {{ border-left: 4px solid #06b6d4; }}
+        .event-clarification_required .event-header {{ border-left: 4px solid #f59e0b; }}
         .event-regex_inference .event-header {{ border-left: 4px solid #8b5cf6; }}
-        .event-llm_call_clarification .event-header {{ border-left: 4px solid #f59e0b; }}
-        .event-llm_response_clarification .event-header {{ border-left: 4px solid #f59e0b; }}
+        .event-llm_call_clarification .event-header {{ border-left: 4px solid #3b82f6; }}
+        .event-llm_response_clarification .event-header {{ border-left: 4px solid #3b82f6; }}
+        .event-llm_call_job_identification .event-header {{ border-left: 4px solid #3b82f6; }}
+        .event-llm_response_job_identification .event-header {{ border-left: 4px solid #3b82f6; }}
+        .event-llm_call_recommendation .event-header {{ border-left: 4px solid #3b82f6; }}
+        .event-llm_response_recommendation .event-header {{ border-left: 4px solid #3b82f6; }}
         .event-llm_inference_result .event-header {{ border-left: 4px solid #06b6d4; }}
-        .event-llm_call_recommendation .event-header {{ border-left: 4px solid #f59e0b; }}
-        .event-llm_response_recommendation .event-header {{ border-left: 4px solid #f59e0b; }}
         .event-llm_parse_error .event-header {{ border-left: 4px solid #ef4444; }}
+        .event-recommendation_result .event-header {{ border-left: 4px solid #10b981; }}
+        .event-job_identification_result .event-header {{ border-left: 4px solid #10b981; }}
+        .event-candidate_selection .event-header {{ border-left: 4px solid #8b5cf6; }}
 
         .event-content p {{
             margin: 0.3rem 0;
@@ -540,11 +614,10 @@ def create_html_log(log_file: Path) -> str:
 
         <div class="filter-controls">
             <label><input type="checkbox" class="filter" data-event-type="user_input" checked> User Input</label>
-            <label><input type="checkbox" class="filter" data-event-type="user_selection" checked> User Selection</label>
-            <label><input type="checkbox" class="filter" data-event-type="regex_inference" checked> Regex Inference</label>
-            <label><input type="checkbox" class="filter" data-event-type="llm_call_clarification" checked> LLM Calls</label>
-            <label><input type="checkbox" class="filter" data-event-type="llm_inference_result" checked> Inference Results</label>
-            <label><input type="checkbox" class="filter" data-event-type="llm_call_recommendation" checked> Recommendations</label>
+            <label><input type="checkbox" class="filter" data-event-type="clarification_required" checked> Clarification Required</label>
+            <label><input type="checkbox" class="filter" data-event-type="llm_call_job_identification" checked> Job Identification Calls</label>
+            <label><input type="checkbox" class="filter" data-event-type="llm_call_recommendation" checked> Recommendation Calls</label>
+            <label><input type="checkbox" class="filter" data-event-type="recommendation_result" checked> Results</label>
             <label><input type="checkbox" class="filter" data-event-type="llm_parse_error" checked> Errors</label>
         </div>
 

@@ -1,15 +1,16 @@
 """Job identification for dynamic product recommendations.
 
 This module handles the first step of the generalized flow: analyzing user input
-to determine which product categories are relevant and what fit dimensions
-need to be clarified.
+to determine which product categories are relevant, generate step-by-step 
+instructions, and identify technical specifications that need clarification.
 """
 
 import json
 import logging
+import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Handle imports for both direct execution and package import
 if __package__ is None or __package__ == "":
@@ -35,6 +36,8 @@ else:
 __all__ = [
     "identify_job",
     "JobIdentification",
+    "UnclearSpecification",
+    "extract_categories_from_instructions",
 ]
 
 logger = logging.getLogger(__name__)
@@ -46,64 +49,183 @@ def _get_openai_client():
     return OpenAI()
 
 
-class JobIdentification:
-    """Result of job identification step.
+class UnclearSpecification:
+    """A technical specification that needs user clarification.
     
-    Distinguishes between:
-    - primary_categories: What the user explicitly requested
-    - optional_categories: Complementary products the LLM recommends for this specific job
-    - required_tools: Tools needed to complete the job
+    Represents a single unclear technical dimension with confidence score,
+    question, hint for the user, and possible answer options.
     """
     
     def __init__(
         self,
-        primary_categories: List[str],
-        optional_categories: List[str],
-        required_tools: List[str],
-        inferred_values: Dict[str, Any],
-        missing_dimensions: List[str],
+        spec_name: str,
+        confidence: float,
+        question: str,
+        hint: str,
+        options: List[str],
+    ):
+        """Initialize unclear specification.
+        
+        Args:
+            spec_name: Technical specification identifier (e.g., "gearing", "brake_rotor_size").
+            confidence: LLM's confidence score (0-1) for this specification.
+            question: Clarifying question to ask the user.
+            hint: Simple instruction for how user can find the answer.
+            options: 2-5 realistic answer options.
+        """
+        self.spec_name = spec_name
+        self.confidence = confidence
+        self.question = question
+        self.hint = hint
+        self.options = options
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "spec_name": self.spec_name,
+            "confidence": self.confidence,
+            "question": self.question,
+            "hint": self.hint,
+            "options": self.options,
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "UnclearSpecification":
+        """Create from dictionary."""
+        return cls(
+            spec_name=data.get("spec_name", ""),
+            confidence=data.get("confidence", 0.0),
+            question=data.get("question", ""),
+            hint=data.get("hint", ""),
+            options=data.get("options", []),
+        )
+
+
+def extract_categories_from_instructions(instructions: List[str]) -> List[str]:
+    """Extract category keys mentioned in step-by-step instructions.
+    
+    Parses instructions for [category_key] references and returns unique categories.
+    
+    Args:
+        instructions: List of instruction steps with [category] references.
+        
+    Returns:
+        List of unique category keys found in instructions.
+    """
+    categories = []
+    pattern = r'\[([a-z_]+)\]'
+    
+    for step in instructions:
+        matches = re.findall(pattern, step)
+        for match in matches:
+            if match not in categories:
+                categories.append(match)
+    
+    return categories
+
+
+class JobIdentification:
+    """Result of job identification step.
+    
+    Contains:
+    - instructions: Step-by-step instructions with category references in [category_key] format
+    - unclear_specifications: Technical specs needing clarification (confidence < 0.8)
+    - Referenced categories extracted from instructions
+    
+    Legacy fields maintained for backwards compatibility:
+    - primary_categories, optional_categories, required_tools
+    """
+    
+    def __init__(
+        self,
+        instructions: List[str],
+        unclear_specifications: List[UnclearSpecification],
         confidence: float,
         reasoning: str,
+        # Legacy fields for backwards compatibility
+        primary_categories: Optional[List[str]] = None,
+        optional_categories: Optional[List[str]] = None,
+        required_tools: Optional[List[str]] = None,
+        inferred_values: Optional[Dict[str, Any]] = None,
+        missing_dimensions: Optional[List[str]] = None,
         optional_reasons: Optional[Dict[str, str]] = None,
         tool_reasons: Optional[Dict[str, str]] = None,
     ):
         """Initialize job identification result.
         
         Args:
-            primary_categories: Categories the user explicitly asked for (ordered by priority).
-            optional_categories: Complementary categories the LLM recommends for this job.
-            required_tools: Tool categories needed to complete the job.
-            inferred_values: Dict of fit dimension values inferred from input.
-            missing_dimensions: List of fit dimensions that need clarification.
-            confidence: Confidence score (0-1) for the identification.
-            reasoning: Brief explanation of why these categories were identified.
-            optional_reasons: Dict mapping optional category to reason why it's suggested.
-            tool_reasons: Dict mapping tool category to reason why it's needed.
+            instructions: Step-by-step instructions with [category_key] references.
+            unclear_specifications: List of specs needing user clarification.
+            confidence: Confidence score (0-1) for the overall identification.
+            reasoning: Brief explanation of the identified job.
+            primary_categories: (Legacy) Categories the user explicitly asked for.
+            optional_categories: (Legacy) Complementary categories for this job.
+            required_tools: (Legacy) Tool categories needed.
+            inferred_values: (Legacy) Dict of fit dimension values inferred from input.
+            missing_dimensions: (Legacy) List of fit dimensions that need clarification.
+            optional_reasons: (Legacy) Dict mapping optional category to reason.
+            tool_reasons: (Legacy) Dict mapping tool category to reason.
         """
-        self.primary_categories = primary_categories
-        self.optional_categories = optional_categories
-        self.required_tools = required_tools
-        self.inferred_values = inferred_values
-        self.missing_dimensions = missing_dimensions
+        self.instructions = instructions
+        self.unclear_specifications = unclear_specifications
         self.confidence = confidence
         self.reasoning = reasoning
+        
+        # Extract categories from instructions
+        self._referenced_categories = extract_categories_from_instructions(instructions)
+        
+        # Legacy fields - populate from instructions if not provided
+        self.primary_categories = primary_categories or []
+        self.optional_categories = optional_categories or []
+        self.required_tools = required_tools or []
+        self.inferred_values = inferred_values or {}
+        self.missing_dimensions = missing_dimensions or [
+            spec.spec_name for spec in unclear_specifications
+        ]
         self.optional_reasons = optional_reasons or {}
         self.tool_reasons = tool_reasons or {}
     
     @property
+    def referenced_categories(self) -> List[str]:
+        """Categories referenced in the step-by-step instructions."""
+        return self._referenced_categories
+    
+    @property
     def categories(self) -> List[str]:
         """All categories (for backwards compatibility)."""
+        # Prefer referenced categories from instructions, fall back to legacy
+        if self._referenced_categories:
+            return self._referenced_categories
         return self.primary_categories + self.optional_categories + self.required_tools
     
     @categories.setter
     def categories(self, value: List[str]) -> None:
         """Set categories (for backwards compatibility during validation)."""
-        # When setting categories, assume they are all primary for backwards compat
+        # When setting categories, update referenced categories
+        self._referenced_categories = value
         self.primary_categories = value
+    
+    def get_clarification_questions(self) -> List[Dict[str, Any]]:
+        """Get clarification questions for unclear specifications.
+        
+        Returns:
+            List of question dicts with question, hint, and options.
+        """
+        return [spec.to_dict() for spec in self.unclear_specifications]
+    
+    def has_unclear_specifications(self) -> bool:
+        """Check if there are any specifications needing clarification."""
+        return len(self.unclear_specifications) > 0
         
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
+            "instructions": self.instructions,
+            "unclear_specifications": [spec.to_dict() for spec in self.unclear_specifications],
+            "referenced_categories": self._referenced_categories,
+            "confidence": self.confidence,
+            "reasoning": self.reasoning,
+            # Legacy fields for backwards compatibility
             "primary_categories": self.primary_categories,
             "optional_categories": self.optional_categories,
             "required_tools": self.required_tools,
@@ -111,38 +233,54 @@ class JobIdentification:
             "tool_reasons": self.tool_reasons,
             "inferred_values": self.inferred_values,
             "missing_dimensions": self.missing_dimensions,
-            "confidence": self.confidence,
-            "reasoning": self.reasoning,
-            # Backwards compatibility
             "categories": self.categories,
         }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "JobIdentification":
         """Create from dictionary."""
-        # Handle both new and old format
-        if "primary_categories" in data:
+        # Handle new format with instructions
+        if "instructions" in data:
+            unclear_specs = [
+                UnclearSpecification.from_dict(spec)
+                for spec in data.get("unclear_specifications", [])
+            ]
             return cls(
+                instructions=data.get("instructions", []),
+                unclear_specifications=unclear_specs,
+                confidence=data.get("confidence", 0.0),
+                reasoning=data.get("reasoning", ""),
                 primary_categories=data.get("primary_categories", []),
                 optional_categories=data.get("optional_categories", []),
                 required_tools=data.get("required_tools", []),
                 inferred_values=data.get("inferred_values", {}),
                 missing_dimensions=data.get("missing_dimensions", []),
+                optional_reasons=data.get("optional_reasons", {}),
+                tool_reasons=data.get("tool_reasons", {}),
+            )
+        # Handle legacy format
+        elif "primary_categories" in data:
+            return cls(
+                instructions=[],
+                unclear_specifications=[],
                 confidence=data.get("confidence", 0.0),
                 reasoning=data.get("reasoning", ""),
+                primary_categories=data.get("primary_categories", []),
+                optional_categories=data.get("optional_categories", []),
+                required_tools=data.get("required_tools", []),
+                inferred_values=data.get("inferred_values", {}),
+                missing_dimensions=data.get("missing_dimensions", []),
                 optional_reasons=data.get("optional_reasons", {}),
                 tool_reasons=data.get("tool_reasons", {}),
             )
         else:
-            # Old format - treat all as primary
+            # Very old format - treat categories as primary
             return cls(
-                primary_categories=data.get("categories", []),
-                optional_categories=[],
-                required_tools=[],
-                inferred_values=data.get("inferred_values", {}),
-                missing_dimensions=data.get("missing_dimensions", []),
+                instructions=[],
+                unclear_specifications=[],
                 confidence=data.get("confidence", 0.0),
                 reasoning=data.get("reasoning", ""),
+                primary_categories=data.get("categories", []),
             )
 
 
@@ -151,6 +289,10 @@ def _build_job_identification_prompt(
     image_attached: bool = False,
 ) -> str:
     """Build the prompt for job identification.
+    
+    Generates a prompt that asks the LLM to provide:
+    1. Step-by-step instructions with category references in [category_key] format
+    2. Unclear specifications with confidence < 0.8 needing user clarification
     
     Args:
         problem_text: User's description of their needs.
@@ -161,67 +303,78 @@ def _build_job_identification_prompt(
     """
     category_descriptions = get_categories_for_prompt()
     
-    # Build dimension descriptions
-    dim_lines = ["Fit dimensions that may need clarification:"]
-    for dim, config in SHARED_FIT_DIMENSIONS.items():
-        dim_lines.append(f"  - {dim}: {config['display_name']} - {config['hint']}")
-    dimension_descriptions = "\n".join(dim_lines)
+    # Get list of category keys for the prompt
+    category_keys = get_all_category_names()
+    category_keys_str = ", ".join(category_keys)
     
     # Image analysis instructions
     image_instruction = ""
     if image_attached:
-        image_instruction = (
-            "\n\nIMPORTANT - IMAGE ANALYSIS:\n"
-            "The user has uploaded a PHOTO. Carefully analyze the image to:\n"
-            "- Identify what components/products are shown\n"
-            "- Determine relevant fit dimensions from visual cues\n"
-            "  (e.g., count cassette cogs for gearing, identify bike type)\n"
-            "- Look for brand logos or component markings\n"
-            "Use visual information to infer categories and fit values.\n"
-        )
+        image_instruction = """
+
+IMPORTANT - IMAGE ANALYSIS:
+The user has uploaded a PHOTO. Carefully analyze the image to:
+- Identify components, parts, or issues visible in the image
+- Extract technical specifications from visual cues (count parts, read markings, measure proportions)
+- Look for brand logos, model numbers, or sizing information
+- Use this visual information to increase confidence in technical specifications
+"""
     
-    return f"""You are a bike shop assistant helping to identify what products a customer needs for their specific job.
+    return f"""You are an expert bicycle mechanic assistant. Analyze the user's request and provide detailed step-by-step instructions to solve their problem.
 
 {category_descriptions}
 
-{dimension_descriptions}
+VALID CATEGORY KEYS (use ONLY these exact keys in square brackets):
+{category_keys_str}
 
 USER REQUEST:
 \"\"\"{problem_text}\"\"\"
 {image_instruction}
 YOUR TASK:
-Analyze the user's request and identify:
-1. PRIMARY PRODUCTS: What the user explicitly asked for (ordered by importance to the user)
-2. OPTIONAL PRODUCTS: Other products you'd recommend specifically for THIS job (not generic "often bought together")
-3. REQUIRED TOOLS: Tools necessary to complete this specific job
-4. Infer any fit dimension values from the text/image
-5. List which fit dimensions still need clarification
+1. Create detailed step-by-step instructions explaining how to solve the user's problem
+2. In each step, reference ALL parts, accessories, and tools needed using [category_key] format
+3. Identify ALL technical specifications and assess your confidence for each
+4. For specs with confidence < 0.8, provide clarification questions
 
-Respond with pure JSON ONLY (no prose), using this exact structure:
+RESPONSE FORMAT (return pure JSON only, no prose):
 {{
-  "primary_categories": ["drivetrain_chains"],  // What user explicitly requested, ordered by priority
-  "optional_categories": ["drivetrain_cassettes"],  // Products that make sense for THIS specific job
-  "optional_reasons": {{"drivetrain_cassettes": "Old chain may have worn the cassette - inspect and consider replacing"}},
-  "required_tools": ["drivetrain_tools"],  // Tool categories needed for installation
-  "tool_reasons": {{"drivetrain_tools": "Chain breaker or quick-link pliers needed for chain replacement"}},
-  "inferred_values": {{
-    "gearing": 11,  // Values you can determine, or null if unknown
-    "use_case": "road"  // Set to null if not determinable
-  }},
-  "missing_dimensions": ["freehub_compatibility"],  // Dimensions that need user input
-  "confidence": 0.85,  // 0-1 score of confidence in job identification
-  "reasoning": "User needs chain replacement for their road bike drivetrain"
+  "instructions": [
+    "Step 1: Description of first step. You will need a [category_key] for this.",
+    "Step 2: Description including specific technical details. Use a [category_key] tool.",
+    "Step 3: Continue with [another_category_key] as needed."
+  ],
+  "unclear_specifications": [
+    {{
+      "spec_name": "technical_specification_identifier",
+      "confidence": 0.5,
+      "question": "What is the specific value of X?",
+      "hint": "Simple instruction for how the user can find this answer (e.g., 'count the number of X on Y' or 'measure the diameter of Z').",
+      "options": ["Option A", "Option B", "Option C"]
+    }}
+  ],
+  "confidence": 0.85,
+  "reasoning": "Brief explanation of what job was identified"
 }}
 
-RULES:
-- PRIMARY: Only include what the user explicitly asked for. Order by user's stated priority.
-- OPTIONAL: Only include if there's a specific reason for THIS job (e.g., worn chain damages cassette).
-  Do NOT include generic "often bought together" items without job-specific reasoning.
-- TOOLS: Include tool categories that are genuinely needed to complete the job.
-- For inferred_values: only include dimensions relevant to the identified categories
-- For missing_dimensions: list dimensions that ARE relevant but COULDN'T be determined
-- Keep reasoning brief (1-2 sentences)
-- Set confidence lower if the request is ambiguous
+RULES FOR INSTRUCTIONS:
+- Be SPECIFIC with technical details (sizes, counts, specifications)
+- Reference categories using EXACT keys in [square_brackets] format
+- Only use category keys from the VALID CATEGORY KEYS list above
+- Include ALL necessary parts, tools, and accessories for each step
+- Order steps logically for someone performing the repair/maintenance
+- Each step should be actionable and clear
+
+RULES FOR UNCLEAR SPECIFICATIONS:
+- Self-assess confidence (0-1) for EVERY technical specification mentioned
+- Include ANY spec with confidence < 0.8 in unclear_specifications
+- The "hint" must be a simple, practical instruction the user can follow
+- Provide 2-5 realistic options that cover common scenarios
+- spec_name should be a clear identifier (e.g., "drivetrain_speed", "brake_rotor_diameter", "tire_width")
+
+IMPORTANT:
+- Do NOT assume technical specifications - if unsure, add to unclear_specifications
+- Do NOT use placeholder values in instructions - be specific or mark as unclear
+- Categories MUST be from the valid list - do not invent category names
 """
 
 
@@ -266,10 +419,9 @@ def identify_job(
     """Identify job from user input using LLM.
     
     This is the first step in the generalized recommendation flow. It analyzes
-    the user's request to determine:
-    - Which product categories are relevant
-    - What fit dimension values can be inferred
-    - What still needs clarification
+    the user's request to produce:
+    - Step-by-step instructions with category references
+    - Unclear specifications needing clarification
     
     Args:
         problem_text: User's description of their needs.
@@ -277,7 +429,7 @@ def identify_job(
         image_meta: Optional metadata about the image.
         
     Returns:
-        JobIdentification result with categories and inferred values.
+        JobIdentification result with instructions and unclear specs.
     """
     image_attached = bool(image_base64)
     prompt = _build_job_identification_prompt(problem_text, image_attached)
@@ -330,62 +482,71 @@ def identify_job(
                 
                 try:
                     parsed = json.loads(raw)
-                    
-                    # Validate categories against known list
                     valid_categories = get_all_category_names()
                     
-                    # Parse new format with primary/optional/tools
-                    primary_categories = [
-                        c for c in parsed.get("primary_categories", [])
-                        if c in valid_categories
-                    ]
-                    optional_categories = [
-                        c for c in parsed.get("optional_categories", [])
-                        if c in valid_categories
-                    ]
-                    required_tools = [
-                        c for c in parsed.get("required_tools", [])
-                        if c in valid_categories
-                    ]
+                    # Parse new format with instructions
+                    instructions = parsed.get("instructions", [])
                     
-                    # Backwards compatibility: if old format used, treat as primary
-                    if not primary_categories and "categories" in parsed:
+                    # Parse unclear specifications
+                    unclear_specs_raw = parsed.get("unclear_specifications", [])
+                    unclear_specs = []
+                    for spec_data in unclear_specs_raw:
+                        unclear_specs.append(UnclearSpecification(
+                            spec_name=spec_data.get("spec_name", "unknown"),
+                            confidence=float(spec_data.get("confidence", 0.0)),
+                            question=spec_data.get("question", ""),
+                            hint=spec_data.get("hint", ""),
+                            options=spec_data.get("options", []),
+                        ))
+                    
+                    # Extract categories from instructions
+                    referenced_categories = extract_categories_from_instructions(instructions)
+                    
+                    # Validate categories - filter out invalid ones
+                    valid_referenced = [c for c in referenced_categories if c in valid_categories]
+                    
+                    # If no valid categories found, try legacy format or fallback
+                    if not valid_referenced:
+                        logger.warning("No valid categories in instructions, checking legacy format")
+                        
+                        # Try legacy format
                         primary_categories = [
-                            c for c in parsed.get("categories", [])
+                            c for c in parsed.get("primary_categories", [])
                             if c in valid_categories
                         ]
-                    
-                    # If no categories at all, try to infer from context
-                    if not primary_categories:
-                        logger.warning("No valid primary categories identified, using defaults")
-                        # Check for common keywords and map to categories
-                        text_lower = problem_text.lower()
-                        if any(w in text_lower for w in ["chain", "cassette", "drivetrain", "gearing"]):
-                            primary_categories = ["drivetrain_chains"]
-                            optional_categories = ["drivetrain_cassettes"]
-                            required_tools = ["drivetrain_tools"]
-                        elif "glove" in text_lower:
-                            primary_categories = ["mtb_gloves"]
-                        elif "tool" in text_lower:
-                            primary_categories = ["drivetrain_tools"]
+                        if primary_categories:
+                            # Build instructions from legacy data for backwards compat
+                            instructions = [
+                                f"Use products from categories: {', '.join('[' + c + ']' for c in primary_categories)}"
+                            ]
+                            valid_referenced = primary_categories
                         else:
-                            # Default fallback
-                            primary_categories = ["drivetrain_chains"]
+                            # Fallback based on keywords
+                            text_lower = problem_text.lower()
+                            if any(w in text_lower for w in ["chain", "cassette", "drivetrain"]):
+                                valid_referenced = ["drivetrain_chains", "drivetrain_cassettes", "drivetrain_tools"]
+                            elif "light" in text_lower:
+                                valid_referenced = ["lighting_bicycle_lights_battery"]
+                            elif "pedal" in text_lower:
+                                valid_referenced = ["drivetrain_pedals"]
+                            else:
+                                valid_referenced = ["drivetrain_chains"]
+                            
+                            instructions = [
+                                f"Identified products from: {', '.join('[' + c + ']' for c in valid_referenced)}"
+                            ]
                     
                     result = JobIdentification(
-                        primary_categories=primary_categories,
-                        optional_categories=optional_categories,
-                        required_tools=required_tools,
-                        optional_reasons=parsed.get("optional_reasons", {}),
-                        tool_reasons=parsed.get("tool_reasons", {}),
-                        inferred_values=parsed.get("inferred_values", {}),
-                        missing_dimensions=parsed.get("missing_dimensions", []),
+                        instructions=instructions,
+                        unclear_specifications=unclear_specs,
                         confidence=float(parsed.get("confidence", 0.5)),
                         reasoning=parsed.get("reasoning", ""),
+                        # Populate legacy fields for backwards compatibility
+                        primary_categories=valid_referenced,
+                        inferred_values=parsed.get("inferred_values", {}),
                     )
                     
-                    # Ensure all required fit dimensions are tracked
-                    # If LLM didn't infer a required dimension, add it to missing
+                    # Ensure required dimensions are tracked
                     _ensure_required_dimensions(result)
                     
                     log_interaction("job_identification_result", result.to_dict())
@@ -404,16 +565,25 @@ def identify_job(
         )
         logger.exception("Error during job identification")
     
-    # Fallback: return drivetrain categories with unknown values
+    # Fallback: return basic instructions with unknown values
     logger.warning("Job identification failed, using fallback")
     return JobIdentification(
-        primary_categories=["drivetrain_chains"],
-        optional_categories=["drivetrain_cassettes"],
-        required_tools=["drivetrain_tools"],
-        inferred_values={},
-        missing_dimensions=["gearing", "use_case"],
+        instructions=[
+            "Unable to fully identify the job. Please provide more details.",
+            "You may need products from [drivetrain_chains] or [drivetrain_cassettes]."
+        ],
+        unclear_specifications=[
+            UnclearSpecification(
+                spec_name="job_type",
+                confidence=0.0,
+                question="What type of repair or maintenance do you need?",
+                hint="Describe the main issue or what you want to accomplish.",
+                options=["Chain replacement", "Drivetrain service", "General maintenance", "Other"],
+            )
+        ],
         confidence=0.0,
         reasoning="Fallback: could not identify specific job from input",
+        primary_categories=["drivetrain_chains"],
     )
 
 

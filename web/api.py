@@ -1,9 +1,9 @@
 """API endpoints for product recommendations.
 
-This module provides the category-agnostic recommendation flow:
-1. Job identification - determine categories and fit dimensions needed
-2. Clarification - gather missing fit information
-3. Recommendation - generate grounded product suggestions
+This module provides the recommendation flow:
+1. Job identification - generate step-by-step instructions and identify unclear specs
+2. Clarification - gather user answers for unclear specifications  
+3. Recommendation - match products and finalize instructions
 
 The /api/recommend endpoint uses this flow.
 """
@@ -33,12 +33,15 @@ if __package__ is None or __package__ == "":
     )
     from job_identification import (
         JobIdentification,
+        UnclearSpecification,
         identify_job,
         merge_inferred_with_user_selections,
+        extract_categories_from_instructions,
     )
     from logging_utils import log_interaction
     from prompts import (
         build_grounding_context_dynamic,
+        build_recommendation_context,
         make_clarification_prompt_dynamic,
         make_recommendation_prompt,
     )
@@ -57,12 +60,15 @@ else:
     )
     from .job_identification import (
         JobIdentification,
+        UnclearSpecification,
         identify_job,
         merge_inferred_with_user_selections,
+        extract_categories_from_instructions,
     )
     from .logging_utils import log_interaction
     from .prompts import (
         build_grounding_context_dynamic,
+        build_recommendation_context,
         make_clarification_prompt_dynamic,
         make_recommendation_prompt,
     )
@@ -118,7 +124,7 @@ def _call_llm_recommendation(
     client = OpenAI()
     
     log_interaction(
-        "llm_call_recommendation_v2",
+        "llm_call_recommendation",
         {
             "model": LLM_MODEL,
             "prompt": prompt,
@@ -152,7 +158,7 @@ def _call_llm_recommendation(
                 raw = item.content[0].text  # type: ignore[union-attr]
                 
                 log_interaction(
-                    "llm_response_recommendation_v2",
+                    "llm_response_recommendation",
                     {"model": LLM_MODEL, "raw_response": raw},
                 )
                 
@@ -161,13 +167,13 @@ def _call_llm_recommendation(
                     return parsed if isinstance(parsed, dict) else {}
                 except json.JSONDecodeError as e:
                     log_interaction(
-                        "llm_parse_error_recommendation_v2",
-                        {"error": str(e), "raw": raw},
+                        "llm_parse_error",
+                        {"error": str(e), "raw": raw, "stage": "recommendation"},
                     )
                     return {}
                     
     except Exception as e:
-        log_interaction("llm_error_recommendation_v2", {"error": str(e)})
+        log_interaction("llm_error", {"error": str(e), "stage": "recommendation"})
         logger.exception("Error calling LLM for recommendation")
         
     return {}
@@ -195,7 +201,7 @@ def _call_llm_clarification(
     client = OpenAI()
     
     log_interaction(
-        "llm_call_clarification_v2",
+        "llm_call_clarification",
         {"model": LLM_MODEL, "prompt": prompt, "image_attached": bool(image_base64)},
     )
     
@@ -224,7 +230,7 @@ def _call_llm_clarification(
                 raw = item.content[0].text  # type: ignore[union-attr]
                 
                 log_interaction(
-                    "llm_response_clarification_v2",
+                    "llm_response_clarification",
                     {"model": LLM_MODEL, "raw_response": raw},
                 )
                 
@@ -232,12 +238,12 @@ def _call_llm_clarification(
                     return json.loads(raw)
                 except json.JSONDecodeError as e:
                     log_interaction(
-                        "llm_parse_error_clarification_v2",
-                        {"error": str(e), "raw": raw},
+                        "llm_parse_error",
+                        {"error": str(e), "raw": raw, "stage": "clarification"},
                     )
                     
     except Exception as e:
-        log_interaction("llm_error_clarification_v2", {"error": str(e)})
+        log_interaction("llm_error", {"error": str(e), "stage": "clarification"})
         logger.exception("Error calling LLM for clarification")
     
     return {"inferred_values": {}, "options": {}}
@@ -245,38 +251,53 @@ def _call_llm_clarification(
 
 @api.route("/recommend", methods=["POST"])
 def recommend() -> Union[Tuple[Response, int], Response]:
-    """Generalized product recommendation endpoint.
+    """Product recommendation endpoint with step-by-step instructions.
     
     Request JSON:
         {
             "problem_text": "User's description of needs",
             "image_base64": "optional base64 image",
-            "selected_values": {"gearing": 11, ...},  // Optional user selections
-            "identified_job": {...}  // Optional cached job identification
+            "clarification_answers": [{"spec_name": "x", "answer": "y"}, ...],
+            "identified_job": {...}  // Cached job identification
         }
     
     Response JSON (need_clarification=true):
         {
             "need_clarification": true,
-            "job": {...},  // Job identification result
-            "missing_dimensions": ["gearing"],
-            "clarification_fields": {...},  // Field configs for UI
-            "inferred_values": {...}  // Values already inferred
+            "job": {...},
+            "clarification_questions": [
+                {
+                    "spec_name": "drivetrain_speed",
+                    "question": "How many speeds is your drivetrain?",
+                    "hint": "Count the cogs on your rear cassette.",
+                    "options": ["8-speed", "9-speed", "10-speed", "11-speed", "12-speed"]
+                }
+            ]
         }
     
     Response JSON (recommendation):
         {
             "diagnosis": "...",
-            "sections": {...},
-            "products_by_category": [...],
-            "job": {...},
-            "fit_values": {...}
+            "final_instructions": [...],
+            "primary_products": [...],
+            "tools": [...],
+            "optional_extras": [...],
+            "job": {...}
         }
     """
     data = request.get_json(force=True)
-    problem_text = data.get("problem_text", "").strip()
-    selected_values = data.get("selected_values", {})
+    
+    # Validate problem_text is a string
+    problem_text = data.get("problem_text", "")
+    if not isinstance(problem_text, str):
+        return jsonify({"error": "problem_text must be a string"}), 400
+    
+    problem_text = problem_text.strip()
+    
+    clarification_answers = data.get("clarification_answers", [])
     cached_job = data.get("identified_job")
+    # Legacy support
+    selected_values = data.get("selected_values", {})
     
     # Process image
     raw_image_b64 = data.get("image_base64")
@@ -294,11 +315,16 @@ def recommend() -> Union[Tuple[Response, int], Response]:
     if not problem_text:
         return jsonify({"error": "problem_text is required"}), 400
     
-    # Log user input if this is a fresh request
-    if not selected_values and not cached_job:
+    # Log user input
+    if not cached_job:
         log_interaction(
-            "user_input_v2",
-            {"problem_text": problem_text, "image_meta": image_meta},
+            "user_input",
+            {
+                "problem_text": problem_text,
+                "image_meta": image_meta,
+                "has_clarifications": bool(clarification_answers),
+                "clarification_answers": clarification_answers if clarification_answers else [],
+            },
         )
     
     # Step 1: Job Identification (use cached if available)
@@ -310,199 +336,185 @@ def recommend() -> Union[Tuple[Response, int], Response]:
     
     # Validate categories against available catalog
     df = _get_catalog_df()
-    valid_categories = validate_categories_against_catalog(job.categories, df)
+    referenced_categories = job.referenced_categories or job.categories
+    valid_categories = validate_categories_against_catalog(referenced_categories, df)
     
     if not valid_categories:
         return jsonify({
             "error": "No matching product categories found for your request.",
-            "identified_categories": job.categories,
+            "identified_categories": referenced_categories,
             "hint": "Try being more specific about what products you need.",
         }), 404
     
+    # Update job with validated categories
     job.categories = valid_categories
     
-    # Step 2: Merge inferred values with user selections
+    # Step 2: Check for unclear specifications needing clarification
+    unclear_specs = job.unclear_specifications
+    
+    # Filter out specs that already have answers
+    answered_spec_names = {a.get("spec_name") for a in clarification_answers}
+    unanswered_specs = [
+        spec for spec in unclear_specs 
+        if spec.spec_name not in answered_spec_names
+    ]
+    
+    # Merge inferred with user selections
     known_values = merge_inferred_with_user_selections(job, selected_values)
     
-    # Step 3: Check if clarification is needed
-    clarification_fields = get_clarification_fields(job.categories, known_values)
+    # Add clarification answers to known values
+    for answer in clarification_answers:
+        spec_name = answer.get("spec_name")
+        value = answer.get("answer")
+        if spec_name and value:
+            known_values[spec_name] = value
     
-    # Only require clarification for required dimensions
-    required_missing = []
-    for dim, config in clarification_fields.items():
-        if config.get("is_required", False):
-            required_missing.append(dim)
-    
-    if required_missing:
-        # Need clarification - try LLM inference first
-        prompt = make_clarification_prompt_dynamic(
-            problem_text,
-            job.categories,
-            required_missing,
-            bool(processed_image),
+    # If we have unanswered unclear specs, ask for clarification
+    if unanswered_specs:
+        # Build clarification questions from unclear specs
+        questions = [spec.to_dict() for spec in unanswered_specs]
+        
+        # Log that we're asking for clarification
+        log_interaction(
+            "clarification_required",
+            {
+                "questions": questions,
+                "instructions_preview": job.instructions,
+                "inferred_values": known_values,
+            },
         )
         
-        llm_result = _call_llm_clarification(prompt, processed_image)
-        
-        # Update known values with LLM inferences
-        for dim, value in llm_result.get("inferred_values", {}).items():
-            if value is not None and dim not in known_values:
-                known_values[dim] = value
-                if dim in required_missing:
-                    required_missing.remove(dim)
-        
-        # If still missing required values, ask user
-        if required_missing:
-            # Build options for missing dimensions
-            options = llm_result.get("options", {})
-            
-            # Ensure we have options for all missing dimensions
-            for dim in required_missing:
-                options_key = f"{dim}_options"
-                if options_key not in options or not options[options_key]:
-                    dim_config = SHARED_FIT_DIMENSIONS.get(dim, {})
-                    options[options_key] = dim_config.get("options", [])
-            
-            # Build hints
-            hints = {}
-            for dim in required_missing:
-                dim_config = SHARED_FIT_DIMENSIONS.get(dim, {})
-                hints[dim] = dim_config.get("hint", "")
-            
-            return jsonify({
-                "need_clarification": True,
-                "job": job.to_dict(),
-                "missing_dimensions": required_missing,
-                "options": options,
-                "hints": hints,
-                "inferred_values": known_values,
-            }), 200
-    
-    # Step 4: Select candidates (for all categories: primary + optional + tools)
-    candidates = select_candidates_dynamic(df, job.categories, known_values)
-    
-    # Check if we have any candidates
-    total_candidates = sum(len(prods) for prods in candidates.values())
-    if total_candidates == 0:
         return jsonify({
-            "error": "No matching products found for your requirements.",
+            "need_clarification": True,
             "job": job.to_dict(),
-            "fit_values": known_values,
-            "hint": "Try adjusting your requirements or selecting different options.",
-        }), 404
+            "clarification_questions": questions,
+            "instructions_preview": job.instructions,
+            "inferred_values": known_values,
+        }), 200
     
-    # Step 5: Build context and prompt
-    context = build_grounding_context_dynamic(
-        problem_text,
-        job.categories,
-        known_values,
-        candidates,
-        processed_image,
+    # Step 3: Select products for all referenced categories
+    candidates = select_candidates_dynamic(df, valid_categories, known_values)
+    
+    # Log what we found
+    log_interaction("candidate_selection", {
+        "categories": valid_categories,
+        "known_values": known_values,
+        "candidates_count": {cat: len(prods) for cat, prods in candidates.items()},
+    })
+    
+    # Step 4: Build recommendation context and prompt
+    context = build_recommendation_context(
+        problem_text=problem_text,
+        instructions=job.instructions,
+        clarifications=clarification_answers,
+        category_products=candidates,
+        image_base64=processed_image,
     )
     
     prompt = make_recommendation_prompt(context, bool(processed_image))
     
-    # Step 6: Call LLM for recommendation
+    # Step 5: Call LLM for final recommendation
     llm_payload = _call_llm_recommendation(prompt, processed_image, image_meta)
     
-    # Step 7: Parse and format response
-    sections = llm_payload.get("sections", {})
-    ranking = llm_payload.get("product_ranking", {})
+    # Step 6: Parse and format response
+    final_instructions = llm_payload.get("final_instructions", job.instructions)
     diagnosis = llm_payload.get("diagnosis", "")
     
-    # Helper function to build category product list
-    def _build_category_products(
-        category_list: List[str],
-        reasons: Optional[Dict[str, str]] = None,
-    ) -> List[Dict[str, Any]]:
-        """Build product list for a set of categories."""
-        result = []
-        for cat in category_list:
-            cat_candidates = candidates.get(cat, [])
-            if not cat_candidates:
-                continue
-            
-            config = PRODUCT_CATEGORIES.get(cat, {})
-            display_name = config.get("display_name", cat.replace("_", " ").title())
-            
-            rank_info = ranking.get(cat, {})
-            best_idx = rank_info.get("best_index", 0)
-            
-            # Validate index
-            if not isinstance(best_idx, int) or best_idx < 0 or best_idx >= len(cat_candidates):
-                best_idx = 0
-            
-            # Get alternatives
-            alt_indices = rank_info.get("alternatives", [])
-            if not isinstance(alt_indices, list):
-                alt_indices = []
-            alt_indices = [
-                i for i in alt_indices
-                if isinstance(i, int) and 0 <= i < len(cat_candidates) and i != best_idx
-            ]
-            
-            # Fill remaining
-            remaining = [
-                i for i in range(len(cat_candidates))
-                if i not in alt_indices and i != best_idx
-            ]
-            alt_indices = alt_indices + remaining
-            
-            # Get why_fits
-            why_fits = rank_info.get("why_fits", {})
-            if not isinstance(why_fits, dict):
-                why_fits = {}
-            
-            def _add_why_fits(prod: Dict[str, Any], idx: int) -> Dict[str, Any]:
-                prod_copy = dict(prod)
-                prod_copy["type"] = cat
-                why_text = why_fits.get(str(idx)) or why_fits.get(idx) or ""
-                prod_copy["why_it_fits"] = why_text if isinstance(why_text, str) else ""
-                return prod_copy
-            
-            best_prod = _add_why_fits(cat_candidates[best_idx], best_idx)
-            alt_prods = [_add_why_fits(cat_candidates[i], i) for i in alt_indices]
-            
-            cat_entry = {
-                "category": display_name,
-                "category_key": cat,
-                "best": best_prod,
-                "alternatives": alt_prods,
-            }
-            
-            # Add reason if provided (for optional/tool categories)
-            if reasons and cat in reasons:
-                cat_entry["reason"] = reasons[cat]
-            
-            result.append(cat_entry)
-        return result
+    # Build product responses
+    def _build_product_response(
+        product_ref: Dict[str, Any],
+        candidates: Dict[str, List[Dict[str, Any]]],
+    ) -> Optional[Dict[str, Any]]:
+        """Convert LLM product reference to full product response."""
+        category = product_ref.get("category")
+        index = product_ref.get("product_index", 0)
+        reasoning = product_ref.get("reasoning", "")
+        
+        if not category or category not in candidates:
+            return None
+        
+        products = candidates[category]
+        if not products or index >= len(products):
+            return None
+        
+        product = products[index]
+        config = PRODUCT_CATEGORIES.get(category, {})
+        
+        return {
+            "category": category,
+            "category_display": config.get("display_name", category.replace("_", " ").title()),
+            "product": product,
+            "reasoning": reasoning,
+        }
     
-    # Build separate product lists
-    primary_products = _build_category_products(job.primary_categories)
-    optional_products = _build_category_products(job.optional_categories, job.optional_reasons)
-    tool_products = _build_category_products(job.required_tools, job.tool_reasons)
+    # Process primary products
+    primary_products = []
+    for ref in llm_payload.get("primary_products", []):
+        prod = _build_product_response(ref, candidates)
+        if prod:
+            primary_products.append(prod)
     
-    # Build legacy products_by_category for backward compatibility
-    products_by_category = primary_products + optional_products + tool_products
+    # Process tools
+    tools = []
+    for ref in llm_payload.get("tools", []):
+        prod = _build_product_response(ref, candidates)
+        if prod:
+            tools.append(prod)
     
-    if not products_by_category:
-        return jsonify({
-            "error": "Could not generate recommendations.",
-            "job": job.to_dict(),
+    # Process optional extras (max 3)
+    optional_extras = []
+    for ref in llm_payload.get("optional_extras", [])[:3]:
+        prod = _build_product_response(ref, candidates)
+        if prod:
+            optional_extras.append(prod)
+    
+    # Build legacy format for backwards compatibility
+    legacy_sections = {
+        "why_it_fits": [diagnosis] if diagnosis else [],
+        "suggested_workflow": final_instructions,
+        "checklist": [],
+    }
+    
+    # Build legacy products_by_category
+    products_by_category = []
+    for cat in valid_categories:
+        cat_candidates = candidates.get(cat, [])
+        if not cat_candidates:
+            continue
+        
+        config = PRODUCT_CATEGORIES.get(cat, {})
+        products_by_category.append({
+            "category": config.get("display_name", cat.replace("_", " ").title()),
+            "category_key": cat,
+            "best": cat_candidates[0] if cat_candidates else None,
+            "alternatives": cat_candidates[1:] if len(cat_candidates) > 1 else [],
+        })
+    
+    # Log final recommendation result
+    log_interaction(
+        "recommendation_result",
+        {
+            "diagnosis": diagnosis,
+            "final_instructions": final_instructions,
+            "primary_products_count": len(primary_products),
+            "tools_count": len(tools),
+            "optional_extras_count": len(optional_extras),
             "fit_values": known_values,
-        }), 500
+        },
+    )
     
     return jsonify({
+        # New format
         "diagnosis": diagnosis,
-        "sections": sections,
-        # New structured response
+        "final_instructions": final_instructions,
         "primary_products": primary_products,
-        "optional_products": optional_products,
-        "tool_products": tool_products,
-        # Legacy format for backward compatibility
-        "products_by_category": products_by_category,
+        "tools": tools,
+        "optional_extras": optional_extras,
         "job": job.to_dict(),
         "fit_values": known_values,
+        # Legacy format for backwards compatibility
+        "sections": legacy_sections,
+        "products_by_category": products_by_category,
     })
 
 
