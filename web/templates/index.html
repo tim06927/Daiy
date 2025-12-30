@@ -669,6 +669,8 @@
       cursor: pointer;
       transition: background 0.15s;
       text-align: center;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
     }
 
     .clarification-submit:hover {
@@ -677,14 +679,6 @@
 
     .clarification-submit.visible {
       display: inline-block;
-    }
-
-    .clarification-actions {
-      position: sticky;
-      bottom: 0;
-      background: linear-gradient(to top, var(--surface), rgba(248, 249, 250, 0.5));
-      padding-top: 0.75rem;
-      border-top: 1px solid var(--border);
     }
 
     /* Right Panel - Results */
@@ -1302,9 +1296,6 @@
             <div id="clarification-content">
               <!-- Dynamically populated with speed/use-case buttons -->
             </div>
-            <div class="clarification-actions">
-              <button class="clarification-submit" id="clarification-submit" onclick="submitClarifications()">Find Parts →</button>
-            </div>
           </div>
 
           <div class="error-message hidden" id="error-message"></div>
@@ -1632,22 +1623,7 @@
       pendingClarifications = [];
       clarificationAnswers = [];
       
-      // Show instructions preview if available
-      const instructionsPreview = data.instructions_preview || [];
-      if (instructionsPreview.length > 0) {
-        const previewSection = document.createElement('div');
-        previewSection.className = 'clarification-preview';
-        previewSection.innerHTML = `
-          <div class="clarification-label">Preliminary Instructions:</div>
-          <ul class="preview-instructions">
-            ${instructionsPreview.map(step => `<li>${step}</li>`).join('')}
-          </ul>
-          <div class="clarification-hint">Answer the questions below to get specific product recommendations.</div>
-        `;
-        clarificationContent.appendChild(previewSection);
-      }
-      
-      // Process clarification questions
+      // Process clarification questions FIRST
       if (questions.length > 0) {
         questions.forEach(q => {
           // Skip if already answered
@@ -1693,6 +1669,28 @@
             }
           });
         });
+      }
+      
+      // Add Find Parts button after questions
+      const submitBtn = document.createElement('button');
+      submitBtn.id = 'clarification-submit';
+      submitBtn.className = 'clarification-submit';
+      submitBtn.textContent = 'Find Parts →';
+      submitBtn.onclick = submitClarifications;
+      clarificationContent.appendChild(submitBtn);
+      
+      // Show instructions preview at the bottom if available
+      const instructionsPreview = data.instructions_preview || [];
+      if (instructionsPreview.length > 0) {
+        const previewSection = document.createElement('div');
+        previewSection.className = 'clarification-preview';
+        previewSection.innerHTML = `
+          <div class="clarification-label">Preliminary Instructions:</div>
+          <ul class="preview-instructions">
+            ${instructionsPreview.map(step => `<li>${step}</li>`).join('')}
+          </ul>
+        `;
+        clarificationContent.appendChild(previewSection);
       }
       
       clarificationPanel.classList.add('active');

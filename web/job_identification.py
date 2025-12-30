@@ -334,7 +334,7 @@ YOUR TASK:
 1. Create detailed step-by-step instructions explaining how to solve the user's problem
 2. In each step, reference ALL parts, accessories, and tools needed using [category_key] format
 3. Identify ALL technical specifications and assess your confidence for each
-4. For specs with confidence < 0.8, provide clarification questions
+4. For specs with confidence < 0.6, provide clarification questions
 
 RESPONSE FORMAT (return pure JSON only, no prose):
 {{
@@ -369,7 +369,9 @@ RULES FOR UNCLEAR SPECIFICATIONS:
 - Include ANY spec with confidence < 0.8 in unclear_specifications, but only if it is clearly distinct
 - Do NOT include multiple variations of the same spec (merge overlapping specs into one question)
 - Do NOT ask implied specs twice (e.g., drivetrain_speed covers cassette/chain speed; tire_width covers rim width if already specified)
-- The "hint" must be a simple, practical instruction the user can follow
+- Questions and hints MUST be understandable by a beginner hobby bike repairer with NO special tools
+- The "hint" should use simple, visual instructions (e.g., "Count the cogs on the back wheel" NOT "Count cassette sprockets")
+- Avoid technical jargon in questions - use everyday language (e.g., "gears" not "drivetrain_speed")
 - Provide 2-5 realistic options that cover common scenarios
 - spec_name should be a clear identifier (e.g., "drivetrain_speed", "brake_rotor_diameter", "tire_width")
 
