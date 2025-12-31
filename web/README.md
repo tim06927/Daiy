@@ -1,10 +1,64 @@
 # Daiy Web App
 
-A Flask-based web interface for AI-powered bike component recommendations with a modern split-panel UI.
+A Flask-based web interface for AI-powered bike component recommendations with a modular frontend and three-phase LLM workflow.
 
-## Overview
+## Architecture Overview
 
-The web app provides a user-friendly interface to:
+### Three-Phase LLM Flow
+
+```
+User Input (text + optional image)
+           ↓
+[Phase 1: Job Identification]
+  - LLM generates step-by-step instructions with [category_key] references
+  - LLM self-assesses confidence for each technical specification
+  - Specs with confidence < 0.8 flagged as "unclear_specifications"
+           ↓
+  [Decision: Any unclear specs?]
+    ├─ NO: Skip to Phase 3
+    └─ YES: Show all questions at once (Phase 2)
+           ↓
+[Phase 2: Clarification (if needed)]
+  - Display all unclear questions with:
+    • Question text (LLM-generated)
+    • Hint (how to find the answer)
+    • 2-5 options (multiple choice)
+    • "Other" button (custom text)
+  - User can answer in any order
+  - All answers collected at once
+           ↓
+[Phase 3: Final Recommendation]
+  - LLM receives instructions, answers, and available products
+  - Replaces [category_key] with actual product names
+  - Returns:
+    • final_instructions: Step-by-step with product names
+    • primary_products: What user explicitly needs
+    • tools: Required for the job
+    • optional_extras: Max 3 related items
+           ↓
+Display Results with Answered Questions
+  - Final instructions rendered as numbered steps
+  - Products organized by type with per-item reasoning
+  - Left panel shows all answered questions as labeled bubbles
+```
+
+### Key Capabilities
+
+- **Dynamic Clarification** - LLM identifies which specifications are unclear (confidence < 0.8) and generates targeted questions
+- **Flexible Questions** - Any number of specifications can be asked, not limited to predefined dimensions
+- **Comprehensive Logging** - All interactions logged with event types:
+  - `user_input` - Initial query + clarification answers
+  - `clarification_required` - Questions being asked
+  - `llm_call_*` / `llm_response_*` - All LLM interactions
+  - `recommendation_result` - Final output with summary
+- **HTML Log Viewer** - `view_logs.py` displays logs by session with filters
+- **Modular Frontend** - Separate CSS and JavaScript files for maintainability (see `static/README.md`)
+
+### Current Limitations
+
+- Optional products only suggested from already-mentioned categories
+- Product images may not be available for all items
+- Clarification flow requires full page reload between phases
 1. Describe a bike upgrade project (text + optional image)
 2. Get smart clarification if speed/use-case is unclear
 3. View AI recommendations grounded in real product data
@@ -29,51 +83,194 @@ The app uses a grounding pattern: all recommendations come from a real product c
 
 ```
 web/
-├── app.py              # Main Flask application
+├── app.py              # Flask app setup and routes
+├── api.py              # API endpoints (/api/recommend, /api/categories)
+├── categories.py       # Product category definitions
+├── candidate_selection.py  # Product filtering logic
+├── catalog.py          # Product catalog loading
 ├── config.py           # Centralized configuration
+├── image_utils.py      # Image processing for OpenAI
+├── job_identification.py  # LLM-based job/category identification
+├── logging_utils.py    # Interaction logging
+├── prompts.py          # Prompt building for LLM calls
+├── static/             # Frontend assets (modular structure)
+│   ├── css/            # Stylesheets
+│   │   ├── base.css            # Variables, resets, layout
+│   │   ├── components.css      # Forms, buttons, panels
+│   │   └── products.css        # Product cards, categories
+│   ├── js/             # JavaScript modules
+│   │   ├── config.js           # Constants
+│   │   ├── state.js            # State management
+│   │   ├── image.js            # Image handling
+│   │   ├── api.js              # Backend communication
+│   │   ├── clarification.js    # Clarification UI
+│   │   ├── products.js         # Product rendering
+│   │   └── main.js             # Initialization
+│   └── README.md       # Frontend architecture guide
 ├── templates/
-│   └── index.html      # Single-page app (CSS/JS inline)
+│   └── index.html      # Clean HTML template (154 lines)
 ├── logs/               # LLM interaction logs (JSONL)
 ├── tests/              # Test files
+│   ├── test_model_clarification.py
+│   ├── test_model_clarification_extended.py
+│   └── test_vision_flow.py
 └── README.md           # This file
 ```
 
 ## Files
 
-### `app.py`
-Main application (1000+ lines) with:
-- **Product loading** - Reads CSV catalog at startup, derives speed from product names
-- **Candidate selection** - Filters products by speed and use case
-- **Smart clarification** - LLM tries to infer missing values before asking user
-- **Context building** - Prepares grounding data for recommendation LLM
-- **LLM integration** - Calls gpt-5-mini with structured JSON prompts
-- **Interaction logging** - All LLM calls logged to JSONL for debugging
-- **Flask routes** - GET `/` and POST `/api/recommend`
+### Core Modules (Three-Phase Flow)
 
-Key functions:
-- `load_catalog()` - Parse CSV, derive speed/application from product names
-- `select_candidates()` - Filter cassettes/chains/tools by constraints
-- `_infer_bike_attributes()` - Regex-based speed/use-case extraction
-- `_request_clarification_options()` - LLM inference for missing values
-- `build_grounding_context()` - Create structured context for LLM
-- `make_prompt()` - Format prompt with product candidates
-- `call_llm()` - Call OpenAI API and parse JSON response
+#### `job_identification.py` - Phase 1: Understand the Job
+Analyzes user input to extract what needs to be done:
+- `UnclearSpecification` - Represents a spec needing clarification
+  - Fields: spec_name, confidence, question, hint, options
+  - Used to flag unclear specs (confidence < 0.8)
+- `JobIdentification` - Result of job identification
+  - `instructions` - List of steps with `[category_key]` placeholders
+  - `unclear_specifications` - Array of unclear specs
+  - `inferred_values` - Detected specifications (e.g., {"use_case": "road"})
+  - `confidence` - Overall confidence (0-1)
+  - `reasoning` - Why these categories/specs were detected
+- `identify_job()` - Calls LLM with problem text and optional image
+- `extract_categories_from_instructions()` - Parses `[category_key]` references
 
-### `config.py`
-Centralized settings:
-- `CSV_PATH` - Absolute path to product data
-- `LLM_MODEL` - Model to use (gpt-5-mini)
-- `FLASK_HOST/PORT/DEBUG` - Server settings (env overridable)
-- `MAX_CASSETTES/CHAINS/TOOLS` - Candidate limits per category
+**Key change:** Instructions now contain actual work steps, not category lists.
 
-### `templates/index.html`
-Single-page app (~1700 lines) with inline CSS and JavaScript:
-- **Two-state UI** - Initial search state and results state
-- **Tab selector** - Search (disabled) and AI modes
-- **Split-panel results** - Left panel (query context), right panel (products)
-- **Clarification UI** - Speed/use-case selection with helpful hints
-- **Results tabs** - Products and Instructions views
-- **Responsive design** - Works on desktop and mobile
+#### `api.py` - Orchestrate Three Phases
+Main API endpoint `/api/recommend` orchestrates all phases:
+1. **Phase 1 call** - `identify_job()` to analyze problem
+2. **Check clarifications** - Filter unanswered unclear specs
+3. **Return if needed** - Send clarification_questions back to frontend
+4. **Phase 2 done** - User answers and sends back with `clarification_answers`
+5. **Phase 3 call** - `_call_llm_recommendation()` with answers and products
+6. **Return results** - final_instructions with primary_products, tools, optional_extras
+
+Also handles:
+- Image processing for OpenAI
+- Product catalog validation
+- Candidate selection for recommendation phase
+- Legacy API format support (backward compat)
+
+#### `prompts.py` - LLM Prompt Builders
+- `_build_job_identification_prompt()` - Phase 1
+  - Asks LLM to generate step-by-step instructions
+  - Mentions categories for context (uses `[category_key]` format)
+  - Asks LLM to self-assess confidence for each spec
+- `build_recommendation_context()` - Assemble Phase 3 context
+  - Combines instructions, clarifications, available products
+  - Formatted as JSON for LLM parsing
+- `_make_recommendation_prompt_new()` - Phase 3 prompt
+  - Asks LLM to finalize instructions (replace placeholders)
+  - Select primary products, tools, optional extras (max 3)
+  - Provide reasoning for each selection
+
+### Supporting Modules
+
+#### `categories.py`
+Product category system:
+- `PRODUCT_CATEGORIES` - Dict mapping category_key → config
+  - display_name, description, fit_dimensions
+- `SHARED_FIT_DIMENSIONS` - Common specs across categories
+  - gearing, use_case, brake_rotor_diameter, freehub_compatibility, etc.
+  - Each has: prompt, hint, options
+- Helper functions for category validation and clarification field retrieval
+
+#### `candidate_selection.py`
+Product filtering for Phase 3:
+- `select_candidates_dynamic()` - Filters products by category + fit values
+- Respects `MAX_CHAINS/CASSETTES/TOOLS` limits (from config)
+- Returns products ready for LLM recommendation
+
+#### `config.py`
+Centralized configuration:
+- `LLM_MODEL` - OpenAI model (gpt-4-mini)
+- `FLASK_HOST/PORT` - Server settings
+- Product data paths and candidate limits
+
+#### `logging_utils.py`
+Structured JSONL logging:
+- `log_interaction()` - Write timestamped event to log
+- LOG_FILE - Path to today's log file
+- Event types: user_input, clarification_required, llm_call_*, llm_response_*, recommendation_result, llm_parse_error, llm_error, etc.
+
+#### `view_logs.py`
+HTML log viewer:
+- Reads JSONL log file
+- Groups events by session (user interaction sessions)
+- Creates formatted HTML report
+- Supports filtering by event type
+- Collapsible details for prompts/responses
+- Mobile-friendly styling
+
+Usage: `python web/view_logs.py` opens view_logs.html in browser
+
+#### `image_utils.py`
+Image processing for OpenAI:
+- Validates base64 image format
+- Resizes to fit token limits
+- Provides image metadata for logging
+
+#### `catalog.py`
+Product catalog management:
+- Loads CSV product data
+- Caches in memory for fast filtering
+- Extracts product properties
+
+#### `app.py`
+Flask application setup:
+- Basic auth (optional demo protection)
+- Blueprint registration
+- GET `/` serves index.html
+- Error handling
+
+#### `templates/index.html`
+Clean HTML template (154 lines) that references external CSS and JavaScript:
+- Structured semantic HTML
+- Links to modular CSS files in `static/css/`
+- Links to modular JavaScript files in `static/js/`
+- Minimal inline styling
+- See `static/README.md` for frontend architecture details
+
+#### `static/` - Frontend Assets
+Modular frontend architecture with separation of concerns:
+- **CSS Modules** (3 files):
+  - `base.css` - Variables, resets, layout, header
+  - `components.css` - Forms, buttons, clarification panels
+  - `products.css` - Product cards, categories, alternatives
+- **JavaScript Modules** (7 files):
+  - `config.js` - Application constants
+  - `state.js` - Centralized state management
+  - `image.js` - Image upload and compression
+  - `api.js` - Backend API communication
+  - `clarification.js` - Clarification UI rendering
+  - `products.js` - Product display logic
+  - `main.js` - Application initialization
+
+See detailed documentation in `static/README.md`
+
+### App Flow
+
+```
+[User Input]
+    ↓
+identify_job() ──→ LLM Phase 1
+    ↓
+[Check unclear specs]
+    ├─ Yes ──→ Return clarification_questions
+    │           ↓
+    │         [User selects options]
+    │           ↓
+    │         [POST /api/recommend again]
+    │
+    └─ No
+        ↓
+select_candidates_dynamic() ──→ Get products
+        ↓
+_call_llm_recommendation() ──→ LLM Phase 3
+        ↓
+[Return final results]
+```
 
 ## Setup
 
@@ -100,67 +297,142 @@ The app will start at `http://127.0.0.1:5000`
 ### Web Interface
 
 1. Open http://127.0.0.1:5000
-2. Describe your upgrade project (e.g., "I have a 12-speed gravel bike and need a new cassette")
-3. (Optional) Upload an image of your bike/drivetrain
-4. Click the search button (→)
-5. If needed, select speed or use-case from clarification options
-6. View recommendations with product cards and installation instructions
+2. Enter your project description (e.g., "I need a 12-speed chain for my road bike")
+3. Optionally upload a photo of your bike
+4. Click submit →
+5. **If clarification needed:**
+   - Review the preview instructions
+   - Answer all clarification questions (hints provided)
+   - Click "Get Recommendations"
+6. **View results:**
+   - **Products Tab** - Primary products with reasoning, tools, optional extras
+   - **Instructions Tab** - Step-by-step instructions with product names
+   - **Answered Questions** - Bubbles showing what you clarified
 
-### API Endpoint
+### API Endpoints
 
-POST `/api/recommend`:
+#### POST `/api/recommend` - Main Recommendation Flow
 
-**Request:**
+**Phase 1 - Initial Request:**
 ```json
 {
-  "problem_text": "I want to upgrade my 11-speed road bike cassette for better climbing",
-  "image_base64": "...",
-  "selected_speed": 11,
-  "selected_use_case": "road"
+  "problem_text": "I need a new 12-speed chain for my road bike",
+  "image_base64": null
 }
 ```
 
-**Response (needs clarification):**
+**Phase 2 - Response with Clarification Questions:**
 ```json
 {
   "need_clarification": true,
-  "missing": ["drivetrain_speed"],
-  "options": {
-    "speed_options": ["10-speed", "11-speed", "12-speed"],
-    "use_case_options": []
+  "job": {
+    "instructions": [
+      "Step 1: Remove old chain using chain tool [drivetrain_tools]",
+      "Step 2: Install new Shimano [drivetrain_chains] chain"
+    ],
+    "unclear_specifications": [
+      {
+        "spec_name": "use_case",
+        "confidence": 0.4,
+        "question": "What type of riding do you do?",
+        "hint": "Road, mountain, commuting, touring?",
+        "options": ["road", "mountain", "commuting", "touring"]
+      }
+    ]
   },
-  "hints": {
-    "drivetrain_speed": "Count the cogs on your rear cassette..."
-  },
-  "inferred_use_case": "road"
+  "clarification_questions": [/* same as unclear_specifications */],
+  "instructions_preview": ["Step 1: Remove old chain...", "Step 2: Install new chain..."],
+  "inferred_values": {"gearing": 12}
 }
 ```
 
-**Response (success):**
+**User Answers & Follow-up Request:**
 ```json
 {
-  "diagnosis": "You want better climbing range on your 11-speed road bike",
-  "sections": {
-    "why_it_fits": ["Matches 11-speed drivetrain", "Wider range for climbing"],
-    "suggested_workflow": ["Remove old cassette", "Install new cassette"],
-    "checklist": ["Cassette lockring tool", "Chain breaker"]
-  },
-  "products_by_category": [
-    {
-      "category": "Cassettes",
-      "best": {
-        "name": "Shimano CS-HG700-11",
-        "price": "44.99€",
-        "url": "https://bike-components.de/...",
-        "why_it_fits": "11-34 range provides excellent climbing"
-      },
-      "alternatives": []
-    }
+  "problem_text": "I need a new 12-speed chain for my road bike",
+  "clarification_answers": [
+    {"spec_name": "use_case", "answer": "road"}
   ],
-  "inferred_speed": 11,
-  "inferred_use_case": "road"
+  "identified_job": {...}  // From previous response
 }
 ```
+
+**Phase 3 - Final Response with Products:**
+```json
+{
+  "diagnosis": "12-speed chain replacement for road bike",
+  "final_instructions": [
+    "Step 1: Use Park Tool CT-3.2 chain tool to remove old Shimano CN-M7000 chain",
+    "Step 2: Install new Shimano CN-M8100 12-speed chain",
+    "Step 3: Connect with quick-link, ensuring proper direction"
+  ],
+  "primary_products": [
+    {
+      "category": "drivetrain_chains",
+      "category_display": "Chains",
+      "product": {
+        "name": "Shimano CN-M8100",
+        "brand": "Shimano",
+        "price": "$29.99",
+        "url": "https://bike-components.de/..."
+      },
+      "reasoning": "12-speed chain compatible with Shimano drivetrain and road use"
+    }
+  ],
+  "tools": [
+    {
+      "category": "drivetrain_tools",
+      "category_display": "Tools",
+      "product": {
+        "name": "Park Tool CT-3.2",
+        "brand": "Park Tool",
+        "price": "$24.99",
+        "url": "https://bike-components.de/..."
+      },
+      "reasoning": "Required to safely remove and install chain"
+    }
+  ],
+  "optional_extras": [
+    {
+      "category": "drivetrain_cassettes",
+      "category_display": "Cassettes",
+      "product": {...},
+      "reasoning": "Worn chains often damage cassettes - consider replacing together"
+    }
+  ],
+  "fit_values": {"gearing": 12, "use_case": "road"}
+}
+```
+
+**Key Differences from Phase 2:**
+- `final_instructions` replaces `[category_key]` with actual product names
+- `primary_products`, `tools`, `optional_extras` - organized by purpose
+- Each product includes per-item `reasoning`
+- Max 3 `optional_extras` from already-mentioned categories
+
+#### GET `/api/categories` - List Categories
+
+**Response:**
+```json
+{
+  "categories": [
+    {
+      "key": "drivetrain_chains",
+      "display_name": "Chains",
+      "description": "Bicycle chains for different speeds",
+      "fit_dimensions": ["gearing", "use_case"]
+    },
+    {
+      "key": "drivetrain_tools",
+      "display_name": "Drivetrain Tools",
+      "description": "Tools for chain, cassette, and drivetrain work",
+      "fit_dimensions": []
+    }
+  ]
+}
+```
+
+---
 
 ## Configuration
 

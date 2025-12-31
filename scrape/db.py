@@ -12,6 +12,9 @@ __all__ = [
     "init_db",
     "get_existing_urls",
     "upsert_product",
+    "add_product_category",
+    "get_product_categories",
+    "get_products_by_category",
     "upsert_category_specs",
     "update_scrape_state",
     "get_scrape_state",
@@ -141,6 +144,16 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
             )
         """)
 
+        # Product-Category junction table (many-to-many)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS product_categories (
+                product_id INTEGER NOT NULL,
+                category TEXT NOT NULL,
+                PRIMARY KEY (product_id, category),
+                FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+            )
+        """)
+
         # Pagination state tracking
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS scrape_state (
@@ -155,6 +168,8 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_url ON products(url)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_categories_category ON product_categories(category)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_categories_product_id ON product_categories(product_id)")
 
         conn.commit()
 
@@ -370,11 +385,129 @@ def get_spec_table_for_category(category: str) -> Optional[str]:
 
 
 def get_product_count(db_path: str = DEFAULT_DB_PATH, category: Optional[str] = None) -> int:
-    """Get the total number of products."""
+    """Get the total number of products.
+    
+    Args:
+        db_path: Path to database.
+        category: Optional category filter. Uses junction table if available.
+    """
     with get_connection(db_path) as conn:
         cursor = conn.cursor()
         if category:
-            cursor.execute("SELECT COUNT(*) as count FROM products WHERE category = ?", (category,))
+            # Try junction table first, fall back to single category field
+            cursor.execute("""
+                SELECT COUNT(DISTINCT p.id) as count 
+                FROM products p
+                LEFT JOIN product_categories pc ON p.id = pc.product_id
+                WHERE pc.category = ? OR p.category = ?
+            """, (category, category))
         else:
             cursor.execute("SELECT COUNT(*) as count FROM products")
         return cursor.fetchone()["count"]
+
+
+def add_product_category(
+    db_path: str,
+    product_id: int,
+    category: str,
+) -> None:
+    """Add a category association for a product.
+    
+    Idempotent - will not fail if association already exists.
+    
+    Args:
+        db_path: Path to database.
+        product_id: ID of the product.
+        category: Category to associate with the product.
+    """
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR IGNORE INTO product_categories (product_id, category)
+            VALUES (?, ?)
+        """, (product_id, category))
+        conn.commit()
+
+
+def get_product_categories(db_path: str, product_id: int) -> List[str]:
+    """Get all categories associated with a product.
+    
+    Args:
+        db_path: Path to database.
+        product_id: ID of the product.
+        
+    Returns:
+        List of category strings.
+    """
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT category FROM product_categories
+            WHERE product_id = ?
+            ORDER BY category
+        """, (product_id,))
+        return [row["category"] for row in cursor.fetchall()]
+
+
+def get_products_by_category(
+    db_path: str,
+    category: str,
+    include_specs: bool = True,
+) -> List[Dict[str, Any]]:
+    """Get all products associated with a category via junction table.
+    
+    Args:
+        db_path: Path to database.
+        category: Category to filter by.
+        include_specs: Whether to include category-specific specs.
+        
+    Returns:
+        List of product dictionaries.
+    """
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        
+        # Get products through junction table
+        cursor.execute("""
+            SELECT DISTINCT p.*
+            FROM products p
+            JOIN product_categories pc ON p.id = pc.product_id
+            WHERE pc.category = ?
+            ORDER BY p.name
+        """, (category,))
+        
+        rows = cursor.fetchall()
+        products = []
+        
+        for row in rows:
+            product = dict(row)
+            
+            # Parse specs JSON
+            if product.get("specs_json"):
+                try:
+                    product["specs"] = json.loads(product["specs_json"])
+                except json.JSONDecodeError:
+                    product["specs"] = {}
+            else:
+                product["specs"] = {}
+            
+            del product["specs_json"]
+            
+            # Include category-specific specs if requested
+            if include_specs:
+                spec_table = get_spec_table_for_category(category)
+                if spec_table:
+                    cursor.execute(
+                        f"SELECT * FROM {spec_table} WHERE product_id = ?",
+                        (product["id"],)
+                    )
+                    spec_row = cursor.fetchone()
+                    if spec_row:
+                        spec_dict = dict(spec_row)
+                        del spec_dict["id"]
+                        del spec_dict["product_id"]
+                        product["category_specs"] = spec_dict
+            
+            products.append(product)
+        
+        return products

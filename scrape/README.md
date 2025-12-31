@@ -16,6 +16,7 @@ This scraper extracts product details from any bike component category on the si
 - **Structured logging** - JSONL log files for debugging and auditing
 - **URL validation** - Security checks to prevent SSRF vulnerabilities
 - **Pagination support** - Automatically follows pagination to scrape all products in a category
+- **Pagination support** - Automatically follows pagination to scrape all products in a category (see [PAGINATION.md](../PAGINATION.md))
 - **SQLite database** - Normalized storage with separate tables for category-specific specs
 - **Incremental mode (default)** - Skips products already present in the database
 - **Full refresh option** - Rescrape everything on demand

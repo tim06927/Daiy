@@ -1,5 +1,51 @@
 # Daiy
 
+## Current Status (Dec 30, 2025)
+
+**Major Prompt Rework & Frontend Restructuring - Production-Ready Architecture**
+
+Just completed significant improvements to both backend and frontend:
+
+### Backend: LLM Prompt Flow (Previously completed)
+1. **Job Identification** - Generates step-by-step instructions with `[category_key]` placeholders
+2. **Clarification** - Simplified to only ask LLM-identified unclear specs (no hardcoded lists)
+3. **Recommendation** - Replaces placeholders with actual products and provides reasoning
+
+### Frontend: Modular Architecture (NEW - Just Completed)
+Restructured monolithic 2200-line `index.html` into maintainable modules:
+
+**Before:** Single `index.html` (2199 lines - CSS + JS + HTML)  
+**After:** Clean separation into 10 focused files:
+- **3 CSS modules** (base, components, products) - 1190 lines
+- **7 JavaScript modules** (config, state, image, api, clarification, products, main) - 1107 lines  
+- **Clean HTML template** - 153 lines (93% reduction)
+
+**Benefits:**
+- ✅ **Maintainable** - Each module has a single responsibility
+- ✅ **Collaborative** - Multiple developers can work in parallel
+- ✅ **Debuggable** - Browser DevTools shows precise file/line numbers
+- ✅ **Performant** - Better caching, non-blocking CSS, optimized load order
+- ✅ **Documented** - Comprehensive architecture guide in `/web/static/README.md`
+
+See [RESTRUCTURING_SUMMARY.md](RESTRUCTURING_SUMMARY.md) for full details of the frontend refactoring.
+
+### Key Improvements (Full Stack)
+- ✅ All clarification questions are **dynamic** and **LLM-generated**
+- ✅ **Multi-category support** - Products can belong to multiple categories (no duplicates or missing items)
+- ✅ **Comprehensive logging** - User inputs, clarifications, LLM calls/responses
+- ✅ **HTML log viewer** - Sessions organized with filters and collapsible sections
+- ✅ **Modular frontend** - Separate CSS/JS files for easy maintenance
+- ✅ **Clear architecture** - Three-phase LLM flow with proper separation of concerns
+- ✅ **Better documentation** - FLOW.md, static/README.md, architecture diagrams
+
+### For Developers
+- Backend flow: [web/README.md](web/README.md) and [web/FLOW.md](web/FLOW.md)
+- Frontend architecture: [web/static/README.md](web/static/README.md)
+- Multi-category support: [docs/MULTI_CATEGORY_SUPPORT.md](docs/MULTI_CATEGORY_SUPPORT.md)
+- Restructuring details: [RESTRUCTURING_SUMMARY.md](RESTRUCTURING_SUMMARY.md)
+
+---
+
 ## About Daiy
 
 A startup that aims to help every DIYer find the right parts and tools using multimodal AI.
@@ -8,14 +54,23 @@ A startup that aims to help every DIYer find the right parts and tools using mul
 
 Large parts of this project are vibe-coded using GitHub Copilot, ChatGPT, and more. Further, this is a proof of concept and not a production-ready project. Parts of this repo (CODING_STANDARDS, somewhat excessive documentation, ...) exist to make the AI do a good job and not to put an overbearing burden on humans. Proceed with fun and care when using.
 
-## Daiy PoC
+## Daiy PoC Architecture
 
-This repository contains a proof of concept (PoC) for Daiy that demonstrates:
-- **Web scraping** - Automated extraction of real bike component data
-- **Grounded AI** - LLM recommendations using only real products from inventory
-- **Multimodal input** - Text descriptions and optional image uploads
-- **Smart clarification** - AI infers missing info or asks targeted questions
-- **Product database** - Structured storage and retrieval of bike parts
+This repository demonstrates a **three-phase LLM-powered recommendation system** with grounded product suggestions:
+
+1. **Job Identification** (`identify_job`) - LLM analyzes user input and generates step-by-step instructions
+2. **Smart Clarification** (optional) - If specs are unclear (confidence < 0.8), ask user targeted questions
+3. **Grounded Recommendation** - LLM selects from real catalog and provides per-product reasoning
+
+**Key principle:** All recommendations use actual products from inventory; no hallucinations.
+
+The system is:
+- **Multimodal** - Accepts text queries and optional bike photos
+- **Generalized** - Job identification prompts are neutral to repair type (not hardcoded to bikes)
+- **Observable** - Comprehensive JSONL logging of all LLM interactions
+- **Maintainable** - Clear separation of concerns with focused modules
+
+### Three Main Components
 
 ## Project Structure
 
@@ -23,7 +78,22 @@ This repository contains a proof of concept (PoC) for Daiy that demonstrates:
 ├── web/                # Flask web app (main application)
 │   ├── app.py          # Flask application with LLM integration
 │   ├── config.py       # Centralized configuration
-│   ├── templates/      # HTML templates (index.html)
+│   ├── static/         # Frontend assets (NEW - modular structure)
+│   │   ├── css/        # Stylesheets
+│   │   │   ├── base.css        # Variables, resets, layout
+│   │   │   ├── components.css  # Forms, buttons, panels
+│   │   │   └── products.css    # Product cards, categories
+│   │   ├── js/         # JavaScript modules
+│   │   │   ├── config.js       # Constants
+│   │   │   ├── state.js        # State management
+│   │   │   ├── image.js        # Image handling
+│   │   │   ├── api.js          # Backend communication
+│   │   │   ├── clarification.js # Clarification UI
+│   │   │   ├── products.js     # Product rendering
+│   │   │   └── main.js         # Initialization
+│   │   └── README.md   # Frontend architecture guide
+│   ├── templates/      # HTML templates
+│   │   └── index.html  # Clean HTML (153 lines, down from 2199)
 │   ├── logs/           # LLM interaction logs (JSONL)
 │   └── README.md       # Web app documentation
 ├── scrape/             # Web scraper for bike-components.de

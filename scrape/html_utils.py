@@ -183,6 +183,8 @@ def extract_next_page_url(soup: BeautifulSoup, current_url: str) -> Optional[str
     Looks for:
     1. <link rel="next" href="...">
     2. Pagination links with ?page=N
+    3. filter-pager/page-next blocks without rel attributes (bike-components pedals, etc.)
+    4. Fallback: build URL from total pages/count-last when current page < total
     
     Returns the full URL of the next page, or None if no next page.
     """
@@ -193,10 +195,10 @@ def extract_next_page_url(soup: BeautifulSoup, current_url: str) -> Optional[str
 
     # Method 2: Look for pagination navigation
     # Common patterns: <a href="?page=2">, <a class="next">, etc.
-    pagination = soup.select_one('nav.pagination, div.pagination, ul.pagination')
+    pagination = soup.select_one('nav.pagination, div.pagination, ul.pagination, div.filter-pager, div.page-next')
     if pagination:
         # Look for "next" link
-        next_btn = pagination.select_one('a[rel="next"], a.next, a:contains("Next")')
+        next_btn = pagination.select_one('a[rel="next"], a.next, a[href][aria-label="Next"], div.page-next a[href]')
         if next_btn and next_btn.get("href"):
             return urljoin(current_url, next_btn["href"])
 
@@ -205,6 +207,27 @@ def extract_next_page_url(soup: BeautifulSoup, current_url: str) -> Optional[str
         next_page_link = pagination.select_one(f'a[href*="page={current_page + 1}"]')
         if next_page_link:
             return urljoin(current_url, next_page_link["href"])
+
+    # Method 3: Global search for a page-next link even if not inside pagination container
+    page_next_link = soup.select_one('div.page-next a[href]')
+    if page_next_link:
+        return urljoin(current_url, page_next_link["href"])
+
+    # Method 4: Use total pages indicator (e.g., "page 1 of 24") to construct next URL
+    count_last = soup.select_one('.count-last')
+    if count_last:
+        match = re.search(r"\d+", count_last.get_text(strip=True))
+        if match:
+            total_pages = int(match.group(0))
+            current_page = extract_current_page(current_url)
+            if current_page < total_pages:
+                # Build next page URL by updating/adding the page query param
+                parsed = urlparse(current_url)
+                params = parse_qs(parsed.query)
+                params['page'] = [str(current_page + 1)]
+                query = '&'.join(f"{k}={v[0]}" for k, v in params.items())
+                next_url = parsed._replace(query=query).geturl()
+                return next_url
 
     return None
 

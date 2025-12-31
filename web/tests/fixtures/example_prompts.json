@@ -1,0 +1,27 @@
+{
+  "basic_chain_replacement": {
+    "problem_text": "I need a new 12-speed chain for my road bike",
+    "expected_categories": ["drivetrain_chains"],
+    "expected_unclear_specs": []
+  },
+  "ambiguous_speed": {
+    "problem_text": "I need to replace my cassette",
+    "expected_categories": ["drivetrain_cassettes"],
+    "expected_unclear_specs": ["gearing"]
+  },
+  "complex_upgrade": {
+    "problem_text": "I want to upgrade my gravel bike drivetrain for better climbing",
+    "expected_categories": ["drivetrain_cassettes", "drivetrain_chains"],
+    "expected_unclear_specs": ["gearing"]
+  },
+  "minimal_input": {
+    "problem_text": "Need parts",
+    "expected_categories": [],
+    "expected_unclear_specs": ["gearing", "use_case"]
+  },
+  "detailed_with_brand": {
+    "problem_text": "My Shimano 105 11-speed drivetrain feels slow on climbs. I want a cassette with an 34T cog",
+    "expected_categories": ["drivetrain_cassettes"],
+    "expected_unclear_specs": []
+  }
+}
