@@ -173,7 +173,7 @@ def select_candidates_dynamic(
         # Products can be in multiple categories via the 'categories' column (pipe-separated)
         if "categories" in df.columns:
             # New multi-category format: filter by checking if category appears in pipe-separated list
-            filtered = df[df["categories"].str.contains(f"(^|\\|){re.escape(cat)}($|\\|)", regex=True, na=False)].copy()
+            filtered = df[df["categories"].str.contains(f"(?:^|\\|){re.escape(cat)}(?:$|\\|)", regex=True, na=False)].copy()
             # Fallback to single category column if categories column is empty/null
             if filtered.empty or df["categories"].isna().all():
                 filtered = df[df["category"] == cat].copy()
