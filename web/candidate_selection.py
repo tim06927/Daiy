@@ -169,8 +169,17 @@ def select_candidates_dynamic(
             logger.warning(f"Unknown category: {cat}")
             continue
         
-        # Start with all products in this category
-        filtered = df[df["category"] == cat].copy()
+        # Start with all products in this category (handles both single category field and junction table)
+        # Products can be in multiple categories via the 'categories' column (pipe-separated)
+        if "categories" in df.columns:
+            # New multi-category format: filter by checking if category appears in pipe-separated list
+            filtered = df[df["categories"].str.contains(f"(^|\\|){re.escape(cat)}($|\\|)", regex=True, na=False)].copy()
+            # Fallback to single category column if categories column is empty/null
+            if filtered.empty or df["categories"].isna().all():
+                filtered = df[df["category"] == cat].copy()
+        else:
+            # Backward compatibility: single category column only
+            filtered = df[df["category"] == cat].copy()
         
         if filtered.empty:
             logger.info(f"No products found for category: {cat}")

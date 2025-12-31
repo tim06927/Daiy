@@ -31,6 +31,7 @@ See [RESTRUCTURING_SUMMARY.md](RESTRUCTURING_SUMMARY.md) for full details of the
 
 ### Key Improvements (Full Stack)
 - ✅ All clarification questions are **dynamic** and **LLM-generated**
+- ✅ **Multi-category support** - Products can belong to multiple categories (no duplicates or missing items)
 - ✅ **Comprehensive logging** - User inputs, clarifications, LLM calls/responses
 - ✅ **HTML log viewer** - Sessions organized with filters and collapsible sections
 - ✅ **Modular frontend** - Separate CSS/JS files for easy maintenance
@@ -40,6 +41,7 @@ See [RESTRUCTURING_SUMMARY.md](RESTRUCTURING_SUMMARY.md) for full details of the
 ### For Developers
 - Backend flow: [web/README.md](web/README.md) and [web/FLOW.md](web/FLOW.md)
 - Frontend architecture: [web/static/README.md](web/static/README.md)
+- Multi-category support: [docs/MULTI_CATEGORY_SUPPORT.md](docs/MULTI_CATEGORY_SUPPORT.md)
 - Restructuring details: [RESTRUCTURING_SUMMARY.md](RESTRUCTURING_SUMMARY.md)
 
 ---

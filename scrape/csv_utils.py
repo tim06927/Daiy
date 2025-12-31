@@ -110,6 +110,9 @@ def export_db_to_csv(
 ) -> int:
     """Export products from SQLite database to CSV.
     
+    Includes all categories each product is associated with via the junction table.
+    The 'categories' column will contain pipe-separated list of categories.
+    
     Args:
         db_path: Path to the SQLite database
         csv_path: Path for the output CSV file
@@ -119,7 +122,7 @@ def export_db_to_csv(
     Returns:
         Number of products exported
     """
-    from scrape.db import get_all_products
+    from scrape.db import get_all_products, get_connection
 
     products = get_all_products(db_path, category=category, include_specs=include_category_specs)
 
@@ -127,9 +130,25 @@ def export_db_to_csv(
         print("No products to export.")
         return 0
 
-    # Build fieldnames: core fields + flattened category specs
+    # Fetch all category associations for each product
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        product_categories_map = {}
+        for product in products:
+            cursor.execute("""
+                SELECT category FROM product_categories
+                WHERE product_id = ?
+                ORDER BY category
+            """, (product["id"],))
+            categories = [row["category"] for row in cursor.fetchall()]
+            # Fallback to single category field if no junction table entries
+            if not categories and product.get("category"):
+                categories = [product["category"]]
+            product_categories_map[product["id"]] = categories
+
+    # Build fieldnames: core fields + categories + flattened category specs
     core_fields = [
-        "id", "category", "name", "url", "image_url", "brand", "price_text",
+        "id", "category", "categories", "name", "url", "image_url", "brand", "price_text",
         "sku", "breadcrumbs", "description", "specs", "created_at", "updated_at"
     ]
 
@@ -150,7 +169,10 @@ def export_db_to_csv(
     for product in products:
         row: Dict[str, Any] = {}
         for field in core_fields:
-            if field == "specs" and product.get("specs"):
+            if field == "categories":
+                # Add pipe-separated list of all categories
+                row[field] = "|".join(product_categories_map.get(product["id"], []))
+            elif field == "specs" and product.get("specs"):
                 row[field] = json.dumps(product["specs"], ensure_ascii=False)
             else:
                 row[field] = product.get(field, "")

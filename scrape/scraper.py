@@ -32,6 +32,7 @@ from scrape.config import (
     RETRY_STATUS_CODES,
 )
 from scrape.db import (
+    add_product_category,
     get_spec_table_for_category,
     init_db,
     update_scrape_state,
@@ -390,8 +391,27 @@ def scrape_category(
                     interrupted = True
                     break
                 
-                if not force_refresh and product_url in seen_urls:
-                    logger.debug(f"      [{i}/{len(product_links)}] SKIP (already scraped): {product_url}")
+                # Check if product was already scraped (either in this run or previously)
+                already_scraped = (not force_refresh) and (product_url in seen_urls or 
+                                 (existing_urls is not None and product_url in existing_urls))
+                
+                if already_scraped:
+                    if product_url in seen_urls:
+                        logger.debug(f"      [{i}/{len(product_links)}] EXISTING (multi-category, same run): {product_url}")
+                    else:
+                        logger.debug(f"      [{i}/{len(product_links)}] EXISTING (multi-category, previous run): {product_url}")
+                    
+                    # Product already scraped - just add category association
+                    if use_db:
+                        from scrape.db import get_connection, add_product_category
+                        with get_connection(db_path) as conn:
+                            cursor = conn.cursor()
+                            cursor.execute("SELECT id FROM products WHERE url = ?", (product_url,))
+                            row = cursor.fetchone()
+                            if row:
+                                product_id = row[0]
+                                add_product_category(db_path, product_id, category_key)
+                                logger.debug(f"        Added category '{category_key}' to product ID {product_id}")
                     continue
 
                 logger.info(f"      [{i}/{len(product_links)}] {product_url}")
@@ -453,11 +473,21 @@ def scrape_category(
 
 
 def save_product_to_db(product: Product, db_path: str = DB_PATH) -> None:
-    """Save a single product to the database."""
-    # Save core product data
+    """Save a single product to the database with category association.
+    
+    This function:
+    1. Upserts the product (creates or updates core data)
+    2. Adds a category association via junction table
+    3. Saves category-specific specs if applicable
+    
+    Args:
+        product: Product to save
+        db_path: Path to database
+    """
+    # Save core product data (uses URL as unique key)
     product_id = upsert_product(
         db_path=db_path,
-        category=product.category,
+        category=product.category,  # Still stored for backward compatibility
         name=product.name,
         url=product.url,
         image_url=product.image_url,
@@ -469,6 +499,9 @@ def save_product_to_db(product: Product, db_path: str = DB_PATH) -> None:
         specs=product.specs,
     )
     product.id = product_id
+
+    # Add category association (idempotent)
+    add_product_category(db_path, product_id, product.category)
 
     # Save category-specific specs
     if product.category_specs:
