@@ -104,6 +104,7 @@ function showResults(data) {
   const diagnosis = data.diagnosis || '';
   const sections = data.sections || {};
   const finalInstructions = data.final_instructions || [];
+  const recipe = data.recipe || null;
   
   // Show diagnosis in left panel
   const diagnosisContainer = document.getElementById('diagnosis-container');
@@ -124,8 +125,8 @@ function showResults(data) {
     data.tools || data.tool_products || []
   );
   
-  // Render instructions (prefer final_instructions over sections)
-  renderInstructions(sections, finalInstructions);
+  // Render instructions (prefer recipe format, then final_instructions over sections)
+  renderInstructions(sections, finalInstructions, recipe);
   
   // Setup tabs
   setupResultsTabs();

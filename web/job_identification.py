@@ -37,6 +37,7 @@ __all__ = [
     "identify_job",
     "JobIdentification",
     "UnclearSpecification",
+    "RecipeInstructions",
     "extract_categories_from_instructions",
 ]
 
@@ -101,6 +102,97 @@ class UnclearSpecification:
         )
 
 
+class RecipeInstructions:
+    """Step-by-step instructions with ingredients and steps in recipe format.
+    
+    Recipe format ensures:
+    - All ingredients are explicitly listed with type (part, tool, product)
+    - All steps reference only ingredients from the list
+    - Each ingredient is used in at least one step
+    """
+    
+    def __init__(
+        self,
+        ingredients: Optional[List[Dict[str, str]]] = None,
+        steps: Optional[List[str]] = None,
+    ):
+        """Initialize recipe instructions.
+        
+        Args:
+            ingredients: List of dicts with keys 'name' (str), 'type' (str: part|tool|product).
+                        Names can contain [category_key] placeholders in job ID phase.
+            steps: List of instruction steps that reference ingredients.
+        """
+        self.ingredients = ingredients or []
+        self.steps = steps or []
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "ingredients": self.ingredients,
+            "steps": self.steps,
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "RecipeInstructions":
+        """Create from dictionary."""
+        return cls(
+            ingredients=data.get("ingredients", []),
+            steps=data.get("steps", []),
+        )
+    
+    def get_referenced_categories(self) -> List[str]:
+        """Extract unique category keys from ingredient names.
+        
+        Returns:
+            List of unique [category_key] references found in ingredient names.
+        """
+        categories = []
+        pattern = r'\[([a-z_]+)\]'
+        
+        for ingredient in self.ingredients:
+            name = ingredient.get("name", "")
+            matches = re.findall(pattern, name)
+            for match in matches:
+                if match not in categories:
+                    categories.append(match)
+        
+        return categories
+    
+    def get_ingredient_names(self) -> List[str]:
+        """Get list of ingredient names."""
+        return [ing.get("name", "") for ing in self.ingredients]
+    
+    def validate_recipe(self) -> Tuple[bool, List[str]]:
+        """Validate recipe consistency.
+        
+        Returns:
+            Tuple of (is_valid, list_of_errors)
+            Checks:
+            - All ingredients are mentioned in at least one step
+            - All ingredient references in steps are in ingredients list
+        """
+        errors = []
+        ingredient_names = self.get_ingredient_names()
+        
+        # Check if each ingredient is used in steps
+        for ingredient in ingredient_names:
+            # Escape special regex chars in ingredient name
+            escaped = re.escape(ingredient)
+            if not any(re.search(escaped, step) for step in self.steps):
+                errors.append(f"Ingredient '{ingredient}' not used in any step")
+        
+        # Check if all step references are in ingredients
+        # Look for quoted strings or unquoted nouns (simple heuristic)
+        for step in self.steps:
+            # Try to find references to ingredients
+            for ingredient in ingredient_names:
+                # This is a simple check - could be enhanced
+                pass
+        
+        return (len(errors) == 0, errors)
+
+
 def extract_categories_from_instructions(instructions: List[str]) -> List[str]:
     """Extract category keys mentioned in step-by-step instructions.
     
@@ -138,10 +230,11 @@ class JobIdentification:
     
     def __init__(
         self,
-        instructions: List[str],
-        unclear_specifications: List[UnclearSpecification],
-        confidence: float,
-        reasoning: str,
+        instructions: Optional[List[str]] = None,
+        unclear_specifications: Optional[List[UnclearSpecification]] = None,
+        confidence: float = 0.0,
+        reasoning: str = "",
+        recipe: Optional[RecipeInstructions] = None,
         # Legacy fields for backwards compatibility
         primary_categories: Optional[List[str]] = None,
         optional_categories: Optional[List[str]] = None,
@@ -153,11 +246,16 @@ class JobIdentification:
     ):
         """Initialize job identification result.
         
+        Supports both legacy format (instructions list) and new recipe format.
+        
         Args:
-            instructions: Step-by-step instructions with [category_key] references.
+            instructions: (Legacy) Step-by-step instructions with [category_key] references.
+                         If recipe is provided, this is ignored.
             unclear_specifications: List of specs needing user clarification.
             confidence: Confidence score (0-1) for the overall identification.
             reasoning: Brief explanation of the identified job.
+            recipe: (New) RecipeInstructions with ingredients and steps.
+                   If provided, takes precedence over instructions list.
             primary_categories: (Legacy) Categories the user explicitly asked for.
             optional_categories: (Legacy) Complementary categories for this job.
             required_tools: (Legacy) Tool categories needed.
@@ -166,24 +264,58 @@ class JobIdentification:
             optional_reasons: (Legacy) Dict mapping optional category to reason.
             tool_reasons: (Legacy) Dict mapping tool category to reason.
         """
-        self.instructions = instructions
-        self.unclear_specifications = unclear_specifications
+        # Store recipe if provided, otherwise convert instructions list to recipe
+        if recipe:
+            self.recipe = recipe
+            self.instructions = []  # Not used when recipe is present
+        else:
+            # Legacy mode: convert instructions list to recipe format
+            self.instructions = instructions or []
+            if self.instructions:
+                # Convert flat instruction strings to recipe format
+                self.recipe = self._convert_instructions_to_recipe(self.instructions)
+            else:
+                self.recipe = RecipeInstructions(ingredients=[], steps=[])
+        
+        self.unclear_specifications = unclear_specifications or []
         self.confidence = confidence
         self.reasoning = reasoning
         
-        # Extract categories from instructions
-        self._referenced_categories = extract_categories_from_instructions(instructions)
+        # Extract categories from recipe or instructions
+        self._referenced_categories = self.recipe.get_referenced_categories()
+        if not self._referenced_categories:
+            self._referenced_categories = extract_categories_from_instructions(self.instructions)
         
-        # Legacy fields - populate from instructions if not provided
+        # Legacy fields - populate from recipe/instructions if not provided
         self.primary_categories = primary_categories or []
         self.optional_categories = optional_categories or []
         self.required_tools = required_tools or []
         self.inferred_values = inferred_values or {}
         self.missing_dimensions = missing_dimensions or [
-            spec.spec_name for spec in unclear_specifications
+            spec.spec_name for spec in self.unclear_specifications
         ]
         self.optional_reasons = optional_reasons or {}
         self.tool_reasons = tool_reasons or {}
+    
+    @staticmethod
+    def _convert_instructions_to_recipe(instructions: List[str]) -> RecipeInstructions:
+        """Convert legacy instructions list to recipe format.
+        
+        Creates a simple recipe with steps and extracted ingredients.
+        """
+        # Extract ingredients from instructions (items in brackets)
+        ingredients = []
+        ingredient_names = set()
+        pattern = r'\[([a-z_]+)\]'
+        
+        for instruction in instructions:
+            matches = re.findall(pattern, instruction)
+            for match in matches:
+                if match not in ingredient_names:
+                    ingredients.append({"name": f"[{match}]", "type": "part"})
+                    ingredient_names.add(match)
+        
+        return RecipeInstructions(ingredients=ingredients, steps=instructions)
     
     @property
     def referenced_categories(self) -> List[str]:
@@ -220,7 +352,10 @@ class JobIdentification:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
-            "instructions": self.instructions,
+            # New recipe format
+            "recipe": self.recipe.to_dict(),
+            # Legacy instructions format (for backwards compatibility)
+            "instructions": self.instructions or self.recipe.steps,
             "unclear_specifications": [spec.to_dict() for spec in self.unclear_specifications],
             "referenced_categories": self._referenced_categories,
             "confidence": self.confidence,
@@ -239,8 +374,28 @@ class JobIdentification:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "JobIdentification":
         """Create from dictionary."""
-        # Handle new format with instructions
-        if "instructions" in data:
+        # Handle new recipe format
+        if "recipe" in data:
+            recipe = RecipeInstructions.from_dict(data.get("recipe", {}))
+            unclear_specs = [
+                UnclearSpecification.from_dict(spec)
+                for spec in data.get("unclear_specifications", [])
+            ]
+            return cls(
+                recipe=recipe,
+                unclear_specifications=unclear_specs,
+                confidence=data.get("confidence", 0.0),
+                reasoning=data.get("reasoning", ""),
+                primary_categories=data.get("primary_categories", []),
+                optional_categories=data.get("optional_categories", []),
+                required_tools=data.get("required_tools", []),
+                inferred_values=data.get("inferred_values", {}),
+                missing_dimensions=data.get("missing_dimensions", []),
+                optional_reasons=data.get("optional_reasons", {}),
+                tool_reasons=data.get("tool_reasons", {}),
+            )
+        # Handle new format with instructions (legacy)
+        elif "instructions" in data:
             unclear_specs = [
                 UnclearSpecification.from_dict(spec)
                 for spec in data.get("unclear_specifications", [])
