@@ -267,17 +267,25 @@ AVAILABLE PRODUCTS BY CATEGORY:
 {products_json}
 
 YOUR TASK:
-1. Finalize the step-by-step instructions, replacing category references with SPECIFIC PRODUCTS from the available products
-2. If NO suitable product exists in a category, note "no fitting product available" and suggest what to look for
-3. Compile lists of primary products, tools, and optional extras
+1. Create a recipe format with INGREDIENTS (specific product names) and STEPS (detailed instructions)
+2. Replace all category references with SPECIFIC PRODUCTS from the available products
+3. Ensure every ingredient is used in at least one step
+4. Ensure every step references only ingredients from the list
 
 RESPONSE FORMAT (return pure JSON only, no prose):
 {{
-  "final_instructions": [
-    "Step 1: Finalized instruction with specific product name from the data.",
-    "Step 2: Continue with specific products. If none fit: 'Use [product description] - no fitting product available'.",
-    "Step 3: More steps as needed."
-  ],
+  "recipe": {{
+    "ingredients": [
+      {{"name": "Specific product name from available products", "type": "part|tool|product"}},
+      {{"name": "Another specific product name", "type": "part|tool|product"}},
+      {{"name": "Tool: Specific tool name if applicable", "type": "tool"}}
+    ],
+    "steps": [
+      "Step 1: Detailed instruction using ingredients. Attach the Specific product name and tighten with Tool name.",
+      "Step 2: Next step. Use Another specific product name according to the requirements.",
+      "Step 3: Final assembly or verification step using the ingredients."
+    ]
+  }},
   "primary_products": [
     {{
       "category": "category_key",
@@ -302,15 +310,26 @@ RESPONSE FORMAT (return pure JSON only, no prose):
   "diagnosis": "One sentence summary of the complete solution."
 }}
 
-RULES:
+RULES FOR RECIPE FORMAT:
+- EVERY ingredient must have both "name" and "type" fields
+- Ingredient types: "part" (bike component), "tool" (tool needed), "product" (purchasable item)
+- EVERY ingredient must appear in at least one step (check this carefully!)
+- EVERY reference in steps must be to an ingredient name in the list
+- Steps should be detailed, actionable, and reference ingredients naturally
 - Use ONLY products from the AVAILABLE PRODUCTS list above
 - product_index refers to the "index" field in each product
-- primary_products: Products explicitly needed for the job (from instructions)
+- primary_products: Products explicitly needed for the job (from ingredients)
 - tools: Tool products needed to complete the work
-- optional_extras: Maximum 3 items NOT in instructions but potentially useful
-- If a category has no suitable products, still mention it in final_instructions with "no fitting product available"
+- optional_extras: Maximum 3 items NOT in ingredients but potentially useful
 - Each reasoning should be specific to this user's situation (not generic)
 - Verify product specifications match the clarified values
+
+RECIPE VALIDATION:
+Before submitting, check:
+  ✓ Every ingredient in the list is mentioned at least once in the steps
+  ✓ Every product reference in steps is in the ingredients list
+  ✓ Each step is clear and actionable
+  ✓ The recipe flows logically from start to finish
 """
 
 

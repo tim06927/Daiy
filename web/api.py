@@ -417,7 +417,15 @@ def recommend() -> Union[Tuple[Response, int], Response]:
     llm_payload = _call_llm_recommendation(prompt, processed_image, image_meta)
     
     # Step 6: Parse and format response
+    # Handle both new recipe format and legacy final_instructions format
+    recipe = None
     final_instructions = llm_payload.get("final_instructions", job.instructions)
+    
+    if "recipe" in llm_payload:
+        recipe = llm_payload.get("recipe", {})
+        # Extract steps from recipe for display
+        final_instructions = recipe.get("steps", final_instructions)
+    
     diagnosis = llm_payload.get("diagnosis", "")
     
     # Build product responses
@@ -504,7 +512,9 @@ def recommend() -> Union[Tuple[Response, int], Response]:
     )
     
     return jsonify({
-        # New format
+        # New recipe format
+        "recipe": recipe if recipe else None,
+        # Standard format
         "diagnosis": diagnosis,
         "final_instructions": final_instructions,
         "primary_products": primary_products,

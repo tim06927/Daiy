@@ -139,25 +139,27 @@ class TestRecommendEndpointBasics:
 class TestRecommendEndpointClarification:
     """Test clarification flow in /api/recommend endpoint."""
 
-    @patch('api._call_llm_identify_job')
-    def test_recommend_handles_clarification_response(self, mock_llm, client):
+    @patch('web.api.identify_job')
+    def test_recommend_handles_clarification_response(self, mock_identify, client):
         """Test that endpoint handles cases needing clarification."""
-        # Mock LLM to return a job with unclear specs
-        mock_job_dict = {
-            "instructions": ["Step 1: Check current setup"],
-            "unclear_specifications": [
-                {
-                    "spec_name": "gearing",
-                    "confidence": 0.3,
-                    "question": "How many speeds?",
-                    "hint": "Count cogs",
-                    "options": ["10", "11", "12"],
-                }
-            ],
-            "confidence": 0.7,
-            "reasoning": "Speed not specified",
-        }
-        mock_llm.return_value = mock_job_dict
+        # Mock identify_job to return a job with unclear specs
+        from web.job_identification import JobIdentification, UnclearSpecification
+        
+        unclear_spec = UnclearSpecification(
+            spec_name="gearing",
+            confidence=0.3,
+            question="How many speeds?",
+            hint="Count cogs",
+            options=["10", "11", "12"],
+        )
+        
+        job = JobIdentification(
+            instructions=["Step 1: Check current setup"],
+            unclear_specifications=[unclear_spec],
+            confidence=0.7,
+            reasoning="Speed not specified",
+        )
+        mock_identify.return_value = job
 
         response = client.post(
             '/api/recommend',
