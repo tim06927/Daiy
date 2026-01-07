@@ -18,8 +18,8 @@ __all__ = [
     "LOG_DIR",
 ]
 
-# Log directory (same pattern as web app)
-LOG_DIR = Path(__file__).parent.parent / "logs"
+# Log directory within scrape module
+LOG_DIR = Path(__file__).parent / "logs"
 
 
 class JSONLFileHandler(logging.Handler):
