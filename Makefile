@@ -4,6 +4,9 @@
 .PHONY: help install run scrape scrape-full export refresh-data discover-categories discover-fields view-data clean
 .PHONY: pipeline pipeline-full pipeline-overnight
 
+# Python command (uses venv if available)
+PYTHON := $(shell if [ -f .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
+
 # Default target
 help:
 	@echo "Daiy - Bike Component Recommender"
@@ -73,7 +76,7 @@ setup:
 # =============================================================================
 
 run:
-	python web/app.py
+	$(PYTHON) -m web.app
 
 # =============================================================================
 # Scraping
@@ -83,10 +86,10 @@ run:
 MAX_PAGES ?= 5
 
 scrape:
-	python -m scrape.cli --max-pages $(MAX_PAGES)
+	$(PYTHON) -m scrape.cli --max-pages $(MAX_PAGES)
 
 scrape-full:
-	python -m scrape.cli --mode full --max-pages $(MAX_PAGES)
+	$(PYTHON) -m scrape.cli --mode full --max-pages $(MAX_PAGES)
 
 # =============================================================================
 # Full Pipelines (discover + scrape + export) - ideal for overnight runs
@@ -116,13 +119,13 @@ pipeline:
 	@echo "Started at: $$(date)"
 	@echo ""
 	@echo "Step 1/3: Discovering categories..."
-	python -m scrape.discover_categories --output data/discovered_categories.json
+	$(PYTHON) -m scrape.discover_categories --output data/discovered_categories.json
 	@echo ""
 	@echo "Step 2/3: Scraping (incremental mode)..."
-	python -m scrape.cli --discover-scrape $(SUPER) --max-pages $(MAX_PAGES) --skip-field-discovery $(OVERNIGHT_FLAG)
+	$(PYTHON) -m scrape.cli --discover-scrape $(SUPER) --max-pages $(MAX_PAGES) --skip-field-discovery $(OVERNIGHT_FLAG)
 	@echo ""
 	@echo "Step 3/3: Exporting to CSV..."
-	python -c "from scrape.csv_utils import export_db_to_csv; export_db_to_csv('$(DB_PATH)', '$(CSV_PATH)')"
+	$(PYTHON) -c "from scrape.csv_utils import export_db_to_csv; export_db_to_csv('$(DB_PATH)', '$(CSV_PATH)')"
 	@echo ""
 	@echo "=== Pipeline Complete ==="
 	@echo "Finished at: $$(date)"
@@ -145,13 +148,13 @@ pipeline-full:
 	@echo "Started at: $$(date)"
 	@echo ""
 	@echo "Step 1/3: Discovering categories..."
-	python -m scrape.discover_categories --output data/discovered_categories.json
+	$(PYTHON) -m scrape.discover_categories --output data/discovered_categories.json
 	@echo ""
 	@echo "Step 2/3: Scraping (full mode - ignoring existing data)..."
-	python -m scrape.cli --discover-scrape $(SUPER) --max-pages $(MAX_PAGES) --skip-field-discovery --mode full $(OVERNIGHT_FLAG)
+	$(PYTHON) -m scrape.cli --discover-scrape $(SUPER) --max-pages $(MAX_PAGES) --skip-field-discovery --mode full $(OVERNIGHT_FLAG)
 	@echo ""
 	@echo "Step 3/3: Exporting to CSV..."
-	python -c "from scrape.csv_utils import export_db_to_csv; export_db_to_csv('$(DB_PATH)', '$(CSV_PATH)')"
+	$(PYTHON) -c "from scrape.csv_utils import export_db_to_csv; export_db_to_csv('$(DB_PATH)', '$(CSV_PATH)')"
 	@echo ""
 	@echo "=== Pipeline Complete ==="
 	@echo "Finished at: $$(date)"
@@ -171,7 +174,7 @@ CSV_PATH ?= data/bc_products_sample.csv
 DB_PATH ?= data/products.db
 
 export:
-	python -c "from scrape.csv_utils import export_db_to_csv; export_db_to_csv('$(DB_PATH)', '$(CSV_PATH)')"
+	$(PYTHON) -c "from scrape.csv_utils import export_db_to_csv; export_db_to_csv('$(DB_PATH)', '$(CSV_PATH)')"
 
 refresh-data: scrape export
 	@echo ""
@@ -193,13 +196,13 @@ CAT ?= chains
 SAMPLE_SIZE ?= 15
 
 discover-categories:
-	python -m scrape.discover_categories --output data/discovered_categories.json --update-view
+	$(PYTHON) -m scrape.discover_categories --output data/discovered_categories.json --update-view
 
 discover-fields:
-	python -m scrape.discover_fields $(CAT) --sample-size $(SAMPLE_SIZE)
+	$(PYTHON) -m scrape.discover_fields $(CAT) --sample-size $(SAMPLE_SIZE)
 
 view-data:
-	python -m scrape.view_data --open
+	$(PYTHON) -m scrape.view_data --open
 
 # =============================================================================
 # Maintenance
