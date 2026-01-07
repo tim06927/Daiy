@@ -30,8 +30,9 @@ ENV/
 .env.*.local
 *.log
 
-# LLM interaction logs
+# Component logs
 web/logs/
+scrape/logs/
 *.jsonl
 
 # Testing

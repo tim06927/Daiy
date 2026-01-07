@@ -98,6 +98,7 @@ The system is:
 │   └── README.md       # Web app documentation
 ├── scrape/             # Web scraper for bike-components.de
 │   ├── __init__.py     # Package init with convenient exports
+│   ├── logs/           # Scraper operation logs (JSONL)
 │   ├── config.py       # Configuration, URLs, delays, retry settings
 │   ├── models.py       # Data models (Product dataclass)
 │   ├── scraper.py      # Scraping logic with pagination and retries

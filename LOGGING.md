@@ -1,10 +1,15 @@
 # LLM Interaction Logging
 
-This project includes comprehensive logging of all LLM interactions to help with debugging, analysis, and understanding the system's behavior.
+This project includes comprehensive logging of all LLM interactions and scraper operations to help with debugging, analysis, and understanding the system's behavior.
+
+## Component Logs
+
+- **Web app logs**: `web/logs/llm_interactions_YYYYMMDD.jsonl` - LLM interactions and web application events  
+- **Scraper logs**: `scrape/logs/scrape_YYYYMMDD.jsonl` - Web scraping operations and product data collection
+
+All logs use JSON Lines format (one JSON object per line).
 
 ## Log Format
-
-Logs are stored in `web/logs/llm_interactions_YYYYMMDD.jsonl` as JSON Lines (one JSON object per line).
 
 Each log entry has the following structure:
 ```json
