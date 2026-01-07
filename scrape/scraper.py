@@ -2,7 +2,7 @@
 
 import random
 import time
-from typing import List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 import requests  # type: ignore[import-untyped]
 from bs4 import BeautifulSoup
@@ -33,10 +33,12 @@ from scrape.config import (
 )
 from scrape.db import (
     add_product_category,
+    get_discovered_fields,
     get_spec_table_for_category,
     init_db,
     update_scrape_state,
     upsert_category_specs,
+    upsert_dynamic_specs,
     upsert_product,
 )
 from scrape.html_utils import (
@@ -48,6 +50,7 @@ from scrape.html_utils import (
     extract_total_pages,
     is_product_url,
     map_category_specs,
+    map_dynamic_specs,
 )
 from scrape.logging_config import get_logger, log_scrape_event
 from scrape.models import Product
@@ -283,7 +286,7 @@ def parse_product_page(category_key: str, html: str, url: str) -> Product:
             logger.warning(f"Invalid image URL for {url}: {e}")
             image_url = None
 
-    # Category-specific spec mapping using the registry
+    # Category-specific spec mapping using the registry (legacy hardcoded)
     category_specs = map_category_specs(category_key, specs) if specs else {}
 
     return Product(
@@ -301,6 +304,32 @@ def parse_product_page(category_key: str, html: str, url: str) -> Product:
     )
 
 
+def scrape_product(
+    category_key: str,
+    url: str,
+    discovered_fields: Optional[List[Dict[str, Any]]] = None,
+) -> Product:
+    """Fetch and parse a single product.
+    
+    Args:
+        category_key: Category identifier.
+        url: Product URL.
+        discovered_fields: Optional list of discovered field mappings for this category.
+            If provided, these will be used to create dynamic_specs on the Product.
+            
+    Returns:
+        Product object with specs populated.
+    """
+    html = fetch_html(url)
+    product = parse_product_page(category_key, html, url)
+    
+    # If we have discovered fields, also populate dynamic_specs
+    if discovered_fields and product.specs:
+        product.dynamic_specs = map_dynamic_specs(product.specs, discovered_fields)
+    
+    return product
+
+
 def scrape_category(
     category_key: str,
     url: str,
@@ -310,6 +339,7 @@ def scrape_category(
     use_db: bool = True,
     db_path: str = DB_PATH,
     overnight: bool = False,
+    discovered_fields: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Product]:
     """Scrape all products from a category, handling pagination.
 
@@ -322,6 +352,8 @@ def scrape_category(
         use_db: If True, save products to SQLite database
         db_path: Path to the SQLite database
         overnight: If True, use longer delays between requests
+        discovered_fields: List of discovered field mappings for this category.
+            If provided, these will be used to normalize specs into dynamic_specs.
 
     Returns:
         List of Product objects scraped
@@ -418,6 +450,11 @@ def scrape_category(
                 try:
                     product_html = fetch_html(product_url, delay_min, delay_max)
                     product = parse_product_page(category_key, product_html, product_url)
+                    
+                    # If we have discovered fields, populate dynamic_specs
+                    if discovered_fields and product.specs:
+                        product.dynamic_specs = map_dynamic_specs(product.specs, discovered_fields)
+                    
                     products.append(product)
                     seen_urls.add(product_url)
 
@@ -478,7 +515,8 @@ def save_product_to_db(product: Product, db_path: str = DB_PATH) -> None:
     This function:
     1. Upserts the product (creates or updates core data)
     2. Adds a category association via junction table
-    3. Saves category-specific specs if applicable
+    3. Saves category-specific specs if applicable (legacy system)
+    4. Saves dynamic specs if available (new flexible system)
     
     Args:
         product: Product to save
@@ -503,8 +541,12 @@ def save_product_to_db(product: Product, db_path: str = DB_PATH) -> None:
     # Add category association (idempotent)
     add_product_category(db_path, product_id, product.category)
 
-    # Save category-specific specs
+    # Save category-specific specs (legacy hardcoded tables)
     if product.category_specs:
         spec_table = get_spec_table_for_category(product.category)
         if spec_table:
             upsert_category_specs(db_path, spec_table, product_id, product.category_specs)
+
+    # Save dynamic specs (new flexible system)
+    if product.dynamic_specs:
+        upsert_dynamic_specs(db_path, product_id, product.category, product.dynamic_specs)

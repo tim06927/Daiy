@@ -11,7 +11,8 @@ class Product:
     """Represents a single product scraped from bike-components.de
     
     Core fields are stored in the main products table.
-    Category-specific specs are stored in separate tables via category_specs.
+    Category-specific specs are stored in separate tables via category_specs (legacy)
+    or in the flexible dynamic_specs table (new system).
     """
 
     # Required fields
@@ -30,9 +31,13 @@ class Product:
     # Raw specs dict from HTML (stored as JSON in products table)
     specs: Optional[Dict[str, str]] = None
 
-    # Category-specific normalized specs (stored in category-specific table)
+    # Category-specific normalized specs (legacy: stored in category-specific table)
     # Keys match the column names in the respective spec table
     category_specs: Dict[str, Any] = field(default_factory=dict)
+
+    # Dynamic specs (new: stored in flexible dynamic_specs table)
+    # Populated from discovered fields during scraping
+    dynamic_specs: Dict[str, Any] = field(default_factory=dict)
 
     # Database ID (set after insert/update)
     id: Optional[int] = None

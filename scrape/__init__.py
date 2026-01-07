@@ -11,7 +11,16 @@ from scrape.config import (
     get_spec_config,
 )
 from scrape.csv_utils import export_db_to_csv
-from scrape.db import get_existing_urls, get_product_count, init_db
+from scrape.db import (
+    get_all_discovered_fields,
+    get_discovered_fields,
+    get_dynamic_specs,
+    get_existing_urls,
+    get_product_count,
+    init_db,
+    save_discovered_fields,
+    upsert_dynamic_specs,
+)
 from scrape.logging_config import get_logger, setup_logging
 from scrape.models import Product
 from scrape.scraper import scrape_category
@@ -37,6 +46,12 @@ __all__ = [
     "get_product_count",
     "export_db_to_csv",
     "discover_and_scrape_workflow",
+    # Dynamic specs (new flexible system)
+    "get_discovered_fields",
+    "get_all_discovered_fields",
+    "save_discovered_fields",
+    "get_dynamic_specs",
+    "upsert_dynamic_specs",
     # Logging
     "setup_logging",
     "get_logger",
