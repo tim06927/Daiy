@@ -182,17 +182,6 @@ class RecipeInstructions:
             if not any(re.search(escaped, step) for step in self.steps):
                 errors.append(f"Ingredient '{ingredient}' not used in any step")
         
-        # Check if all step references are in ingredients
-        # Look for quoted strings or unquoted nouns (simple heuristic)
-        for step in self.steps:
-            # Heuristic: treat quoted phrases as explicit ingredient references
-            quoted_refs = re.findall(r'["\']([^"\']+)["\']', step)
-            for ref in quoted_refs:
-                if ref not in ingredient_names:
-                    errors.append(
-                        f"Step references unknown ingredient '{ref}' in: {step}"
-                    )
-        
         return (len(errors) == 0, errors)
 
 
