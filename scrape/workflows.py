@@ -98,9 +98,11 @@ def run_field_discovery_for_category(
         if results and results.get("suggested_fields"):
             fields_to_save = []
             for field_info in results["suggested_fields"]:
+                label = field_info.get("label")
+                original_labels = [label] if label else []
                 fields_to_save.append({
                     "field_name": field_info.get("column_name", field_info.get("field_name")),
-                    "original_labels": [field_info.get("label", "")],
+                    "original_labels": original_labels,
                     "frequency": field_info.get("frequency", 1.0),
                     "sample_values": field_info.get("sample_values", []),
                 })
