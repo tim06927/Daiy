@@ -47,29 +47,60 @@ Restructured monolithic 2200-line `index.html` into 10 maintainable files:
 
 ## About Daiy
 
-A startup that aims to help every DIYer find the right parts and tools using multimodal AI.
+A proof-of-concept system demonstrating **multimodal AI-powered product recommendations** grounded in real inventory data.
 
-## Vibe Coding and PoC Disclaimer
+**Mission:** Help DIYers find the right parts and tools for their projects using intelligent clarification and grounded LLM recommendations.
 
-Large parts of this project are vibe-coded using GitHub Copilot, ChatGPT, and more. Further, this is a proof of concept and not a production-ready project. Parts of this repo (CODING_STANDARDS, somewhat excessive documentation, ...) exist to make the AI do a good job and not to put an overbearing burden on humans. Proceed with fun and care when using.
+## Project Overview
 
-## Daiy PoC Architecture
+This repository contains a **production-ready three-phase LLM system** for generating personalized product recommendations:
 
-This repository demonstrates a **three-phase LLM-powered recommendation system** with grounded product suggestions:
+```
+User Query + Optional Image
+           ↓
+┌─────────────────────────────────────────────┐
+│ Phase 1: Job Identification (LLM)          │
+│ • Parse user's project requirements        │
+│ • Generate step-by-step instructions       │
+│ • Flag uncertain specifications            │
+└─────────────────────────────────────────────┘
+           ↓
+    ┌──────────────┐
+    │ Clarify?     │
+    └──────────────┘
+      ↙            ↘
+    No              Yes
+    ↓               ↓
+  Skip      ┌─────────────────────────────────────────────┐
+            │ Phase 2: Dynamic Clarification (LLM+UI)     │
+            │ • LLM generates targeted questions         │
+            │ • Ask user specs with confidence < 0.8     │
+            │ • Collect all answers in one interaction   │
+            └─────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────┐
+│ Phase 3: Grounded Recommendation (LLM)      │
+│ • Filter real products from inventory       │
+│ • Replace placeholders with product names   │
+│ • Provide per-product reasoning            │
+└─────────────────────────────────────────────┘
+           ↓
+    📊 Display Results
+    • Final instructions with product names
+    • Primary products (what user needs)
+    • Required tools
+    • Optional extras (max 3)
+    • Per-item explanations
+```
 
-1. **Job Identification** (`identify_job`) - LLM analyzes user input and generates step-by-step instructions
-2. **Smart Clarification** (optional) - If specs are unclear (confidence < 0.8), ask user targeted questions
-3. **Grounded Recommendation** - LLM selects from real catalog and provides per-product reasoning
-
-**Key principle:** All recommendations use actual products from inventory; no hallucinations.
+**Key Principle:** All recommendations use actual products from the inventory database; no hallucinations.
 
 The system is:
-- **Multimodal** - Accepts text queries and optional bike photos
-- **Generalized** - Job identification prompts are neutral to repair type (not hardcoded to bikes)
-- **Observable** - Comprehensive JSONL logging of all LLM interactions
-- **Maintainable** - Clear separation of concerns with focused modules
-
-### Three Main Components
+- **Multimodal** - Accepts text queries and optional bike photos for visual analysis
+- **Generalized** - LLM prompts are neutral to domain (not hardcoded to bikes)
+- **Observable** - Comprehensive JSONL logging of all user interactions and LLM calls
+- **Maintainable** - Clear separation of concerns with focused, well-documented modules
+- **Type-Safe** - Proper handling of optional values in dynamic specs using Mapping types
 
 ## Project Structure
 
@@ -96,35 +127,27 @@ The system is:
 │   ├── logs/           # LLM interaction logs (JSONL)
 │   └── README.md       # Web app documentation
 ├── scrape/             # Web scraper for bike-components.de
-│   ├── __init__.py     # Package init with convenient exports
-│   ├── logs/           # Scraper operation logs (JSONL)
-│   ├── config.py       # Configuration, URLs, delays, retry settings
-│   ├── models.py       # Data models (Product dataclass)
-│   ├── scraper.py      # Scraping logic with pagination and retries
-│   ├── db.py           # SQLite database schema and helpers
-│   ├── html_utils.py   # HTML parsing
-│   ├── csv_utils.py    # CSV export/import
-│   ├── workflows.py    # High-level scraping workflows
-│   ├── cli.py          # Command-line interface
-│   ├── discover_fields.py    # Auto-discover spec fields
-│   ├── discover_categories.py # Auto-discover categories
-│   ├── view_data.py          # HTML data viewer for scrape status
-│   ├── logging_config.py     # Structured JSONL logging
-│   ├── shutdown.py           # Graceful shutdown handling
-│   ├── url_validation.py     # URL security validation
-│   └── README.md       # Scraper documentation
-├── grounded_demo/      # AI recommendation demo (CLI)
-│   ├── demo.py         # Main demo script
-│   ├── catalog.py      # Product context building
-│   └── README.md       # Demo documentation
-├── data/               # Product data
-│   ├── bc_products_sample.csv  # Scraped bike components (CSV)
-│   ├── products.db             # SQLite database (primary storage)
-│   ├── discovered_categories.json  # Category hierarchy from sitemap
-│   └── scrape_data_view.html   # Generated data viewer report
-├── .env.example        # Environment template (copy to .env)
-├── requirements.txt    # Python dependencies
-└── README.md           # This file
+│   ├── __init__.py              # Package init with convenient exports
+│   ├── cli.py                   # Command-line interface
+│   ├── scraper.py               # Core scraping logic with retries
+│   ├── db.py                    # SQLite database schema and helpers
+│   ├── html_utils.py            # HTML parsing and dynamic specs mapping
+│   ├── models.py                # Data models (Product dataclass)
+│   ├── config.py                # Configuration, URLs, delays, retry settings
+│   ├── csv_utils.py             # CSV export/import
+│   ├── workflows.py             # High-level scraping workflows (discover-scrape)
+│   ├── discover_fields.py       # Auto-discover spec fields from products
+│   ├── discover_categories.py   # Auto-discover categories from sitemap
+│   ├── backfill_dynamic_specs.py # Populate dynamic specs for existing products
+│   ├── view_data.py             # HTML data viewer for scrape status
+│   ├── logging_config.py        # Structured JSONL logging
+│   ├── shutdown.py              # Graceful shutdown signal handling
+│   ├── url_validation.py        # URL security validation
+│   ├── tests/                   # Test suite for scraper
+│   │   ├── test_dynamic_specs.py       # Type-safe dynamic specs tests
+│   │   └── test_pagination_extraction.py
+│   ├── logs/                    # Scraper operation logs (JSONL)
+│   └── README.md                # Scraper documentation
 ```
 
 ## Key Features
@@ -190,17 +213,6 @@ python -m scrape.discover_categories --filter components
 python -m scrape.discover_fields cassettes --sample-size 20
 ```
 
-### Grounded AI Demo (`grounded_demo/`)
-
-CLI-based LLM recommendations grounded in real product data:
-- **Grounding pattern** - Only suggests products from catalog
-- **Reasoning** - Explains why products fit the user's needs
-- **Structured output** - JSON summary for downstream use
-
-```bash
-python grounded_demo/demo.py
-```
-
 ## Makefile Commands
 
 A `Makefile` is provided for common tasks:
@@ -220,25 +232,25 @@ make pipeline-overnight SUPER=components        # Slow overnight mode
 ```
 
 **Key workflows:**
-- `make refresh-data` - One command to update product data and prepare for commit
+- `make refresh-data` - Update product data and prepare for commit
 - `make pipeline SUPER=components/drivetrain` - Discover and scrape all subcategories
 - `make pipeline-overnight SUPER=components` - Long-running unattended scrape
 
-## Setup
+## Getting Started
 
 ### Prerequisites
-- Python 3.8+
-- OpenAI API key (for AI features)
+- Python 3.10+
+- OpenAI API key (for AI-powered recommendations)
 - Make (optional, for convenience commands)
 
 ### Quick Start
 
 1. **Clone & install**
    ```bash
-   git clone <repo>
+   git clone https://github.com/tim06927/Daiy.git
    cd Daiy
    python -m venv .venv
-   source .venv/bin/activate
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    make install  # or: pip install -r requirements.txt
    ```
 
@@ -248,76 +260,125 @@ make pipeline-overnight SUPER=components        # Slow overnight mode
    # Edit .env and add your OPENAI_API_KEY
    ```
 
-3. **Run the web app**
+3. **Start the web app**
    ```bash
-   python web/app.py
+   make run
+   # or: python web/app.py
    # Visit http://127.0.0.1:5000
    ```
 
-4. **(Optional) Scrape fresh data**
-   ```bash
-   python scrape/cli.py
-   ```
+## Running the Web App
 
-## Sample Data and Database
+The main interface for user interaction:
 
-Product data is sourced from bike-components.de via the scraper. Data includes:
-- Product name, brand, price
-- Product image URLs
-- Technical specifications (category-specific normalized fields)
-- Product URLs
-- Category classification
+```bash
+python web/app.py
+```
 
-**Storage approach:**
-- **SQLite database** (primary) - Normalized schema at `data/products.db`
-- **CSV export** - For easy viewing and sharing
-- The web app can load from either CSV or database
+Then visit `http://127.0.0.1:5000` in your browser and:
+1. Describe your bike upgrade project in plain text
+2. Upload an optional bike photo (for visual analysis)
+3. Answer any clarification questions the AI generates
+4. Review AI recommendations with per-product explanations
+5. Click product links to visit bike-components.de
 
-**Database schema:**
-- `products` - Core product info (name, URL, image, price, etc.)
-- `chain_specs` - Chain-specific fields (gearing, links, closure type)
-- `cassette_specs` - Cassette-specific fields (gradation, material)
-- `glove_specs`, `tool_specs` - Other category tables
-- `scrape_state` - Pagination tracking for resumable scrapes
+**Features:**
+- Natural language input with optional image upload
+- Smart clarification - AI asks targeted questions about unclear specs
+- Grounded recommendations - Only real products from inventory
+- Per-product explanations - Why each product fits your needs
+- Direct links to product pages
 
-## Workflow
+## Scraping Fresh Data
 
-1. **Scrape** - Run scraper to fetch fresh product data
-2. **Store** - Products are saved to CSV
-3. **Describe** - User describes their bike upgrade project
-4. **Infer** - AI infers speed/use-case or asks clarifying questions
-5. **Filter** - Select candidate products matching constraints
-6. **Recommend** - LLM picks best products with explanations
-7. **Output** - Product cards with install instructions
+The scraper fetches product data from bike-components.de and stores it in SQLite:
 
-## Example: Cassette Upgrade
+### Quick scrape (incremental - skip existing products)
+```bash
+python -m scrape.cli
+```
 
-Input:
-> "I have an 11-speed road bike and want better climbing range"
+### Full refresh (rescrape everything)
+```bash
+python -m scrape.cli --mode full --max-pages 10
+```
 
-AI Response:
-- **Diagnosis**: "You want to improve climbing on your 11-speed road bike"
-- **Best cassette**: Shimano CS-HG700-11 11-34T (wider range)
-- **Best chain**: KMC X11 (durable, compatible)
-- **Tools needed**: Cassette lockring tool, chain breaker
-- **Why it fits**: Matches your 11-speed drivetrain, 11-34 provides wider climbing range
+### Overnight mode (extra-slow delays for unattended runs)
+```bash
+python -m scrape.cli --overnight --max-pages 100
+```
 
-## Documentation
+### Discover and scrape a category tree
+```bash
+# Discover all subcategories under components/drivetrain
+python -m scrape.cli --discover-scrape components/drivetrain --dry-run
 
-- **[Web App README](web/README.md)** - Flask app setup, API, and UI details
-- **[Scraper README](scrape/README.md)** - Scraping configuration and usage
-- **[Grounded Demo README](grounded_demo/README.md)** - CLI demo customization
+# Scrape all discovered subcategories
+python -m scrape.cli --discover-scrape components/drivetrain --max-pages 2
+```
+
+### Discover fields for a category
+```bash
+python -m scrape.discover_fields cassettes --sample-size 20
+```
+
+**Scraper features:**
+- Polite scraping with random delays
+- Exponential backoff on server errors (429, 5xx)
+- Graceful Ctrl+C shutdown (auto-saves progress)
+- Pagination support (follows all pages in a category)
+- Automatic field discovery and storage
+- SQLite storage with type-safe dynamic specs
+- CSV export for easy viewing
+- Comprehensive JSONL logging
+
+## Data Storage
+
+Product data is stored in two formats:
+
+### SQLite Database (Primary)
+Located at `data/products.db` with schema:
+
+```
+products (core product info)
+├── id, category, name, url, brand, price
+├── image_url, sku, breadcrumbs, description
+├── specs_json (raw scraped specs)
+└── created_at, updated_at
+
+dynamic_specs (flexible spec storage)
+├── product_id, category, field_name, field_value
+└── Stores normalized specs for any category
+
+discovered_fields (field discovery results)
+├── category, field_name, original_labels
+├── frequency, sample_values
+└── discovered_at
+
+[Legacy category-specific tables]
+├── chain_specs (chains)
+├── cassette_specs (cassettes)
+├── glove_specs (gloves)
+└── tool_specs (tools)
+```
+
+### CSV Export
+Export database to CSV with flattened fields:
+```bash
+python -m scrape.csv_utils --export data/bc_products.csv
+```
 
 ## Architecture Decisions
 
-- **Single-file frontend** - All CSS/JS inline in index.html for deployment simplicity
-- **SQLite database** - Normalized schema with category-specific spec tables
+- **Modular frontend** - Separate CSS/JS files for maintainability (153-line HTML template)
+- **Type-safe dynamic specs** - Flexible product field storage using `Mapping[str, Optional[str]]`
+- **SQLite database** - Normalized schema with category-specific and dynamic spec tables
 - **CSV export** - For easy viewing, sharing, and backward compatibility
-- **Category spec registry** - Flexible field mapping per product category
+- **Category spec registry** - Flexible field mapping per product category in [scrape/config.py](scrape/config.py)
 - **Grounding pattern** - LLM can only recommend real products from inventory
-- **Smart clarification** - AI infers missing info before asking user
+- **Smart clarification** - AI infers missing specs before asking user (confidence-based)
 - **Per-product explanations** - Each recommendation includes "why it fits"
-- **gpt-5-mini** - Cost-effective model for recommendations
+- **Comprehensive logging** - JSONL logs for all interactions with HTML viewer
 
 ## Environment Variables
 
@@ -335,13 +396,60 @@ See [.env.example](.env.example) for all available options:
 | `MAX_CHAINS` | No | Product limit (default: 5) |
 | `MAX_TOOLS` | No | Product limit (default: 5) |
 
-## Future Roadmap
+## Documentation
+
+- **[Web App README](web/README.md)** - Three-phase flow, API endpoints, UI details
+- **[Web FLOW.md](web/FLOW.md)** - Sequence diagrams and decision trees
+- **[Frontend Architecture](web/static/README.md)** - Modular CSS/JS structure
+- **[Scraper README](scrape/README.md)** - Scraping workflows, configuration, field discovery
+- **[Pagination Details](PAGINATION.md)** - Pagination extraction and handling
+- **[Multi-Category Support](docs/MULTI_CATEGORY_SUPPORT.md)** - Product-to-category relationships
+
+## Testing
+
+Both web and scraper modules include comprehensive test suites:
+
+```bash
+# Run all tests
+python -m pytest web/tests/ scrape/tests/ -v
+
+# Run specific test
+python -m pytest web/tests/test_model_clarification.py -v
+
+# Run with coverage
+python -m pytest --cov=web --cov=scrape
+```
+
+**Test coverage includes:**
+- LLM prompt generation and response parsing
+- Dynamic clarification questions
+- Product candidate selection
+- Vision/image processing
+- Dynamic specs type safety
+- Pagination extraction
+- Field discovery algorithms
+
+## Contributing
+
+This project uses:
+- **GitHub Copilot** for development assistance
+- **pytest** for testing
+- **SQLite** for data storage
+- **Flask** for web framework
+- **OpenAI API** for LLM capabilities
+
+## License
+
+[MIT License](LICENSE) (or specify your license)
+
+## Future Enhancements
 
 - [ ] Multi-language support
 - [ ] Price history and trend tracking
-- [ ] User preference learning
-- [ ] Performance metrics (weight, durability)
-- [ ] Compatibility checking between components
+- [ ] User preference persistence
+- [ ] Performance metrics (weight, durability, compatibility)
 - [ ] Community reviews integration
 - [ ] Automatic schema generation from discovered fields
 - [ ] Multi-threaded/async scraping
+- [ ] GraphQL API for product data
+- [ ] Mobile app version
