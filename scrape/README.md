@@ -8,26 +8,39 @@ This scraper extracts product details from any bike component category on the si
 
 ## Features
 
+### Core Scraping
 - **Polite scraping** - Respects rate limits with random delays between requests
 - **Overnight mode** - Extra-slow delays (10-30s) for unattended background runs
 - **Exponential backoff** - Automatic retries with increasing delays on server errors
 - **Session reuse** - HTTP session persistence for efficient connections
 - **Graceful shutdown** - Ctrl+C cleanly saves progress (double-press to force quit)
-- **Structured logging** - JSONL log files for debugging and auditing
-- **URL validation** - Security checks to prevent SSRF vulnerabilities
-- **Pagination support** - Automatically follows pagination to scrape all products in a category (see [PAGINATION.md](../PAGINATION.md))
+- **Error resilience** - Continues scraping even if individual products fail to parse
+
+### Data Storage & Processing
 - **SQLite database** - Normalized storage with separate tables for category-specific specs
-- **Dynamic specs** - Automatic field discovery and storage for any category (no schema changes needed)
+- **Dynamic specs system** - Flexible field discovery and storage for any category (no schema changes needed)
+- **Type-safe specs** - Proper handling of optional/None values in dynamic specs
+- **Multi-category products** - Products can belong to multiple categories without duplication
+- **CSV export** - Export database to CSV with flattened category-specific fields (includes dynamic specs)
+
+### Product Discovery & Enhancement
+- **Pagination support** - Automatically follows pagination to scrape all products in a category (see [PAGINATION.md](../PAGINATION.md))
+- **Product images** - Extracts primary product image URL via og:image meta tag
+- **Auto-discovery tools** - Discover categories from sitemap and fields from product sampling
+- **Automatic field persistence** - Discovered fields are saved to database and reused across scraping sessions
+- **Discover-scrape workflow** - Select a parent category, discover subcategories, analyze fields, and scrape all in one command
+
+### Configuration & Flexibility
+- **Category spec registry** - Flexible field mapping per category (chains, cassettes, etc.) in [config.py](config.py)
 - **Incremental mode (default)** - Skips products already present in the database
 - **Full refresh option** - Rescrape everything on demand
 - **Robust parsing** - Handles various HTML structures with fallbacks
-- **Product images** - Extracts primary product image URL via og:image meta tag
-- **Category spec registry** - Flexible field mapping per category (chains, cassettes, etc.)
-- **Auto-discovery tools** - Discover categories from sitemap and fields from product sampling
-- **Discover-scrape workflow** - Select a parent category, discover subcategories, analyze fields, and scrape all in one command
-- **Automatic field persistence** - Discovered fields are saved to database and reused across scraping sessions
-- **CSV export** - Export database to CSV with flattened category-specific fields (includes dynamic specs)
-- **Error resilience** - Continues scraping even if individual products fail to parse
+- **URL validation** - Security checks to prevent SSRF vulnerabilities
+
+### Logging & Debugging
+- **Structured logging** - JSONL log files for debugging and auditing
+- **HTML data viewer** - Visual inspection of scraped data and category coverage
+- **Comprehensive test suite** - Unit tests for dynamic specs, pagination, and field discovery
 
 ## Project Structure
 

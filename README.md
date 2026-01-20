@@ -1,48 +1,47 @@
 # Daiy
 
-## Current Status (Dec 30, 2025)
+## Current Status (Jan 20, 2026)
 
-**Major Prompt Rework & Frontend Restructuring - Production-Ready Architecture**
+**Type-Safe Dynamic Specs System & Production-Ready Architecture**
 
-Just completed significant improvements to both backend and frontend:
+Recent improvements focused on code quality and robustness:
 
-### Backend: LLM Prompt Flow (Previously completed)
+### Backend Enhancements
+- ✅ **Fixed type invariance in dynamic specs** - Proper handling of `Mapping[str, Optional[str]]` for flexible product field storage
+- ✅ **Robust None-value filtering** - Dynamic specs system skips None values internally, simplifying call sites
+- ✅ **Type-safe imports** - All functions properly annotated with Mapping types for covariance
+
+### Three-Phase LLM Flow (Complete)
 1. **Job Identification** - Generates step-by-step instructions with `[category_key]` placeholders
-2. **Clarification** - Simplified to only ask LLM-identified unclear specs (no hardcoded lists)
-3. **Recommendation** - Replaces placeholders with actual products and provides reasoning
+2. **Clarification** - LLM-generated questions for specs with confidence < 0.8
+3. **Recommendation** - Replaces placeholders with real products and provides reasoning
 
-### Frontend: Modular Architecture (NEW - Just Completed)
-Restructured monolithic 2200-line `index.html` into maintainable modules:
-
-**Before:** Single `index.html` (2199 lines - CSS + JS + HTML)  
-**After:** Clean separation into 10 focused files:
-- **3 CSS modules** (base, components, products) - 1190 lines
-- **7 JavaScript modules** (config, state, image, api, clarification, products, main) - 1107 lines  
+### Frontend: Modular Architecture
+Restructured monolithic 2200-line `index.html` into 10 maintainable files:
+- **3 CSS modules** - base, components, products (1190 lines total)
+- **7 JavaScript modules** - config, state, image, api, clarification, products, main (1107 lines total)
 - **Clean HTML template** - 153 lines (93% reduction)
 
-**Benefits:**
-- ✅ **Maintainable** - Each module has a single responsibility
-- ✅ **Collaborative** - Multiple developers can work in parallel
-- ✅ **Debuggable** - Browser DevTools shows precise file/line numbers
-- ✅ **Performant** - Better caching, non-blocking CSS, optimized load order
-- ✅ **Documented** - Comprehensive architecture guide in `/web/static/README.md`
+### Quality & Testing
+- ✅ **Comprehensive test suite** - Web (11+ tests) and scraper (11+ tests) with fixtures
+- ✅ **Dynamic field discovery** - Automatic field detection from product data
+- ✅ **Multi-category support** - Products belong to multiple categories with proper deduplication
+- ✅ **Logging & debugging** - JSONL logs with HTML viewer for all interactions
 
-See [RESTRUCTURING_SUMMARY.md](RESTRUCTURING_SUMMARY.md) for full details of the frontend refactoring.
-
-### Key Improvements (Full Stack)
+### Key Capabilities
 - ✅ All clarification questions are **dynamic** and **LLM-generated**
-- ✅ **Multi-category support** - Products can belong to multiple categories (no duplicates or missing items)
-- ✅ **Comprehensive logging** - User inputs, clarifications, LLM calls/responses
-- ✅ **HTML log viewer** - Sessions organized with filters and collapsible sections
-- ✅ **Modular frontend** - Separate CSS/JS files for easy maintenance
-- ✅ **Clear architecture** - Three-phase LLM flow with proper separation of concerns
-- ✅ **Better documentation** - FLOW.md, static/README.md, architecture diagrams
+- ✅ **Multi-category products** - No duplicates or missing items
+- ✅ **Comprehensive logging** - User inputs, clarifications, LLM calls/responses tracked
+- ✅ **HTML log viewer** - Interactive session browser with filters
+- ✅ **Modular frontend** - Separate concerns for easy maintenance
+- ✅ **Vision-enabled** - Image upload for bike photo analysis
+- ✅ **Grounded recommendations** - Only real products, no hallucinations
 
 ### For Developers
-- Backend flow: [web/README.md](web/README.md) and [web/FLOW.md](web/FLOW.md)
+- Backend flow: [web/README.md](web/README.md) | [web/FLOW.md](web/FLOW.md)
 - Frontend architecture: [web/static/README.md](web/static/README.md)
+- Scraper docs: [scrape/README.md](scrape/README.md) | [PAGINATION.md](PAGINATION.md)
 - Multi-category support: [docs/MULTI_CATEGORY_SUPPORT.md](docs/MULTI_CATEGORY_SUPPORT.md)
-- Restructuring details: [RESTRUCTURING_SUMMARY.md](RESTRUCTURING_SUMMARY.md)
 
 ---
 
