@@ -185,10 +185,13 @@ class RecipeInstructions:
         # Check if all step references are in ingredients
         # Look for quoted strings or unquoted nouns (simple heuristic)
         for step in self.steps:
-            # Try to find references to ingredients
-            for ingredient in ingredient_names:
-                # This is a simple check - could be enhanced
-                pass
+            # Heuristic: treat quoted phrases as explicit ingredient references
+            quoted_refs = re.findall(r'["\']([^"\']+)["\']', step)
+            for ref in quoted_refs:
+                if ref not in ingredient_names:
+                    errors.append(
+                        f"Step references unknown ingredient '{ref}' in: {step}"
+                    )
         
         return (len(errors) == 0, errors)
 
