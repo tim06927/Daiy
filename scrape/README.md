@@ -24,7 +24,7 @@ This scraper extracts product details from any bike component category on the si
 - **CSV export** - Export database to CSV with flattened category-specific fields (includes dynamic specs)
 
 ### Product Discovery & Enhancement
-- **Pagination support** - Automatically follows pagination to scrape all products in a category (see [PAGINATION.md](../PAGINATION.md))
+- **Pagination support** - Automatically follows pagination to scrape all products in a category
 - **Product images** - Extracts primary product image URL via og:image meta tag
 - **Auto-discovery tools** - Discover categories from sitemap and fields from product sampling
 - **Automatic field persistence** - Discovered fields are saved to database and reused across scraping sessions

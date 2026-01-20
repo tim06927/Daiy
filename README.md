@@ -40,8 +40,7 @@ Restructured monolithic 2200-line `index.html` into 10 maintainable files:
 ### For Developers
 - Backend flow: [web/README.md](web/README.md) | [web/FLOW.md](web/FLOW.md)
 - Frontend architecture: [web/static/README.md](web/static/README.md)
-- Scraper docs: [scrape/README.md](scrape/README.md) | [PAGINATION.md](PAGINATION.md)
-- Multi-category support: [docs/MULTI_CATEGORY_SUPPORT.md](docs/MULTI_CATEGORY_SUPPORT.md)
+- Scraper docs: [scrape/README.md](scrape/README.md)
 
 ---
 
@@ -402,8 +401,7 @@ See [.env.example](.env.example) for all available options:
 - **[Web FLOW.md](web/FLOW.md)** - Sequence diagrams and decision trees
 - **[Frontend Architecture](web/static/README.md)** - Modular CSS/JS structure
 - **[Scraper README](scrape/README.md)** - Scraping workflows, configuration, field discovery
-- **[Pagination Details](PAGINATION.md)** - Pagination extraction and handling
-- **[Multi-Category Support](docs/MULTI_CATEGORY_SUPPORT.md)** - Product-to-category relationships
+- **[Web Tests README](web/tests/README.md)** - Test fixture documentation
 
 ## Testing
 
