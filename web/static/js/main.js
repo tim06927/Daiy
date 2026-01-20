@@ -98,41 +98,88 @@ function showError(message) {
 function showEmptyCategoriesError(data) {
   elements.loadingState.classList.remove('active');
   elements.productCategories.classList.add('active');
-  
-  // Build error message
+
   const emptyCategories = data.empty_categories || [];
   const availableCategories = data.available_categories || [];
   const instructions = data.instructions || [];
-  
-  let errorHTML = `
-    <div class="error-panel">
-      <h3>⚠️ Missing Product Data</h3>
-      <p><strong>${data.message}</strong></p>
-      
-      <div class="diagnostic-info">
-        <h4>Categories Needed But Empty:</h4>
-        <ul>
-          ${emptyCategories.map(cat => `<li><code>${cat}</code></li>`).join('')}
-        </ul>
-        
-        ${availableCategories.length > 0 ? `
-        <h4>Available Categories:</h4>
-        <ul>
-          ${availableCategories.map(cat => `<li><code>${cat}</code></li>`).join('')}
-        </ul>
-        ` : ''}
-        
-        <h4>Your Project Steps:</h4>
-        <ol>
-          ${instructions.map(step => `<li>${step}</li>`).join('')}
-        </ol>
-        
-        <p class="hint">💡 ${data.hint}</p>
-      </div>
-    </div>
-  `;
-  
-  elements.categoriesContainer.innerHTML = errorHTML;
+
+  // Clear any existing content
+  elements.categoriesContainer.innerHTML = '';
+
+  // Create error panel container
+  const panel = document.createElement('div');
+  panel.className = 'error-panel';
+
+  // Title
+  const title = document.createElement('h3');
+  title.textContent = '⚠️ Missing Product Data';
+  panel.appendChild(title);
+
+  // Main message
+  const messageP = document.createElement('p');
+  const messageStrong = document.createElement('strong');
+  messageStrong.textContent = data.message || '';
+  messageP.appendChild(messageStrong);
+  panel.appendChild(messageP);
+
+  // Diagnostic info container
+  const diagnosticDiv = document.createElement('div');
+  diagnosticDiv.className = 'diagnostic-info';
+
+  // Empty categories section
+  const emptyHeading = document.createElement('h4');
+  emptyHeading.textContent = 'Categories Needed But Empty:';
+  diagnosticDiv.appendChild(emptyHeading);
+
+  const emptyList = document.createElement('ul');
+  emptyCategories.forEach(cat => {
+    const li = document.createElement('li');
+    const codeEl = document.createElement('code');
+    codeEl.textContent = String(cat);
+    li.appendChild(codeEl);
+    emptyList.appendChild(li);
+  });
+  diagnosticDiv.appendChild(emptyList);
+
+  // Available categories section (optional)
+  if (availableCategories.length > 0) {
+    const availableHeading = document.createElement('h4');
+    availableHeading.textContent = 'Available Categories:';
+    diagnosticDiv.appendChild(availableHeading);
+
+    const availableList = document.createElement('ul');
+    availableCategories.forEach(cat => {
+      const li = document.createElement('li');
+      const codeEl = document.createElement('code');
+      codeEl.textContent = String(cat);
+      li.appendChild(codeEl);
+      availableList.appendChild(li);
+    });
+    diagnosticDiv.appendChild(availableList);
+  }
+
+  // Instructions section
+  const stepsHeading = document.createElement('h4');
+  stepsHeading.textContent = 'Your Project Steps:';
+  diagnosticDiv.appendChild(stepsHeading);
+
+  const stepsList = document.createElement('ol');
+  instructions.forEach(step => {
+    const li = document.createElement('li');
+    li.textContent = String(step);
+    stepsList.appendChild(li);
+  });
+  diagnosticDiv.appendChild(stepsList);
+
+  // Hint text
+  const hintP = document.createElement('p');
+  hintP.className = 'hint';
+  hintP.textContent = '💡 ' + (data.hint || '');
+  diagnosticDiv.appendChild(hintP);
+
+  panel.appendChild(diagnosticDiv);
+
+  elements.categoriesContainer.appendChild(panel);
 }
 
 /**
