@@ -4,7 +4,7 @@ import json
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Set
+from typing import Any, Dict, Generator, List, Optional, Set, Mapping
 
 __all__ = [
     "DEFAULT_DB_PATH",
@@ -567,7 +567,7 @@ def upsert_dynamic_specs(
     db_path: str,
     product_id: int,
     category: str,
-    specs: Dict[str, str],
+    specs: Mapping[str, Optional[str]],
 ) -> None:
     """Insert or update dynamic specs for a product.
     
@@ -578,7 +578,7 @@ def upsert_dynamic_specs(
         db_path: Path to database.
         product_id: ID of the product.
         category: Category key for the product.
-        specs: Dict of {field_name: field_value} to store.
+        specs: Dict of {field_name: field_value} to store. None values are skipped.
     """
     if not specs:
         return
@@ -587,6 +587,10 @@ def upsert_dynamic_specs(
         cursor = conn.cursor()
         
         for field_name, field_value in specs.items():
+            # Skip None values - these occur when a field mapping doesn't find a match
+            if field_value is None:
+                continue
+            
             cursor.execute("""
                 INSERT INTO dynamic_specs (product_id, category, field_name, field_value)
                 VALUES (?, ?, ?, ?)

@@ -57,7 +57,7 @@ def load_catalog(path: str = CSV_PATH) -> pd.DataFrame:
     Returns:
         DataFrame with parsed specs, derived speed, and application.
     """
-    df = pd.read_csv(path)
+    df = pd.read_csv(path, dtype=str, low_memory=False)
 
     # Parse specs JSON
     if "specs" in df.columns:
