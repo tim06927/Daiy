@@ -577,6 +577,74 @@
   font-size: 0.9rem;
 }
 
+/* ========== ERROR PANEL (Empty Categories) ========== */
+.error-panel {
+  background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
+  border: 2px solid #fc8181;
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.error-panel h3 {
+  color: #c53030;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.error-panel > p {
+  color: #742a2a;
+  margin: 0.5rem 0 1rem 0;
+}
+
+.diagnostic-info {
+  background: rgba(255, 255, 255, 0.8);
+  border-left: 4px solid #f56565;
+  border-radius: 0.25rem;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.diagnostic-info h4 {
+  color: #c53030;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+}
+
+.diagnostic-info ul {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.diagnostic-info li {
+  margin: 0.25rem 0;
+  color: #742a2a;
+  font-size: 0.85rem;
+}
+
+.diagnostic-info code {
+  background: #fef5f5;
+  border: 1px solid #feb2b2;
+  color: #c53030;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.125rem;
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+.hint {
+  background: #fffbeb;
+  border-left: 4px solid #f59e0b;
+  padding: 0.75rem;
+  margin-top: 1rem;
+  border-radius: 0.25rem;
+  font-size: 0.85rem;
+  color: #92400e;
+}
+
+.hint strong {
+  color: #b45309;
+}
+
 /* ========== INSTRUCTIONS ========== */
 .instructions-content {
   font-size: 0.8rem;

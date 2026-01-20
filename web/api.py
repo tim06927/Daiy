@@ -402,6 +402,21 @@ def recommend() -> Union[Tuple[Response, int], Response]:
         "candidates_count": {cat: len(prods) for cat, prods in candidates.items()},
     })
     
+    # Check for empty categories (categories in the instructions but with no products)
+    empty_categories = [cat for cat in valid_categories if not candidates.get(cat)]
+    if empty_categories:
+        logger.warning(f"Empty product categories needed: {empty_categories}")
+        return jsonify({
+            "need_clarification": False,
+            "error": "empty_categories",
+            "message": "Some of the product categories needed for your project have no products available.",
+            "empty_categories": empty_categories,
+            "job": job.to_dict(),
+            "instructions": job.instructions,
+            "available_categories": [cat for cat in valid_categories if candidates.get(cat)],
+            "hint": "This typically means the product database needs to be refreshed or expanded.",
+        }), 200
+    
     # Step 4: Build recommendation context and prompt
     context = build_recommendation_context(
         problem_text=problem_text,

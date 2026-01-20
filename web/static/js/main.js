@@ -93,6 +93,49 @@ function showError(message) {
 }
 
 /**
+ * Show empty categories error with diagnostic information
+ */
+function showEmptyCategoriesError(data) {
+  elements.loadingState.classList.remove('active');
+  elements.productCategories.classList.add('active');
+  
+  // Build error message
+  const emptyCategories = data.empty_categories || [];
+  const availableCategories = data.available_categories || [];
+  const instructions = data.instructions || [];
+  
+  let errorHTML = `
+    <div class="error-panel">
+      <h3>⚠️ Missing Product Data</h3>
+      <p><strong>${data.message}</strong></p>
+      
+      <div class="diagnostic-info">
+        <h4>Categories Needed But Empty:</h4>
+        <ul>
+          ${emptyCategories.map(cat => `<li><code>${cat}</code></li>`).join('')}
+        </ul>
+        
+        ${availableCategories.length > 0 ? `
+        <h4>Available Categories:</h4>
+        <ul>
+          ${availableCategories.map(cat => `<li><code>${cat}</code></li>`).join('')}
+        </ul>
+        ` : ''}
+        
+        <h4>Your Project Steps:</h4>
+        <ol>
+          ${instructions.map(step => `<li>${step}</li>`).join('')}
+        </ol>
+        
+        <p class="hint">💡 ${data.hint}</p>
+      </div>
+    </div>
+  `;
+  
+  elements.categoriesContainer.innerHTML = errorHTML;
+}
+
+/**
  * Show results
  */
 function showResults(data) {
@@ -153,6 +196,12 @@ async function handleSearch() {
 
   try {
     const data = await fetchRecommendations(problemText);
+
+    // Check for empty categories error
+    if (data.error === "empty_categories") {
+      showEmptyCategoriesError(data);
+      return;
+    }
 
     if (data.need_clarification) {
       showClarification(data);
