@@ -1,6 +1,5 @@
 """Tests for recipe format in JobIdentification."""
 
-import pytest
 from web.job_identification import (
     JobIdentification,
     RecipeInstructions,
