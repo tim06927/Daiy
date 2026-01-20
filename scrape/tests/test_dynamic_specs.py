@@ -4,7 +4,6 @@ Tests the new flexible spec storage that automatically normalizes specs
 for any category based on discovered field mappings.
 """
 
-import json
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List
