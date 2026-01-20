@@ -172,13 +172,18 @@ Also handles:
 ### Supporting Modules
 
 #### `categories.py`
-Product category system:
-- `PRODUCT_CATEGORIES` - Dict mapping category_key → config
-  - display_name, description, fit_dimensions
+Product category system with **dynamic discovery**:
+- `PRODUCT_CATEGORIES` - Dict mapping category_key → config (auto-generated from CSV)
+  - display_name, description, fit_dimensions, product_count
+- `discover_categories_from_catalog()` - Reads CSV at startup, extracts all unique categories
+- `CATEGORY_OVERRIDES` - Special handling for drivetrain (gearing-based filtering)
+- `CATEGORY_DIMENSION_PATTERNS` - Pattern-based inference of fit dimensions
 - `SHARED_FIT_DIMENSIONS` - Common specs across categories
   - gearing, use_case, brake_rotor_diameter, freehub_compatibility, etc.
   - Each has: prompt, hint, options
-- Helper functions for category validation and clarification field retrieval
+- `refresh_categories()` - Reload categories at runtime after scraping
+
+**Note:** Categories are discovered automatically from the product database (~205 categories). No manual category registration needed.
 
 #### `candidate_selection.py`
 Product filtering for Phase 3:

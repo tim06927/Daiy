@@ -292,10 +292,23 @@ Key prompt features:
 |------|----------------|
 | `api.py` | Orchestrates flow, routes, response building |
 | `job_identification.py` | LLM call #1: generate instructions & identify unclear specs |
-| `categories.py` | Category definitions, required_fit dimensions |
+| `categories.py` | **Dynamic** category registry, discovers categories from CSV at startup |
 | `candidate_selection.py` | Filter products by category & fit values |
 | `prompts.py` | Build LLM prompts for recommendation |
 | `templates/index.html` | Frontend: clarification UI, product display |
+
+## Category System
+
+Categories are **dynamically discovered** from the product catalog (`bc_products_sample.csv`) at application startup:
+
+1. **Discovery**: `discover_categories_from_catalog()` reads the CSV and extracts unique category keys with product counts
+2. **Fit Dimensions**: Pattern-based inference assigns appropriate fit dimensions (e.g., `saddles` → `["use_case"]`, `chains` → `["gearing", "use_case"]`)
+3. **Overrides**: `CATEGORY_OVERRIDES` dict provides special handling for drivetrain categories that need gearing-based filtering
+4. **Refresh**: `refresh_categories()` can reload categories at runtime (e.g., after scraping new data)
+
+This ensures the LLM always knows about all available product categories without manual synchronization.
+
+**Category count**: ~205 categories covering drivetrain, apparel, saddles, wheels, tools, accessories, etc.
 
 ## Frontend Clarification UI
 

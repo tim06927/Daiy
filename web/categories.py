@@ -1,18 +1,39 @@
 """Product category registry for dynamic recommendation flow.
 
-This module defines available product categories and their fit dimensions,
-enabling the app to handle any combination of categories without hardcoding.
+This module dynamically discovers available product categories from the database
+and provides fit dimensions for filtering. Categories are auto-generated at startup
+from the actual product data, ensuring the LLM always knows about available products.
+
+Special category overrides (e.g., for gearing-based filtering) are defined below
+and merged with auto-discovered categories.
 """
 
+import logging
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+import pandas as pd
+
+# Handle imports for both direct execution and package import
+if __package__ is None or __package__ == "":
+    sys.path.insert(0, str(Path(__file__).parent))
+    from config import CSV_PATH
+else:
+    from .config import CSV_PATH
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "PRODUCT_CATEGORIES",
     "get_category_config",
     "get_all_category_names",
+    "get_all_categories",
     "get_fit_dimensions_for_categories",
     "get_clarification_fields",
+    "get_categories_for_prompt",
     "SHARED_FIT_DIMENSIONS",
+    "refresh_categories",
 ]
 
 
@@ -68,18 +89,12 @@ SHARED_FIT_DIMENSIONS = {
 
 
 # =============================================================================
-# Product Category Definitions
+# Category Override Configs
 # =============================================================================
-# Each category defines:
-#   - display_name: Human-readable name for UI
-#   - description: Short description for job identification context
-#   - fit_dimensions: List of fit dimensions from SHARED_FIT_DIMENSIONS
-#   - required_fit: Dimensions that MUST be clarified before recommendation
-#   - optional_fit: Dimensions that help narrow results but aren't required
-#   - filter_strategy: How to filter products ("strict" = exact match, "fuzzy" = substring)
-#   - max_results: Maximum products to return per category
+# Special configurations for categories that need custom handling (e.g., gearing).
+# These are merged with auto-discovered categories from the database.
 
-PRODUCT_CATEGORIES: Dict[str, Dict[str, Any]] = {
+CATEGORY_OVERRIDES: Dict[str, Dict[str, Any]] = {
     "drivetrain_cassettes": {
         "display_name": "Cassettes",
         "description": "Rear gear clusters for bicycles",
@@ -96,24 +111,6 @@ PRODUCT_CATEGORIES: Dict[str, Dict[str, Any]] = {
         "required_fit": ["gearing"],
         "optional_fit": ["use_case"],
         "filter_strategy": "strict",
-        "max_results": 5,
-    },
-    "drivetrain_tools": {
-        "display_name": "Drivetrain Tools",
-        "description": "Tools for drivetrain maintenance (chain breakers, cassette tools, etc.)",
-        "fit_dimensions": ["use_case"],
-        "required_fit": [],  # Tools are generally universal
-        "optional_fit": ["use_case"],
-        "filter_strategy": "fuzzy",
-        "max_results": 5,
-    },
-    "drivetrain_pedals": {
-        "display_name": "Pedals",
-        "description": "Bicycle pedals including clipless and platform",
-        "fit_dimensions": ["use_case"],
-        "required_fit": [],
-        "optional_fit": ["use_case"],
-        "filter_strategy": "fuzzy",
         "max_results": 5,
     },
     "drivetrain_cranks": {
@@ -134,34 +131,151 @@ PRODUCT_CATEGORIES: Dict[str, Dict[str, Any]] = {
         "filter_strategy": "fuzzy",
         "max_results": 5,
     },
-    "drivetrain_bottom_brackets": {
-        "display_name": "Bottom Brackets",
-        "description": "Bottom bracket bearings and cups",
-        "fit_dimensions": [],
-        "required_fit": [],
-        "optional_fit": [],
-        "filter_strategy": "fuzzy",
-        "max_results": 5,
-    },
-    "lighting_bicycle_lights_battery": {
-        "display_name": "Battery Lights",
-        "description": "Battery-powered bicycle lights",
-        "fit_dimensions": [],
-        "required_fit": [],
-        "optional_fit": [],
-        "filter_strategy": "fuzzy",
-        "max_results": 5,
-    },
-    "lighting_bicycle_lights_dynamo": {
-        "display_name": "Dynamo Lights",
-        "description": "Dynamo-powered bicycle lights",
-        "fit_dimensions": [],
-        "required_fit": [],
-        "optional_fit": [],
-        "filter_strategy": "fuzzy",
-        "max_results": 5,
-    },
 }
+
+
+# =============================================================================
+# Category Key Patterns → Fit Dimensions
+# =============================================================================
+# Patterns to auto-assign fit dimensions based on category key.
+# Order matters - first match wins.
+
+CATEGORY_DIMENSION_PATTERNS = [
+    # Drivetrain components that need gearing
+    (["cassettes", "chains", "chainrings", "cranks", "derailleurs", "shifters"], 
+     ["gearing", "use_case"]),
+    # Apparel needs size and season
+    (["apparel", "jerseys", "jackets", "pants", "shorts", "gloves", "socks"],
+     ["size", "season", "use_case"]),
+    # Footwear needs size
+    (["shoes", "boots"],
+     ["size", "use_case"]),
+    # Components that benefit from use_case filtering
+    (["saddles", "handlebars", "stems", "grips", "pedals", "wheels", "tyres", "tires"],
+     ["use_case"]),
+    # Tools and accessories - usually universal
+    (["tools", "accessories", "bags", "bottles", "pumps", "lights", "locks"],
+     []),
+]
+
+
+def _infer_fit_dimensions(category_key: str) -> List[str]:
+    """Infer appropriate fit dimensions from category key patterns."""
+    key_lower = category_key.lower()
+    for patterns, dimensions in CATEGORY_DIMENSION_PATTERNS:
+        if any(pattern in key_lower for pattern in patterns):
+            return dimensions
+    return []  # Default: no fit dimensions
+
+
+def _generate_display_name(category_key: str) -> str:
+    """Generate human-readable display name from category key."""
+    # Remove common prefixes and convert to title case
+    name = category_key
+    for prefix in ["drivetrain_", "components_", "accessories_", "apparel_", "tools_"]:
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+            break
+    return name.replace("_", " ").title()
+
+
+def _generate_description(category_key: str, product_count: int) -> str:
+    """Generate description from category key."""
+    display = _generate_display_name(category_key)
+    return f"{display} - {product_count} products available"
+
+
+def _create_default_category_config(
+    category_key: str, 
+    product_count: int
+) -> Dict[str, Any]:
+    """Create a default category configuration."""
+    fit_dims = _infer_fit_dimensions(category_key)
+    
+    return {
+        "display_name": _generate_display_name(category_key),
+        "description": _generate_description(category_key, product_count),
+        "fit_dimensions": fit_dims,
+        "required_fit": [],  # Default: no required dimensions
+        "optional_fit": fit_dims,
+        "filter_strategy": "fuzzy",
+        "max_results": 5,
+        "product_count": product_count,  # Track for diagnostics
+    }
+
+
+def discover_categories_from_catalog(csv_path: str = CSV_PATH) -> Dict[str, Dict[str, Any]]:
+    """Discover all categories from the product catalog.
+    
+    Reads the CSV/database and extracts unique categories with product counts.
+    Merges with CATEGORY_OVERRIDES for special handling.
+    
+    Args:
+        csv_path: Path to the product catalog CSV.
+        
+    Returns:
+        Dict mapping category key to category configuration.
+    """
+    categories: Dict[str, Dict[str, Any]] = {}
+    
+    try:
+        # Load catalog (low_memory=False to avoid dtype warnings with many columns)
+        df = pd.read_csv(csv_path, low_memory=False)
+        
+        # Get category counts
+        if "category" not in df.columns:
+            logger.warning("No 'category' column in catalog, using overrides only")
+            return dict(CATEGORY_OVERRIDES)
+        
+        category_counts = df["category"].value_counts().to_dict()
+        
+        logger.info(f"Discovered {len(category_counts)} categories from catalog")
+        
+        # Create config for each category
+        for cat_key, count in category_counts.items():
+            if pd.isna(cat_key) or not cat_key:
+                continue
+                
+            # Use override if available, otherwise generate default
+            if cat_key in CATEGORY_OVERRIDES:
+                config = dict(CATEGORY_OVERRIDES[cat_key])
+                config["product_count"] = count
+            else:
+                config = _create_default_category_config(cat_key, count)
+            
+            categories[cat_key] = config
+        
+        # Add any overrides that aren't in the catalog (shouldn't happen, but safe)
+        for cat_key, config in CATEGORY_OVERRIDES.items():
+            if cat_key not in categories:
+                categories[cat_key] = dict(config)
+                categories[cat_key]["product_count"] = 0
+                
+    except FileNotFoundError:
+        logger.warning(f"Catalog not found at {csv_path}, using overrides only")
+        categories = dict(CATEGORY_OVERRIDES)
+    except Exception as e:
+        logger.error(f"Error discovering categories: {e}, using overrides only")
+        categories = dict(CATEGORY_OVERRIDES)
+    
+    return categories
+
+
+# =============================================================================
+# Initialize Categories at Module Load
+# =============================================================================
+
+PRODUCT_CATEGORIES: Dict[str, Dict[str, Any]] = discover_categories_from_catalog()
+
+
+def refresh_categories(csv_path: str = CSV_PATH) -> None:
+    """Refresh the category registry from the catalog.
+    
+    Call this after updating the product database to pick up new categories.
+    """
+    global PRODUCT_CATEGORIES
+    PRODUCT_CATEGORIES = discover_categories_from_catalog(csv_path)
+    logger.info(f"Refreshed categories: {len(PRODUCT_CATEGORIES)} available")
 
 
 # =============================================================================
@@ -173,7 +287,7 @@ def get_category_config(category: str) -> Optional[Dict[str, Any]]:
     """Get configuration for a specific category.
     
     Args:
-        category: Category key (e.g., "cassettes", "chains").
+        category: Category key (e.g., "saddles_road_saddles", "drivetrain_chains").
         
     Returns:
         Category configuration dict or None if not found.
@@ -188,6 +302,11 @@ def get_all_category_names() -> List[str]:
         List of category keys.
     """
     return list(PRODUCT_CATEGORIES.keys())
+
+
+def get_all_categories() -> List[str]:
+    """Alias for get_all_category_names for API compatibility."""
+    return get_all_category_names()
 
 
 def get_fit_dimensions_for_categories(categories: List[str]) -> Dict[str, Dict[str, Any]]:
@@ -252,13 +371,50 @@ def get_clarification_fields(
     }
 
 
-def get_categories_for_prompt() -> str:
+def get_categories_for_prompt(max_categories: int = 100) -> str:
     """Generate a prompt-friendly description of available categories.
     
+    Groups categories by top-level type for better LLM comprehension.
+    
+    Args:
+        max_categories: Maximum number of categories to include (for token limits).
+        
     Returns:
         Formatted string describing available categories for LLM context.
     """
-    lines = ["Available product categories:"]
+    # Group categories by prefix
+    groups: Dict[str, List[tuple]] = {}
+    
     for key, config in PRODUCT_CATEGORIES.items():
-        lines.append(f"  - {key}: {config['description']}")
+        # Get top-level group (first part of key)
+        parts = key.split("_")
+        group = parts[0] if parts else "other"
+        
+        if group not in groups:
+            groups[group] = []
+        groups[group].append((key, config.get("display_name", key)))
+    
+    # Build prompt with grouped categories
+    lines = ["Available product categories (use exact keys in [brackets]):"]
+    lines.append("")
+    
+    category_count = 0
+    for group_name in sorted(groups.keys()):
+        if category_count >= max_categories:
+            break
+            
+        group_items = groups[group_name]
+        lines.append(f"**{group_name.title()}:**")
+        
+        for key, display_name in sorted(group_items, key=lambda x: x[1]):
+            if category_count >= max_categories:
+                break
+            lines.append(f"  - {key}: {display_name}")
+            category_count += 1
+        
+        lines.append("")
+    
+    if len(PRODUCT_CATEGORIES) > max_categories:
+        lines.append(f"  ... and {len(PRODUCT_CATEGORIES) - max_categories} more categories")
+    
     return "\n".join(lines)
