@@ -42,7 +42,7 @@ DEMO_PASS=your-password
 
 ### 3. Database Setup
 
-The SQLite database will be created automatically on first run from the CSV file.
+The application expects an existing SQLite database file; it is not created automatically from the CSV on first run. You must either commit a prebuilt database to the repo or create it using the build command described in **Option B** below.
 
 **Important**: On Render free tier, the filesystem is ephemeral. To persist data:
 
