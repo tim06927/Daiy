@@ -53,27 +53,6 @@ const categoryMeta = {
 };
 
 /**
- * Convert new product format to legacy format
- */
-function normalizeProduct(item) {
-  // New format has {category, category_display, product, reasoning}
-  if (item.product) {
-    return {
-      category: item.category_display || item.category,
-      category_key: item.category,
-      best: {
-        ...item.product,
-        why_it_fits: item.reasoning || item.product.why_it_fits || ''
-      },
-      alternatives: [],
-      reason: item.reasoning,
-    };
-  }
-  // Legacy format
-  return item;
-}
-
-/**
  * Create a product card element
  */
 function createProductCard(product, isBest, icon) {
@@ -157,9 +136,6 @@ function renderSection(products, sectionTitle, sectionClass, showReason = false)
   
   const categoriesContainer = document.getElementById('categories-container');
   
-  // Normalize products to legacy format
-  const normalizedProducts = products.map(normalizeProduct);
-  
   const sectionDiv = document.createElement('div');
   sectionDiv.className = `product-section ${sectionClass}`;
   
@@ -170,8 +146,14 @@ function renderSection(products, sectionTitle, sectionClass, showReason = false)
     sectionDiv.appendChild(sectionHeader);
   }
   
-  normalizedProducts.forEach((cat) => {
-    const meta = categoryMeta[cat.category_key] || { name: cat.category || 'Products', icon: '📦' };
+  products.forEach((item) => {
+    // New format has {category, category_display, product, reasoning}
+    const categoryKey = item.category;
+    const categoryDisplay = item.category_display || item.category;
+    const product = item.product;
+    const reasoning = item.reasoning;
+    
+    const meta = categoryMeta[categoryKey] || { name: categoryDisplay || 'Products', icon: '📦' };
     
     const section = document.createElement('div');
     section.className = 'category-section';
@@ -179,8 +161,8 @@ function renderSection(products, sectionTitle, sectionClass, showReason = false)
     const header = document.createElement('div');
     header.className = 'category-header';
     let headerContent = `<span class="category-name">${meta.icon} ${meta.name}</span>`;
-    if (showReason && cat.reason) {
-      headerContent += `<span class="category-reason">${cat.reason}</span>`;
+    if (showReason && reasoning) {
+      headerContent += `<span class="category-reason">${reasoning}</span>`;
     }
     header.innerHTML = headerContent;
     section.appendChild(header);
@@ -188,35 +170,14 @@ function renderSection(products, sectionTitle, sectionClass, showReason = false)
     const productsDiv = document.createElement('div');
     productsDiv.className = 'category-products';
     
-    // Best product
-    if (cat.best) {
-      const bestCard = createProductCard(cat.best, true, meta.icon);
-      productsDiv.appendChild(bestCard);
-    }
-    
-    // Alternatives
-    if (cat.alternatives && cat.alternatives.length > 0) {
-      const altSection = document.createElement('div');
-      altSection.className = 'alternatives-section';
-      
-      const toggleBtn = document.createElement('button');
-      toggleBtn.className = 'alternatives-toggle';
-      toggleBtn.innerHTML = `<span class="arrow">▼</span> ${cat.alternatives.length} alternative${cat.alternatives.length > 1 ? 's' : ''}`;
-      toggleBtn.onclick = () => {
-        toggleBtn.classList.toggle('expanded');
-        altList.classList.toggle('expanded');
+    // Add product with reasoning
+    if (product) {
+      const productWithReasoning = {
+        ...product,
+        why_it_fits: reasoning || product.why_it_fits || 'Compatible with your setup.'
       };
-      altSection.appendChild(toggleBtn);
-      
-      const altList = document.createElement('div');
-      altList.className = 'alternatives-list';
-      cat.alternatives.forEach(alt => {
-        const altCard = createAltProductCard(alt, meta.icon);
-        altList.appendChild(altCard);
-      });
-      altSection.appendChild(altList);
-      
-      productsDiv.appendChild(altSection);
+      const bestCard = createProductCard(productWithReasoning, true, meta.icon);
+      productsDiv.appendChild(bestCard);
     }
     
     section.appendChild(productsDiv);
@@ -233,16 +194,10 @@ function renderProductCategories(categories, sections, primaryProducts, optional
   const categoriesContainer = document.getElementById('categories-container');
   categoriesContainer.innerHTML = '';
   
-  // Use new structured format if available, fall back to legacy
-  if (primaryProducts && primaryProducts.length > 0) {
-    // New structured format
-    renderSection(primaryProducts, '🛠️ Primary Parts & Accessories', 'primary-products');
-    renderSection(toolProducts, '🔧 Tools for This Job', 'tool-products', true);
-    renderSection(optionalProducts, '💡 Optional Extras', 'optional-products', true);
-  } else {
-    // Legacy format - render all as primary
-    renderSection(categories, '🛠️ Primary Parts & Accessories', 'primary-products');
-  }
+  // Render new structured format
+  renderSection(primaryProducts, '🛠️ Primary Parts & Accessories', 'primary-products');
+  renderSection(toolProducts, '🔧 Tools for This Job', 'tool-products', true);
+  renderSection(optionalProducts, '💡 Optional Extras', 'optional-products', true);
 }
 
 /**

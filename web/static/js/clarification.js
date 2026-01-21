@@ -151,22 +151,6 @@ function showOtherInputGeneric(dim, btn) {
 }
 
 /**
- * Legacy functions for backward compatibility
- */
-function selectSpeed(speed, btn) {
-  selectDimension('gearing', speed, btn);
-}
-
-function selectUseCase(useCase, btn) {
-  selectDimension('use_case', useCase, btn);
-}
-
-function showOtherInput(type, btn) {
-  const dim = type === 'speed' ? 'gearing' : 'use_case';
-  showOtherInputGeneric(dim, btn);
-}
-
-/**
  * Update submit button visibility based on answered questions
  */
 function updateSubmitButton() {
