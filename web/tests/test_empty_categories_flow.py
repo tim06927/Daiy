@@ -109,7 +109,7 @@ def test_empty_categories_frontend_handler():
     assert "Missing Product Data" in error_html
     assert "drivetrain_tools" in error_html
     assert "cassettes" in error_html
-    assert "drivetrain_tools" in error_html
+    assert "cassette_tools" in error_html
     assert "Use [drivetrain_tools]" in error_html
 
 
