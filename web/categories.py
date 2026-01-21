@@ -213,7 +213,11 @@ def discover_categories_from_catalog() -> Dict[str, Dict[str, Any]]:
     Returns:
         Dict mapping category key to category configuration.
     """
-    from .catalog import get_categories, get_product_count
+    # Handle imports for both direct execution and package import
+    if __package__ is None or __package__ == "":
+        from catalog import get_categories, get_product_count
+    else:
+        from .catalog import get_categories, get_product_count
     
     categories: Dict[str, Dict[str, Any]] = {}
     
