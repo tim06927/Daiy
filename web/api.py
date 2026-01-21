@@ -389,7 +389,7 @@ def recommend() -> Union[Tuple[Response, int], Response]:
         }), 200
     
     # Step 3: Select products for all referenced categories
-    candidates = select_candidates_dynamic(df, valid_categories, known_values)
+    candidates = select_candidates_dynamic(valid_categories, known_values)
     
     # Log what we found
     log_interaction("candidate_selection", {
