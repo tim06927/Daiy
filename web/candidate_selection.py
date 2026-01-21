@@ -161,7 +161,6 @@ def select_candidates_dynamic(
     Returns:
         Dict mapping category key to list of product dicts.
     """
-    from catalog import query_products
     
     results: Dict[str, List[Dict[str, Any]]] = {}
     
