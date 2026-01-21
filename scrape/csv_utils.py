@@ -113,6 +113,10 @@ def export_db_to_csv(
     Includes all categories each product is associated with via the junction table.
     The 'categories' column will contain pipe-separated list of categories.
     
+    Specs are exported from:
+    - Legacy hardcoded spec tables (category_specs)
+    - New dynamic_specs table (flexible per-category fields)
+    
     Args:
         db_path: Path to the SQLite database
         csv_path: Path for the output CSV file
@@ -122,7 +126,7 @@ def export_db_to_csv(
     Returns:
         Number of products exported
     """
-    from scrape.db import get_all_products, get_connection
+    from scrape.db import get_all_products, get_connection, get_dynamic_specs
 
     products = get_all_products(db_path, category=category, include_specs=include_category_specs)
 
@@ -130,11 +134,14 @@ def export_db_to_csv(
         print("No products to export.")
         return 0
 
-    # Fetch all category associations for each product
+    # Fetch all category associations and dynamic specs for each product
     with get_connection(db_path) as conn:
         cursor = conn.cursor()
         product_categories_map = {}
+        product_dynamic_specs_map = {}
+        
         for product in products:
+            # Get categories
             cursor.execute("""
                 SELECT category FROM product_categories
                 WHERE product_id = ?
@@ -145,20 +152,35 @@ def export_db_to_csv(
             if not categories and product.get("category"):
                 categories = [product["category"]]
             product_categories_map[product["id"]] = categories
+            
+            # Get dynamic specs
+            dynamic_specs = get_dynamic_specs(db_path, product["id"])
+            if dynamic_specs:
+                product_dynamic_specs_map[product["id"]] = dynamic_specs
 
-    # Build fieldnames: core fields + categories + flattened category specs
+    # Build fieldnames: core fields + categories + flattened specs
     core_fields = [
         "id", "category", "categories", "name", "url", "image_url", "brand", "price_text",
         "sku", "breadcrumbs", "description", "specs", "created_at", "updated_at"
     ]
 
-    # Collect all category spec field names
+    # Collect all spec field names (from both legacy and dynamic)
     spec_fields: List[str] = []
     if include_category_specs:
         for product in products:
+            cat = product['category']
+            
+            # Legacy category_specs
             if "category_specs" in product and product["category_specs"]:
                 for key in product["category_specs"].keys():
-                    prefixed_key = f"{product['category']}_{key}"
+                    prefixed_key = f"{cat}_{key}"
+                    if prefixed_key not in spec_fields:
+                        spec_fields.append(prefixed_key)
+            
+            # Dynamic specs
+            if product["id"] in product_dynamic_specs_map:
+                for key in product_dynamic_specs_map[product["id"]].keys():
+                    prefixed_key = f"{cat}_{key}"
                     if prefixed_key not in spec_fields:
                         spec_fields.append(prefixed_key)
 
@@ -168,6 +190,8 @@ def export_db_to_csv(
     rows: List[Dict[str, Any]] = []
     for product in products:
         row: Dict[str, Any] = {}
+        cat = product['category']
+        
         for field in core_fields:
             if field == "categories":
                 # Add pipe-separated list of all categories
@@ -177,10 +201,16 @@ def export_db_to_csv(
             else:
                 row[field] = product.get(field, "")
 
-        # Flatten category specs with prefix
+        # Flatten legacy category specs with prefix
         if include_category_specs and "category_specs" in product and product["category_specs"]:
             for key, value in product["category_specs"].items():
-                prefixed_key = f"{product['category']}_{key}"
+                prefixed_key = f"{cat}_{key}"
+                row[prefixed_key] = value if value else ""
+        
+        # Flatten dynamic specs with prefix (may overlap/override legacy)
+        if include_category_specs and product["id"] in product_dynamic_specs_map:
+            for key, value in product_dynamic_specs_map[product["id"]].items():
+                prefixed_key = f"{cat}_{key}"
                 row[prefixed_key] = value if value else ""
 
         rows.append(row)

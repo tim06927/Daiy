@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, urljoin, urlparse
 
 from bs4 import BeautifulSoup
@@ -19,6 +19,7 @@ __all__ = [
     "extract_total_pages",
     "pick_spec",
     "map_category_specs",
+    "map_dynamic_specs",
     "is_product_url",
 ]
 
@@ -310,6 +311,41 @@ def map_category_specs(category: str, specs: Dict[str, str]) -> Dict[str, Option
     for db_column, html_labels in field_mappings.items():
         result[db_column] = pick_spec(specs, html_labels)
 
+    return result
+
+
+def map_dynamic_specs(
+    specs: Dict[str, str],
+    discovered_fields: List[Dict[str, Any]],
+) -> Dict[str, Optional[str]]:
+    """Map raw specs dict into normalized fields using discovered field mappings.
+    
+    This is the flexible version that uses dynamically discovered fields
+    instead of hardcoded CATEGORY_SPECS.
+    
+    Args:
+        specs: Raw specs dict from HTML {label: value}.
+        discovered_fields: List of discovered field dicts, each with:
+            - field_name: normalized column name
+            - original_labels: list of HTML labels that map to this field
+            
+    Returns:
+        Dict with normalized field names as keys.
+    """
+    if not specs or not discovered_fields:
+        return {}
+    
+    result: Dict[str, Optional[str]] = {}
+    
+    for field_info in discovered_fields:
+        field_name = field_info["field_name"]
+        original_labels = field_info.get("original_labels", [])
+        
+        # Try to find a matching value from the raw specs
+        value = pick_spec(specs, original_labels)
+        if value:
+            result[field_name] = value
+    
     return result
 
 

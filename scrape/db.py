@@ -4,7 +4,7 @@ import json
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Set
+from typing import Any, Dict, Generator, List, Optional, Set, Mapping
 
 __all__ = [
     "DEFAULT_DB_PATH",
@@ -16,6 +16,11 @@ __all__ = [
     "get_product_categories",
     "get_products_by_category",
     "upsert_category_specs",
+    "upsert_dynamic_specs",
+    "get_dynamic_specs",
+    "save_discovered_fields",
+    "get_discovered_fields",
+    "get_all_discovered_fields",
     "update_scrape_state",
     "get_scrape_state",
     "get_all_products",
@@ -164,12 +169,45 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
             )
         """)
 
+        # Dynamic specs table - stores normalized specs for ANY category
+        # This replaces hardcoded per-category spec tables for new categories
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS dynamic_specs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                category TEXT NOT NULL,
+                field_name TEXT NOT NULL,
+                field_value TEXT,
+                UNIQUE(product_id, field_name),
+                FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+            )
+        """)
+
+        # Discovered fields table - stores field discovery results per category
+        # Used to know which fields to normalize during scraping
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS discovered_fields (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category TEXT NOT NULL,
+                field_name TEXT NOT NULL,
+                original_labels TEXT NOT NULL,
+                frequency REAL NOT NULL,
+                sample_values TEXT,
+                discovered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(category, field_name)
+            )
+        """)
+
         # Indexes for common queries
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_url ON products(url)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_categories_category ON product_categories(category)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_categories_product_id ON product_categories(product_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_dynamic_specs_product ON dynamic_specs(product_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_dynamic_specs_category ON dynamic_specs(category)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_dynamic_specs_field ON dynamic_specs(field_name)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_discovered_fields_category ON discovered_fields(category)")
 
         conn.commit()
 
@@ -495,6 +533,7 @@ def get_products_by_category(
             
             # Include category-specific specs if requested
             if include_specs:
+                # First check legacy spec tables
                 spec_table = get_spec_table_for_category(category)
                 if spec_table:
                     cursor.execute(
@@ -507,7 +546,239 @@ def get_products_by_category(
                         del spec_dict["id"]
                         del spec_dict["product_id"]
                         product["category_specs"] = spec_dict
+                
+                # Also get dynamic specs (new flexible system)
+                dynamic = get_dynamic_specs(db_path, product["id"])
+                if dynamic:
+                    if "category_specs" not in product:
+                        product["category_specs"] = {}
+                    product["category_specs"].update(dynamic)
             
             products.append(product)
         
         return products
+
+
+# =============================================================================
+# Dynamic Specs Functions (new flexible system)
+# =============================================================================
+
+def upsert_dynamic_specs(
+    db_path: str,
+    product_id: int,
+    category: str,
+    specs: Mapping[str, Optional[str]],
+) -> None:
+    """Insert or update dynamic specs for a product.
+    
+    This stores specs in the flexible dynamic_specs table, allowing any
+    category to have normalized specs without needing a dedicated table.
+    
+    Args:
+        db_path: Path to database.
+        product_id: ID of the product.
+        category: Category key for the product.
+        specs: Dict of {field_name: field_value} to store. None values are skipped.
+    """
+    if not specs:
+        return
+    
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        
+        for field_name, field_value in specs.items():
+            # Skip None values - these occur when a field mapping doesn't find a match
+            if field_value is None:
+                continue
+            
+            cursor.execute("""
+                INSERT INTO dynamic_specs (product_id, category, field_name, field_value)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(product_id, field_name) DO UPDATE SET
+                    field_value = excluded.field_value,
+                    category = excluded.category
+            """, (product_id, category, field_name, field_value))
+        
+        conn.commit()
+
+
+def get_dynamic_specs(db_path: str, product_id: int) -> Dict[str, str]:
+    """Get dynamic specs for a product.
+    
+    Args:
+        db_path: Path to database.
+        product_id: ID of the product.
+        
+    Returns:
+        Dict of {field_name: field_value}.
+    """
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT field_name, field_value
+            FROM dynamic_specs
+            WHERE product_id = ?
+        """, (product_id,))
+        
+        return {row["field_name"]: row["field_value"] for row in cursor.fetchall()}
+
+
+def get_all_dynamic_specs_for_category(db_path: str, category: str) -> Dict[int, Dict[str, str]]:
+    """Get all dynamic specs for products in a category.
+    
+    Args:
+        db_path: Path to database.
+        category: Category to filter by.
+        
+    Returns:
+        Dict of {product_id: {field_name: field_value}}.
+    """
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT product_id, field_name, field_value
+            FROM dynamic_specs
+            WHERE category = ?
+        """, (category,))
+        
+        result: Dict[int, Dict[str, str]] = {}
+        for row in cursor.fetchall():
+            pid = row["product_id"]
+            if pid not in result:
+                result[pid] = {}
+            result[pid][row["field_name"]] = row["field_value"]
+        
+        return result
+
+
+# =============================================================================
+# Discovered Fields Functions
+# =============================================================================
+
+def save_discovered_fields(
+    db_path: str,
+    category: str,
+    fields: List[Dict[str, Any]],
+) -> None:
+    """Save discovered fields for a category.
+    
+    Replaces any existing discovered fields for the category.
+    
+    Args:
+        db_path: Path to database.
+        category: Category key.
+        fields: List of field dicts with keys:
+            - field_name: normalized column name
+            - original_labels: list of original HTML labels that map to this field
+            - frequency: how often this field appears (0-1)
+            - sample_values: example values (optional)
+    """
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        
+        # Clear existing fields for this category
+        cursor.execute("DELETE FROM discovered_fields WHERE category = ?", (category,))
+        
+        # Insert new fields
+        for field in fields:
+            labels_json = json.dumps(field.get("original_labels", [field.get("label", field["field_name"])]))
+            samples_json = json.dumps(field.get("sample_values", []))
+            
+            cursor.execute("""
+                INSERT INTO discovered_fields (category, field_name, original_labels, frequency, sample_values)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                category,
+                field["field_name"],
+                labels_json,
+                field.get("frequency", 1.0),
+                samples_json,
+            ))
+        
+        conn.commit()
+
+
+def get_discovered_fields(db_path: str, category: str) -> List[Dict[str, Any]]:
+    """Get discovered fields for a category.
+    
+    Args:
+        db_path: Path to database.
+        category: Category key.
+        
+    Returns:
+        List of field dicts with field_name, original_labels, frequency, sample_values.
+    """
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT field_name, original_labels, frequency, sample_values, discovered_at
+            FROM discovered_fields
+            WHERE category = ?
+            ORDER BY frequency DESC
+        """, (category,))
+        
+        fields = []
+        for row in cursor.fetchall():
+            fields.append({
+                "field_name": row["field_name"],
+                "original_labels": json.loads(row["original_labels"]),
+                "frequency": row["frequency"],
+                "sample_values": json.loads(row["sample_values"]) if row["sample_values"] else [],
+                "discovered_at": row["discovered_at"],
+            })
+        
+        return fields
+
+
+def get_all_discovered_fields(db_path: str) -> Dict[str, List[Dict[str, Any]]]:
+    """Get all discovered fields grouped by category.
+    
+    Args:
+        db_path: Path to database.
+        
+    Returns:
+        Dict of {category: [field_dicts]}.
+    """
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT category, field_name, original_labels, frequency, sample_values
+            FROM discovered_fields
+            ORDER BY category, frequency DESC
+        """)
+        
+        result: Dict[str, List[Dict[str, Any]]] = {}
+        for row in cursor.fetchall():
+            cat = row["category"]
+            if cat not in result:
+                result[cat] = []
+            result[cat].append({
+                "field_name": row["field_name"],
+                "original_labels": json.loads(row["original_labels"]),
+                "frequency": row["frequency"],
+                "sample_values": json.loads(row["sample_values"]) if row["sample_values"] else [],
+            })
+        
+        return result
+
+
+def get_dynamic_spec_fields_for_category(db_path: str, category: str) -> List[str]:
+    """Get list of unique field names in dynamic_specs for a category.
+    
+    Args:
+        db_path: Path to database.
+        category: Category to query.
+        
+    Returns:
+        List of unique field names.
+    """
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT DISTINCT field_name
+            FROM dynamic_specs
+            WHERE category = ?
+            ORDER BY field_name
+        """, (category,))
+        
+        return [row["field_name"] for row in cursor.fetchall()]

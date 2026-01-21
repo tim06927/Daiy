@@ -180,6 +180,53 @@ sequenceDiagram
 }
 ```
 
+## Empty Categories Handling
+
+When the LLM references a category in instructions but no products exist for that category in the database, the system returns a graceful error response instead of HTTP 404. This occurs during the product selection phase after job identification and clarification.
+
+### Scenario: Missing Product Data
+
+If user requests products for `drivetrain_tools` category but no products are in the database:
+
+```python
+# API Response (HTTP 200) - Empty Categories
+{
+    "error": "empty_categories",
+    "need_clarification": False,
+    "message": "Some of the product categories needed for your project have no products available.",
+    "empty_categories": ["drivetrain_tools"],
+    "available_categories": ["drivetrain_chains", "drivetrain_cassettes"],
+    "instructions": [
+        "Step 1: Use [drivetrain_tools] for drivetrain work",
+        "Step 2: Use [drivetrain_chains] for chain replacement"
+    ],
+    "job": {...},  # Full JobIdentification for context
+    "hint": "This typically means the product database needs to be refreshed or expanded."
+}
+```
+
+### Frontend Display
+
+The frontend shows a diagnostic error panel with:
+- **Main message**: "Missing Product Data"
+- **Empty categories**: List of categories referenced but with no products
+- **Available categories**: List of categories that do have products
+- **Project steps**: The LLM-generated instructions (for context)
+- **Hint**: Suggests data refresh/expansion
+
+### CSS Styling
+
+Three CSS classes handle the visual presentation:
+- `.error-panel` - Main container with warning gradient background
+- `.diagnostic-info` - Sub-container for technical details
+- `.hint` - Information box with lightbulb icon
+
+This allows users to understand:
+1. What went wrong (missing product data)
+2. Which categories are missing products
+3. Which categories are available
+4. What they were trying to accomplish (the instructions)
+
 ### API Response - Success
 ```python
 {
@@ -245,10 +292,23 @@ Key prompt features:
 |------|----------------|
 | `api.py` | Orchestrates flow, routes, response building |
 | `job_identification.py` | LLM call #1: generate instructions & identify unclear specs |
-| `categories.py` | Category definitions, required_fit dimensions |
+| `categories.py` | **Dynamic** category registry, discovers categories from CSV at startup |
 | `candidate_selection.py` | Filter products by category & fit values |
 | `prompts.py` | Build LLM prompts for recommendation |
 | `templates/index.html` | Frontend: clarification UI, product display |
+
+## Category System
+
+Categories are **dynamically discovered** from the product catalog (`bc_products_sample.csv`) at application startup:
+
+1. **Discovery**: `discover_categories_from_catalog()` reads the CSV and extracts unique category keys with product counts
+2. **Fit Dimensions**: Pattern-based inference assigns appropriate fit dimensions (e.g., `saddles` → `["use_case"]`, `chains` → `["gearing", "use_case"]`)
+3. **Overrides**: `CATEGORY_OVERRIDES` dict provides special handling for drivetrain categories that need gearing-based filtering
+4. **Refresh**: `refresh_categories()` can reload categories at runtime (e.g., after scraping new data)
+
+This ensures the LLM always knows about all available product categories without manual synchronization.
+
+**Category count**: ~205 categories covering drivetrain, apparel, saddles, wheels, tools, accessories, etc.
 
 ## Frontend Clarification UI
 

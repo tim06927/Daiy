@@ -9,7 +9,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 from scrape.config import CATEGORY_URLS
-from scrape.db import get_existing_urls, init_db
+from scrape.db import (
+    get_discovered_fields,
+    get_existing_urls,
+    init_db,
+    save_discovered_fields,
+)
 from scrape.models import Product
 from scrape.scraper import scrape_category
 
@@ -61,9 +66,10 @@ def get_leaf_categories_under_path(parent_path: str) -> List[Dict[str, Any]]:
 def run_field_discovery_for_category(
     category_key: str,
     category_url: str,
+    db_path: str,
     sample_size: int = 15,
 ) -> Dict[str, Any]:
-    """Run field discovery for a single category.
+    """Run field discovery for a single category and save results to DB.
     
     Returns the discovery results including suggested fields.
     """
@@ -87,6 +93,22 @@ def run_field_discovery_for_category(
             min_frequency=0.3,
             max_pages=3,
         )
+        
+        # Save discovered fields to database for later use
+        if results and results.get("suggested_fields"):
+            fields_to_save = []
+            for field_info in results["suggested_fields"]:
+                label = field_info.get("label")
+                original_labels = [label] if label else []
+                fields_to_save.append({
+                    "field_name": field_info.get("column_name", field_info.get("field_name")),
+                    "original_labels": original_labels,
+                    "frequency": field_info.get("frequency", 1.0),
+                    "sample_values": field_info.get("sample_values", []),
+                })
+            save_discovered_fields(db_path, category_key, fields_to_save)
+            print(f"  → Saved {len(fields_to_save)} discovered fields to database")
+        
         return results
     finally:
         # Restore original
@@ -103,11 +125,18 @@ def scrape_dynamic_category(
     existing_urls: Set[str],
     overnight: bool = False,
 ) -> List[Product]:
-    """Scrape a dynamically discovered category."""
+    """Scrape a dynamically discovered category using discovered field mappings."""
     print(f"\n{'='*60}")
     print(f"SCRAPING: {category_key}")
     print(f"URL: {category_url}")
     print(f"{'='*60}")
+
+    # Load discovered fields for this category from DB
+    discovered_fields = get_discovered_fields(db_path, category_key)
+    if discovered_fields:
+        print(f"  Using {len(discovered_fields)} discovered fields for normalization")
+    else:
+        print(f"  No discovered fields found - specs will be stored as raw JSON only")
 
     products = scrape_category(
         category_key=category_key,
@@ -118,6 +147,7 @@ def scrape_dynamic_category(
         use_db=True,
         db_path=db_path,
         overnight=overnight,
+        discovered_fields=discovered_fields,
     )
 
     return products
@@ -187,6 +217,7 @@ def discover_and_scrape_workflow(
                 results = run_field_discovery_for_category(
                     cat['key'],
                     cat['url'],
+                    db_path=db_path,
                     sample_size=field_sample_size,
                 )
                 field_results[cat['key']] = results

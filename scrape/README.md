@@ -8,25 +8,39 @@ This scraper extracts product details from any bike component category on the si
 
 ## Features
 
+### Core Scraping
 - **Polite scraping** - Respects rate limits with random delays between requests
 - **Overnight mode** - Extra-slow delays (10-30s) for unattended background runs
 - **Exponential backoff** - Automatic retries with increasing delays on server errors
 - **Session reuse** - HTTP session persistence for efficient connections
 - **Graceful shutdown** - Ctrl+C cleanly saves progress (double-press to force quit)
-- **Structured logging** - JSONL log files for debugging and auditing
-- **URL validation** - Security checks to prevent SSRF vulnerabilities
-- **Pagination support** - Automatically follows pagination to scrape all products in a category
-- **Pagination support** - Automatically follows pagination to scrape all products in a category (see [PAGINATION.md](../PAGINATION.md))
+- **Error resilience** - Continues scraping even if individual products fail to parse
+
+### Data Storage & Processing
 - **SQLite database** - Normalized storage with separate tables for category-specific specs
+- **Dynamic specs system** - Flexible field discovery and storage for any category (no schema changes needed)
+- **Type-safe specs** - Proper handling of optional/None values in dynamic specs
+- **Multi-category products** - Products can belong to multiple categories without duplication
+- **CSV export** - Export database to CSV with flattened category-specific fields (includes dynamic specs)
+
+### Product Discovery & Enhancement
+- **Pagination support** - Automatically follows pagination to scrape all products in a category
+- **Product images** - Extracts primary product image URL via og:image meta tag
+- **Auto-discovery tools** - Discover categories from sitemap and fields from product sampling
+- **Automatic field persistence** - Discovered fields are saved to database and reused across scraping sessions
+- **Discover-scrape workflow** - Select a parent category, discover subcategories, analyze fields, and scrape all in one command
+
+### Configuration & Flexibility
+- **Category spec registry** - Flexible field mapping per category (chains, cassettes, etc.) in [config.py](config.py)
 - **Incremental mode (default)** - Skips products already present in the database
 - **Full refresh option** - Rescrape everything on demand
 - **Robust parsing** - Handles various HTML structures with fallbacks
-- **Product images** - Extracts primary product image URL via og:image meta tag
-- **Category spec registry** - Flexible field mapping per category (chains, cassettes, etc.)
-- **Auto-discovery tools** - Discover categories from sitemap and fields from product sampling
-- **Discover-scrape workflow** - Select a parent category, discover subcategories, analyze fields, and scrape all in one command
-- **CSV export** - Export database to CSV with flattened category-specific fields
-- **Error resilience** - Continues scraping even if individual products fail to parse
+- **URL validation** - Security checks to prevent SSRF vulnerabilities
+
+### Logging & Debugging
+- **Structured logging** - JSONL log files for debugging and auditing
+- **HTML data viewer** - Visual inspection of scraped data and category coverage
+- **Comprehensive test suite** - Unit tests for dynamic specs, pagination, and field discovery
 
 ## Project Structure
 
@@ -74,7 +88,8 @@ Centralized configuration:
 - **Core fields**: `category`, `name`, `url`
 - **Product details**: `image_url`, `brand`, `price_text`, `sku`, `breadcrumbs`
 - **Description**: `description`, `specs` (raw dict from HTML)
-- **Category specs**: `category_specs` (normalized dict for DB storage)
+- **Category specs**: `category_specs` (normalized dict for legacy tables)
+- **Dynamic specs**: `dynamic_specs` (auto-discovered fields stored per product/category)
 
 #### `html_utils.py`
 HTML parsing and data extraction utilities:
@@ -86,6 +101,7 @@ HTML parsing and data extraction utilities:
 - `extract_current_page()` / `extract_total_pages()` - Pagination helpers
 - `pick_spec()` - Finds specs by key with case-insensitive fallback
 - `map_category_specs()` - Generic spec mapping using category registry
+- `map_dynamic_specs()` - Normalizes raw specs into discovered dynamic fields
 - `is_product_url()` - Validates product page URLs
 
 #### `scraper.py`
@@ -98,9 +114,12 @@ Core scraping orchestration:
 
 #### `db.py`
 SQLite database schema and helpers:
-- `init_db()` - Creates tables (products, chain_specs, cassette_specs, etc.)
+- `init_db()` - Creates tables (products, category specs, dynamic_specs, discovered_fields)
 - `upsert_product()` - Insert or update product, returns ID
-- `upsert_category_specs()` - Insert or update category-specific specs
+- `upsert_category_specs()` - Insert or update category-specific specs (legacy tables)
+- `upsert_dynamic_specs()` - Insert or update dynamic specs for any category
+- `get_dynamic_specs()` / `get_all_dynamic_specs_for_category()` - Retrieve dynamic specs per product or category
+- `save_discovered_fields()` / `get_discovered_fields()` - Persist field discovery results per category
 - `get_existing_urls()` - Get URLs already in database (for incremental mode)
 - `get_all_products()` - Retrieve products with optional category filter
 - `get_spec_table_for_category()` - Maps category to spec table (uses `CATEGORY_SPECS` from config.py)
@@ -109,9 +128,9 @@ SQLite database schema and helpers:
 #### `workflows.py`
 High-level orchestration for complex multi-step operations:
 - `get_leaf_categories_under_path()` - Find leaf categories under a parent path
-- `run_field_discovery_for_category()` - Run field discovery for a category
-- `scrape_dynamic_category()` - Scrape a dynamically discovered category
-- `discover_and_scrape_workflow()` - Full workflow: discover → analyze → scrape
+- `run_field_discovery_for_category()` - Run field discovery for a category and persist results
+- `scrape_dynamic_category()` - Scrape a dynamically discovered category using persisted fields
+- `discover_and_scrape_workflow()` - Full workflow: discover → analyze → scrape (field discovery is built-in)
 
 #### `csv_utils.py`
 Data export/import:
@@ -386,11 +405,23 @@ The scraper stores data in `data/products.db` with normalized tables:
 - `product_id` (foreign key)
 - Category-specific columns (application, gearing, etc.)
 
+**Dynamic specs table** (`dynamic_specs`):
+- `product_id` (foreign key)
+- `category` (category key)
+- `field_name`, `field_value` (auto-discovered normalized specs)
+
+**Discovered fields table** (`discovered_fields`):
+- `category` (category key)
+- `field_name` (normalized field name)
+- `original_labels` (JSON array of matched labels)
+- `frequency` (how often the field appeared in the sample)
+
 ### CSV Export
 
 Export produces a flat CSV with columns:
 - Core fields: `id`, `category`, `name`, `url`, `image_url`, `brand`, etc.
 - Category specs: prefixed with category name (e.g., `chains_application`, `cassettes_gearing`)
+- Dynamic specs: prefixed with category key (e.g., `chains_material`, `cassettes_teeth_count`)
 
 ## Configuration
 
@@ -547,6 +578,7 @@ All URLs are validated before requests to prevent:
 - ✅ Pagination support for large categories
 - ✅ SQLite database storage with normalized schema
 - ✅ Category-specific spec tables (chains, cassettes, gloves, tools)
+- ✅ Dynamic specs pipeline (auto-discovery, storage, CSV export for all categories)
 - ✅ Auto-discover categories from sitemap
 - ✅ Auto-discover spec fields via sampling
 - ✅ Product image URL extraction

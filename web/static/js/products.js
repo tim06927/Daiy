@@ -248,11 +248,53 @@ function renderProductCategories(categories, sections, primaryProducts, optional
 /**
  * Render instructions tab content
  */
-function renderInstructions(sections, finalInstructions) {
+function renderInstructions(sections, finalInstructions, recipe = null) {
   const container = document.getElementById('instructions-content');
   container.innerHTML = '';
   
-  // Prefer final_instructions from new format
+  // Prefer recipe format if available
+  if (recipe && recipe.ingredients && recipe.steps) {
+    const recipeSection = document.createElement('div');
+    recipeSection.className = 'recipe-section';
+    
+    // Render ingredients as a list
+    if (recipe.ingredients.length > 0) {
+      const ingredientsSection = document.createElement('div');
+      ingredientsSection.className = 'ingredients-section';
+      ingredientsSection.innerHTML = `
+        <h4>📋 Ingredients (Parts & Tools)</h4>
+        <ul class="ingredients-list">
+          ${recipe.ingredients.map(ing => {
+            const typeEmoji = {
+              'part': '📦',
+              'tool': '🔧',
+              'product': '🛒'
+            }[ing.type] || '•';
+            return `<li><span class="ingredient-type">${typeEmoji}</span> <span class="ingredient-name">${escapeHtml(ing.name)}</span></li>`;
+          }).join('')}
+        </ul>
+      `;
+      recipeSection.appendChild(ingredientsSection);
+    }
+    
+    // Render steps
+    if (recipe.steps.length > 0) {
+      const stepsSection = document.createElement('div');
+      stepsSection.className = 'instructions-section';
+      stepsSection.innerHTML = `
+        <h4>🔧 Step-by-Step Instructions</h4>
+        <ol class="instruction-steps">
+          ${recipe.steps.map(step => `<li>${escapeHtml(step)}</li>`).join('')}
+        </ol>
+      `;
+      recipeSection.appendChild(stepsSection);
+    }
+    
+    container.appendChild(recipeSection);
+    return;
+  }
+  
+  // Fall back to final_instructions format
   const workflow = finalInstructions.length > 0 
     ? finalInstructions 
     : (sections.suggested_workflow || []);
@@ -263,7 +305,7 @@ function renderInstructions(sections, finalInstructions) {
     workflowSection.className = 'instructions-section';
     workflowSection.innerHTML = `
       <h4>🔧 Step-by-Step Instructions</h4>
-      <ol class="instruction-steps">${workflow.map(item => `<li>${item}</li>`).join('')}</ol>
+      <ol class="instruction-steps">${workflow.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ol>
     `;
     container.appendChild(workflowSection);
   }
@@ -273,7 +315,7 @@ function renderInstructions(sections, finalInstructions) {
     checklistSection.className = 'instructions-section';
     checklistSection.innerHTML = `
       <h4>✅ Checklist</h4>
-      <ul>${checklist.map(item => `<li>${item}</li>`).join('')}</ul>
+      <ul>${checklist.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
     `;
     container.appendChild(checklistSection);
   }

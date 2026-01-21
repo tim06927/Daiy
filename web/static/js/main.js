@@ -93,6 +93,96 @@ function showError(message) {
 }
 
 /**
+ * Show empty categories error with diagnostic information
+ */
+function showEmptyCategoriesError(data) {
+  elements.loadingState.classList.remove('active');
+  elements.productCategories.classList.add('active');
+
+  const emptyCategories = data.empty_categories || [];
+  const availableCategories = data.available_categories || [];
+  const instructions = data.instructions || [];
+
+  // Clear any existing content
+  elements.categoriesContainer.innerHTML = '';
+
+  // Create error panel container
+  const panel = document.createElement('div');
+  panel.className = 'error-panel';
+
+  // Title
+  const title = document.createElement('h3');
+  title.textContent = '⚠️ Missing Product Data';
+  panel.appendChild(title);
+
+  // Main message
+  const messageP = document.createElement('p');
+  const messageStrong = document.createElement('strong');
+  messageStrong.textContent = data.message || '';
+  messageP.appendChild(messageStrong);
+  panel.appendChild(messageP);
+
+  // Diagnostic info container
+  const diagnosticDiv = document.createElement('div');
+  diagnosticDiv.className = 'diagnostic-info';
+
+  // Empty categories section
+  const emptyHeading = document.createElement('h4');
+  emptyHeading.textContent = 'Categories Needed But Empty:';
+  diagnosticDiv.appendChild(emptyHeading);
+
+  const emptyList = document.createElement('ul');
+  emptyCategories.forEach(cat => {
+    const li = document.createElement('li');
+    const codeEl = document.createElement('code');
+    codeEl.textContent = String(cat);
+    li.appendChild(codeEl);
+    emptyList.appendChild(li);
+  });
+  diagnosticDiv.appendChild(emptyList);
+
+  // Available categories section (optional)
+  if (availableCategories.length > 0) {
+    const availableHeading = document.createElement('h4');
+    availableHeading.textContent = 'Available Categories:';
+    diagnosticDiv.appendChild(availableHeading);
+
+    const availableList = document.createElement('ul');
+    availableCategories.forEach(cat => {
+      const li = document.createElement('li');
+      const codeEl = document.createElement('code');
+      codeEl.textContent = String(cat);
+      li.appendChild(codeEl);
+      availableList.appendChild(li);
+    });
+    diagnosticDiv.appendChild(availableList);
+  }
+
+  // Instructions section
+  const stepsHeading = document.createElement('h4');
+  stepsHeading.textContent = 'Your Project Steps:';
+  diagnosticDiv.appendChild(stepsHeading);
+
+  const stepsList = document.createElement('ol');
+  instructions.forEach(step => {
+    const li = document.createElement('li');
+    li.textContent = String(step);
+    stepsList.appendChild(li);
+  });
+  diagnosticDiv.appendChild(stepsList);
+
+  // Hint text
+  const hintP = document.createElement('p');
+  hintP.className = 'hint';
+  hintP.textContent = '💡 ' + (data.hint || '');
+  diagnosticDiv.appendChild(hintP);
+
+  panel.appendChild(diagnosticDiv);
+
+  elements.categoriesContainer.appendChild(panel);
+}
+
+/**
  * Show results
  */
 function showResults(data) {
@@ -104,6 +194,7 @@ function showResults(data) {
   const diagnosis = data.diagnosis || '';
   const sections = data.sections || {};
   const finalInstructions = data.final_instructions || [];
+  const recipe = data.recipe || null;
   
   // Show diagnosis in left panel
   const diagnosisContainer = document.getElementById('diagnosis-container');
@@ -124,8 +215,8 @@ function showResults(data) {
     data.tools || data.tool_products || []
   );
   
-  // Render instructions (prefer final_instructions over sections)
-  renderInstructions(sections, finalInstructions);
+  // Render instructions (prefer recipe format, then final_instructions over sections)
+  renderInstructions(sections, finalInstructions, recipe);
   
   // Setup tabs
   setupResultsTabs();
@@ -152,6 +243,12 @@ async function handleSearch() {
 
   try {
     const data = await fetchRecommendations(problemText);
+
+    // Check for empty categories error
+    if (data.error === "empty_categories") {
+      showEmptyCategoriesError(data);
+      return;
+    }
 
     if (data.need_clarification) {
       showClarification(data);
