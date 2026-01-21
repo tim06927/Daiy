@@ -37,7 +37,6 @@ from scrape.db import (
     get_spec_table_for_category,
     init_db,
     update_scrape_state,
-    upsert_category_specs,
     upsert_dynamic_specs,
     upsert_product,
 )
@@ -49,7 +48,6 @@ from scrape.html_utils import (
     extract_sku,
     extract_total_pages,
     is_product_url,
-    map_category_specs,
     map_dynamic_specs,
 )
 from scrape.logging_config import get_logger, log_scrape_event
@@ -286,9 +284,6 @@ def parse_product_page(category_key: str, html: str, url: str) -> Product:
             logger.warning(f"Invalid image URL for {url}: {e}")
             image_url = None
 
-    # Category-specific spec mapping using the registry (legacy hardcoded)
-    category_specs = map_category_specs(category_key, specs) if specs else {}
-
     return Product(
         category=category_key,
         name=name,
@@ -300,7 +295,6 @@ def parse_product_page(category_key: str, html: str, url: str) -> Product:
         breadcrumbs=breadcrumbs_text,
         description=description,
         specs=specs or None,
-        category_specs=category_specs,
     )
 
 
@@ -541,12 +535,6 @@ def save_product_to_db(product: Product, db_path: str = DB_PATH) -> None:
     # Add category association (idempotent)
     add_product_category(db_path, product_id, product.category)
 
-    # Save category-specific specs (legacy hardcoded tables)
-    if product.category_specs:
-        spec_table = get_spec_table_for_category(product.category)
-        if spec_table:
-            upsert_category_specs(db_path, spec_table, product_id, product.category_specs)
-
-    # Save dynamic specs (new flexible system)
+    # Save dynamic specs (flexible system)
     if product.dynamic_specs:
         upsert_dynamic_specs(db_path, product_id, product.category, product.dynamic_specs)

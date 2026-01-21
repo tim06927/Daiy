@@ -154,7 +154,6 @@ Also handles:
 - Image processing for OpenAI
 - Product catalog validation
 - Candidate selection for recommendation phase
-- Legacy API format support (backward compat)
 
 #### `prompts.py` - LLM Prompt Builders
 - `_build_job_identification_prompt()` - Phase 1

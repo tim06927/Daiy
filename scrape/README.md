@@ -88,7 +88,6 @@ Centralized configuration:
 - **Core fields**: `category`, `name`, `url`
 - **Product details**: `image_url`, `brand`, `price_text`, `sku`, `breadcrumbs`
 - **Description**: `description`, `specs` (raw dict from HTML)
-- **Category specs**: `category_specs` (normalized dict for legacy tables)
 - **Dynamic specs**: `dynamic_specs` (auto-discovered fields stored per product/category)
 
 #### `html_utils.py`
@@ -114,15 +113,14 @@ Core scraping orchestration:
 
 #### `db.py`
 SQLite database schema and helpers:
-- `init_db()` - Creates tables (products, category specs, dynamic_specs, discovered_fields)
+- `init_db()` - Creates tables (products, dynamic_specs, discovered_fields)
 - `upsert_product()` - Insert or update product, returns ID
-- `upsert_category_specs()` - Insert or update category-specific specs (legacy tables)
 - `upsert_dynamic_specs()` - Insert or update dynamic specs for any category
 - `get_dynamic_specs()` / `get_all_dynamic_specs_for_category()` - Retrieve dynamic specs per product or category
 - `save_discovered_fields()` / `get_discovered_fields()` - Persist field discovery results per category
 - `get_existing_urls()` - Get URLs already in database (for incremental mode)
 - `get_all_products()` - Retrieve products with optional category filter
-- `get_spec_table_for_category()` - Maps category to spec table (uses `CATEGORY_SPECS` from config.py)
+
 - `update_scrape_state()` / `get_scrape_state()` - Track pagination progress
 
 #### `workflows.py`
