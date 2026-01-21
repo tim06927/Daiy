@@ -57,7 +57,10 @@ def load_catalog(path: str = CSV_PATH) -> pd.DataFrame:
     Returns:
         DataFrame with parsed specs, derived speed, and application.
     """
-    df = pd.read_csv(path, dtype=str, low_memory=False)
+    # Load with optimized dtypes for memory efficiency
+    # Let pandas infer types instead of forcing everything to string
+    # This can save 30-50% memory compared to dtype=str
+    df = pd.read_csv(path, low_memory=False)
 
     # Parse specs JSON
     if "specs" in df.columns:

@@ -1,6 +1,7 @@
 """Image processing utilities for the Daiy web app.
 
 Handles image validation, conversion, and preparation for OpenAI API.
+Optimized for low memory usage by resizing images before processing.
 """
 
 import base64
@@ -21,6 +22,11 @@ __all__ = ["process_image_for_openai", "MAX_IMAGE_SIZE"]
 # Maximum image size in bytes (5MB)
 MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
+# Maximum image dimensions (to reduce memory usage)
+# OpenAI resizes images anyway, so we can pre-resize to save memory
+MAX_IMAGE_WIDTH = 2048
+MAX_IMAGE_HEIGHT = 2048
+
 # Register HEIF/HEIC support for Pillow (for iPad images)
 try:
     from pillow_heif import register_heif_opener
@@ -35,7 +41,7 @@ def process_image_for_openai(
     """Process and convert image to a format OpenAI accepts.
 
     Accepts any image format (including HEIC from iPad) and converts to PNG.
-    Rejects images larger than 5MB.
+    Rejects images larger than 5MB. Resizes large images to reduce memory usage.
 
     Args:
         image_base64: Raw base64 string (may include data URL prefix or not).
@@ -79,6 +85,15 @@ def process_image_for_openai(
         from PIL import Image
 
         img = Image.open(BytesIO(decoded))
+        
+        # Resize image if it's too large (reduces memory usage significantly)
+        # OpenAI resizes images anyway, so this doesn't hurt quality for the API
+        if img.width > MAX_IMAGE_WIDTH or img.height > MAX_IMAGE_HEIGHT:
+            # Calculate new size maintaining aspect ratio
+            ratio = min(MAX_IMAGE_WIDTH / img.width, MAX_IMAGE_HEIGHT / img.height)
+            new_width = int(img.width * ratio)
+            new_height = int(img.height * ratio)
+            img = img.resize((new_width, new_height), Image.LANCZOS)
 
         # Convert to RGB if necessary (handles RGBA, P mode, etc.)
         if img.mode in ("RGBA", "LA", "P"):

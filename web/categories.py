@@ -219,8 +219,9 @@ def discover_categories_from_catalog(csv_path: str = CSV_PATH) -> Dict[str, Dict
     categories: Dict[str, Dict[str, Any]] = {}
     
     try:
-        # Load catalog (low_memory=False to avoid dtype warnings with many columns)
-        df = pd.read_csv(csv_path, low_memory=False)
+        # Load catalog with memory-efficient column selection
+        # Only read the 'category' column to minimize memory usage
+        df = pd.read_csv(csv_path, usecols=['category'], low_memory=False)
         
         # Get category counts
         if "category" not in df.columns:
