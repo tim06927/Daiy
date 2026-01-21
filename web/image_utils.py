@@ -1,6 +1,7 @@
 """Image processing utilities for the Daiy web app.
 
 Handles image validation, conversion, and preparation for OpenAI API.
+Preserves full image quality for accurate vision analysis.
 """
 
 import base64
@@ -35,7 +36,7 @@ def process_image_for_openai(
     """Process and convert image to a format OpenAI accepts.
 
     Accepts any image format (including HEIC from iPad) and converts to PNG.
-    Rejects images larger than 5MB.
+    Rejects images larger than 5MB. Preserves full quality for accurate vision analysis.
 
     Args:
         image_base64: Raw base64 string (may include data URL prefix or not).

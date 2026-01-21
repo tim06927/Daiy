@@ -1,7 +1,7 @@
 """Dynamic candidate selection for product recommendations.
 
 This module provides category-agnostic product filtering based on
-fit dimensions, replacing the hardcoded select_candidates() function.
+fit dimensions, using database queries for memory efficiency.
 """
 
 import logging
@@ -20,12 +20,14 @@ if __package__ is None or __package__ == "":
         SHARED_FIT_DIMENSIONS,
         get_category_config,
     )
+    from catalog import query_products
 else:
     from .categories import (
         PRODUCT_CATEGORIES,
         SHARED_FIT_DIMENSIONS,
         get_category_config,
     )
+    from .catalog import query_products
 
 __all__ = [
     "select_candidates_dynamic",
@@ -144,23 +146,22 @@ def apply_fit_filter(
 
 
 def select_candidates_dynamic(
-    df: pd.DataFrame,
     categories: List[str],
     fit_values: Dict[str, Any],
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Dynamically select product candidates for multiple categories.
     
-    Filters products based on category-specific fit dimensions and returns
-    a dict of candidates per category.
+    Queries database directly for memory efficiency instead of filtering
+    an in-memory DataFrame.
     
     Args:
-        df: Product catalog DataFrame with 'category' column.
         categories: List of category keys to select products for.
         fit_values: Dict of known fit dimension values.
         
     Returns:
         Dict mapping category key to list of product dicts.
     """
+    
     results: Dict[str, List[Dict[str, Any]]] = {}
     
     for cat in categories:
@@ -169,17 +170,8 @@ def select_candidates_dynamic(
             logger.warning(f"Unknown category: {cat}")
             continue
         
-        # Start with all products in this category (handles both single category field and junction table)
-        # Products can be in multiple categories via the 'categories' column (pipe-separated)
-        if "categories" in df.columns:
-            # New multi-category format: filter by checking if category appears in pipe-separated list
-            filtered = df[df["categories"].str.contains(f"(?:^|\\|){re.escape(cat)}(?:$|\\|)", regex=True, na=False)].copy()
-            # Fallback to single category column if categories column is empty/null
-            if filtered.empty or df["categories"].isna().all():
-                filtered = df[df["category"] == cat].copy()
-        else:
-            # Backward compatibility: single category column only
-            filtered = df[df["category"] == cat].copy()
+        # Query products for this category from database
+        filtered = query_products(categories=[cat])
         
         if filtered.empty:
             logger.info(f"No products found for category: {cat}")
@@ -200,7 +192,7 @@ def select_candidates_dynamic(
         # If filtering removed everything, try with just required dimensions
         if filtered.empty:
             logger.info(f"Filtering removed all products for {cat}, trying required only")
-            filtered = df[df["category"] == cat].copy()
+            filtered = query_products(categories=[cat])
             for dim in cat_config.get("required_fit", []):
                 if dim in fit_values and fit_values.get(dim) is not None:
                     filtered = apply_fit_filter(filtered, dim, fit_values[dim], strategy)

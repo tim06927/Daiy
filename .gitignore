@@ -43,8 +43,11 @@ htmlcov/
 
 # Data files
 *.csv
-data/
+data/*.csv
 *.xlsx
+
+# Allow database file for deployment
+!data/products.db
 
 # OS
 .DS_Store

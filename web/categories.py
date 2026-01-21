@@ -204,41 +204,39 @@ def _create_default_category_config(
     }
 
 
-def discover_categories_from_catalog(csv_path: str = CSV_PATH) -> Dict[str, Dict[str, Any]]:
-    """Discover all categories from the product catalog.
+def discover_categories_from_catalog() -> Dict[str, Dict[str, Any]]:
+    """Discover all categories from the product database.
     
-    Reads the CSV/database and extracts unique categories with product counts.
+    Reads the SQLite database and extracts unique categories with product counts.
     Merges with CATEGORY_OVERRIDES for special handling.
-    
-    Args:
-        csv_path: Path to the product catalog CSV.
         
     Returns:
         Dict mapping category key to category configuration.
     """
+    from catalog import get_categories, get_product_count
+    
     categories: Dict[str, Dict[str, Any]] = {}
     
     try:
-        # Load catalog (low_memory=False to avoid dtype warnings with many columns)
-        df = pd.read_csv(csv_path, low_memory=False)
+        # Get categories from database
+        category_list = get_categories()
         
-        # Get category counts
-        if "category" not in df.columns:
+        if not category_list:
             logger.error(
-                "CRITICAL: No 'category' column found in product catalog. "
-                f"Available columns: {list(df.columns)}. "
+                "CRITICAL: No categories found in database. "
                 f"Falling back to {len(CATEGORY_OVERRIDES)} override categories only."
             )
             return dict(CATEGORY_OVERRIDES)
         
-        category_counts = df["category"].value_counts().to_dict()
-        
-        logger.info(f"Discovered {len(category_counts)} categories from catalog")
+        logger.info(f"Discovered {len(category_list)} categories from database")
         
         # Create config for each category
-        for cat_key, count in category_counts.items():
-            if pd.isna(cat_key) or not cat_key:
+        for cat_key in category_list:
+            if not cat_key:
                 continue
+            
+            # Get product count for this category
+            count = get_product_count(categories=[cat_key])
                 
             # Use override if available, otherwise generate default
             if cat_key in CATEGORY_OVERRIDES:
@@ -249,20 +247,12 @@ def discover_categories_from_catalog(csv_path: str = CSV_PATH) -> Dict[str, Dict
             
             categories[cat_key] = config
         
-        # Add any overrides that aren't in the catalog (shouldn't happen, but safe)
+        # Add any overrides that aren't in the database (shouldn't happen, but safe)
         for cat_key, config in CATEGORY_OVERRIDES.items():
             if cat_key not in categories:
                 categories[cat_key] = dict(config)
                 categories[cat_key]["product_count"] = 0
                 
-    except FileNotFoundError:
-        logger.error(
-            f"CRITICAL: Product catalog not found at {csv_path}. "
-            f"The application will have limited functionality with only "
-            f"{len(CATEGORY_OVERRIDES)} override categories available. "
-            f"Please ensure the CSV file exists before starting the app."
-        )
-        categories = dict(CATEGORY_OVERRIDES)
     except Exception as e:
         logger.error(
             f"CRITICAL: Error discovering categories: {e}. "
@@ -281,13 +271,13 @@ def discover_categories_from_catalog(csv_path: str = CSV_PATH) -> Dict[str, Dict
 PRODUCT_CATEGORIES: Dict[str, Dict[str, Any]] = discover_categories_from_catalog()
 
 
-def refresh_categories(csv_path: str = CSV_PATH) -> None:
-    """Refresh the category registry from the catalog.
+def refresh_categories() -> None:
+    """Refresh the category registry from the database.
     
     Call this after updating the product database to pick up new categories.
     """
     global PRODUCT_CATEGORIES
-    PRODUCT_CATEGORIES = discover_categories_from_catalog(csv_path)
+    PRODUCT_CATEGORIES = discover_categories_from_catalog()
     logger.info(f"Refreshed categories: {len(PRODUCT_CATEGORIES)} available")
 
 
