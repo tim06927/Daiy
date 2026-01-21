@@ -18,7 +18,6 @@ __all__ = [
     "extract_current_page",
     "extract_total_pages",
     "pick_spec",
-    "map_category_specs",
     "map_dynamic_specs",
     "is_product_url",
 ]
@@ -292,26 +291,6 @@ def pick_spec(specs: Dict[str, str], keys: List[str]) -> Optional[str]:
     return None
 
 
-def map_category_specs(category: str, specs: Dict[str, str]) -> Dict[str, Optional[str]]:
-    """Map raw specs dict into normalized category-specific fields.
-    
-    Uses the CATEGORY_SPECS registry from config.py to determine field mappings.
-    Returns a dict with keys matching the database column names.
-    """
-    if not specs:
-        return {}
-
-    spec_config = get_spec_config(category)
-    if not spec_config:
-        return {}
-
-    field_mappings = spec_config.get("field_mappings", {})
-    result: Dict[str, Optional[str]] = {}
-
-    for db_column, html_labels in field_mappings.items():
-        result[db_column] = pick_spec(specs, html_labels)
-
-    return result
 
 
 def map_dynamic_specs(

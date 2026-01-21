@@ -209,27 +209,4 @@ function updateSelectedOptions() {
     `;
     selectedOptionsEl.appendChild(opt);
   });
-  
-  // Legacy support: show speed/use_case if set but not in selectedValues
-  if (AppState.selectedSpeed && !AppState.selectedValues['gearing'] && !AppState.selectedValues['drivetrain_speed']) {
-    const opt = document.createElement('div');
-    opt.className = 'selected-option';
-    opt.innerHTML = `
-      <span class="label">Speed:</span>
-      <span class="value">${AppState.selectedSpeed}-speed</span>
-      <span class="check">✓</span>
-    `;
-    selectedOptionsEl.appendChild(opt);
-  }
-  
-  if (AppState.selectedUseCase && !AppState.selectedValues['use_case']) {
-    const opt = document.createElement('div');
-    opt.className = 'selected-option';
-    opt.innerHTML = `
-      <span class="label">Use:</span>
-      <span class="value">${AppState.selectedUseCase}</span>
-      <span class="check">✓</span>
-    `;
-    selectedOptionsEl.appendChild(opt);
-  }
 }

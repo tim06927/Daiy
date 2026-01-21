@@ -86,7 +86,7 @@ def export_db_to_csv(
     db_path: str,
     csv_path: str,
     category: Optional[str] = None,
-    include_category_specs: bool = True,
+    include_specs: bool = True,
 ) -> int:
     """Export products from SQLite database to CSV.
     
@@ -99,14 +99,14 @@ def export_db_to_csv(
         db_path: Path to the SQLite database
         csv_path: Path for the output CSV file
         category: Optional category filter
-        include_category_specs: Whether to include category-specific fields
+        include_specs: Whether to include dynamic spec fields
         
     Returns:
         Number of products exported
     """
     from scrape.db import get_all_products, get_connection, get_dynamic_specs
 
-    products = get_all_products(db_path, category=category, include_specs=include_category_specs)
+    products = get_all_products(db_path, category=category, include_specs=include_specs)
 
     if not products:
         print("No products to export.")
@@ -144,7 +144,7 @@ def export_db_to_csv(
 
     # Collect all spec field names from dynamic specs
     spec_fields: List[str] = []
-    if include_category_specs:
+    if include_specs:
         for product in products:
             cat = product['category']
             
@@ -173,7 +173,7 @@ def export_db_to_csv(
                 row[field] = product.get(field, "")
 
         # Flatten dynamic specs with prefix
-        if include_category_specs and product["id"] in product_dynamic_specs_map:
+        if include_specs and product["id"] in product_dynamic_specs_map:
             for key, value in product_dynamic_specs_map[product["id"]].items():
                 prefixed_key = f"{cat}_{key}"
                 row[prefixed_key] = value if value else ""

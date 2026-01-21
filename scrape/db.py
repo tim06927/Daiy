@@ -15,7 +15,6 @@ __all__ = [
     "add_product_category",
     "get_product_categories",
     "get_products_by_category",
-    "upsert_category_specs",
     "upsert_dynamic_specs",
     "get_dynamic_specs",
     "save_discovered_fields",
@@ -278,54 +277,6 @@ def upsert_product(
         return product_id
 
 
-def upsert_category_specs(
-    db_path: str,
-    table_name: str,
-    product_id: int,
-    specs: Dict[str, Any],
-) -> None:
-    """Insert or update category-specific specs."""
-    if not specs:
-        return
-
-    # Validate table name against whitelist to prevent SQL injection
-    valid_tables = _get_valid_spec_tables()
-    if table_name not in valid_tables:
-        raise ValueError(f"Invalid table name: {table_name}. Must be one of {valid_tables}")
-
-    with get_connection(db_path) as conn:
-        cursor = conn.cursor()
-
-        # Get column names for the table (excluding id and product_id)
-        cursor.execute(f"PRAGMA table_info({table_name})")
-        columns = [row["name"] for row in cursor.fetchall()
-                   if row["name"] not in ("id", "product_id")]
-
-        # Filter specs to only include valid columns
-        valid_specs = {k: v for k, v in specs.items() if k in columns}
-        if not valid_specs:
-            return
-
-        # Check if exists
-        cursor.execute(f"SELECT id FROM {table_name} WHERE product_id = ?", (product_id,))
-        existing = cursor.fetchone()
-
-        if existing:
-            # Update
-            set_clause = ", ".join(f"{k} = ?" for k in valid_specs.keys())
-            values = list(valid_specs.values()) + [product_id]
-            cursor.execute(f"UPDATE {table_name} SET {set_clause} WHERE product_id = ?", values)
-        else:
-            # Insert
-            cols = ["product_id"] + list(valid_specs.keys())
-            placeholders = ", ".join("?" for _ in cols)
-            col_names = ", ".join(cols)
-            values = [product_id] + list(valid_specs.values())
-            cursor.execute(f"INSERT INTO {table_name} ({col_names}) VALUES ({placeholders})", values)
-
-        conn.commit()
-
-
 def update_scrape_state(
     db_path: str,
     category: str,
@@ -387,24 +338,8 @@ def get_all_products(
             del product["specs_json"]
 
             if include_specs:
-                # Get category-specific specs
-                spec_table = get_spec_table_for_category(product["category"])
-                if spec_table:
-                    # Validate table name against whitelist to prevent SQL injection
-                    valid_tables = _get_valid_spec_tables()
-                    if spec_table not in valid_tables:
-                        raise ValueError(f"Invalid table name: {spec_table}. Must be one of {valid_tables}")
-
-                    cursor.execute(
-                        f"SELECT * FROM {spec_table} WHERE product_id = ?",
-                        (product["id"],)
-                    )
-                    spec_row = cursor.fetchone()
-                    if spec_row:
-                        spec_dict = dict(spec_row)
-                        del spec_dict["id"]
-                        del spec_dict["product_id"]
-                        product["category_specs"] = spec_dict
+                # Legacy spec tables are no longer used - only dynamic_specs
+                pass
 
             products.append(product)
 
@@ -531,28 +466,10 @@ def get_products_by_category(
             
             del product["specs_json"]
             
-            # Include category-specific specs if requested
+            # Include dynamic specs if requested
             if include_specs:
-                # First check legacy spec tables
-                spec_table = get_spec_table_for_category(category)
-                if spec_table:
-                    cursor.execute(
-                        f"SELECT * FROM {spec_table} WHERE product_id = ?",
-                        (product["id"],)
-                    )
-                    spec_row = cursor.fetchone()
-                    if spec_row:
-                        spec_dict = dict(spec_row)
-                        del spec_dict["id"]
-                        del spec_dict["product_id"]
-                        product["category_specs"] = spec_dict
-                
-                # Also get dynamic specs (new flexible system)
-                dynamic = get_dynamic_specs(db_path, product["id"])
-                if dynamic:
-                    if "category_specs" not in product:
-                        product["category_specs"] = {}
-                    product["category_specs"].update(dynamic)
+                # Legacy spec tables are no longer used - only dynamic_specs
+                pass
             
             products.append(product)
         
