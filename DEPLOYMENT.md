@@ -93,9 +93,16 @@ Click "Manual Deploy" or push to your main branch for auto-deploy.
 - **Startup**: ~150-180MB
 - **Idle**: ~150MB
 - **Per Request**: +5-20MB (temporary spike)
-- **Peak**: <250MB
+- **Peak**: <100MB
 
 **Well under the 512MB limit!** ✅
+
+### Memory Optimization
+
+The app uses lightweight SQL queries instead of loading the full product catalog (~11k products, ~300MB) into memory:
+- `get_categories()` - SQL `SELECT DISTINCT` instead of loading all data
+- `validate_categories()` - Uses above for validation
+- `select_candidates_dynamic()` - Queries only matching products with `LIMIT`
 
 ### Monitoring
 
