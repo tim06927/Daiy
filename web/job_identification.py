@@ -196,7 +196,7 @@ def extract_categories_from_instructions(instructions: List[str]) -> List[str]:
         List of unique category keys found in instructions.
     """
     categories = []
-    pattern = r'\[([a-z_]+)\]'
+    pattern = r'\[([a-zA-Z0-9_]+)\]'
     
     for step in instructions:
         matches = re.findall(pattern, step)
