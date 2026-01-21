@@ -19,8 +19,10 @@ import pandas as pd
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).parent))
     from config import CSV_PATH
+    from catalog import get_categories, get_product_count
 else:
     from .config import CSV_PATH
+    from .catalog import get_categories, get_product_count
 
 logger = logging.getLogger(__name__)
 
@@ -213,8 +215,6 @@ def discover_categories_from_catalog() -> Dict[str, Dict[str, Any]]:
     Returns:
         Dict mapping category key to category configuration.
     """
-    from .catalog import get_categories, get_product_count
-    
     categories: Dict[str, Dict[str, Any]] = {}
     
     try:
