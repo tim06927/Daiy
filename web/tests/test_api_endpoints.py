@@ -139,11 +139,11 @@ class TestRecommendEndpointBasics:
 class TestRecommendEndpointClarification:
     """Test clarification flow in /api/recommend endpoint."""
 
-    @patch('web.api.identify_job')
+    @patch('api.identify_job')
     def test_recommend_handles_clarification_response(self, mock_identify, client):
         """Test that endpoint handles cases needing clarification."""
         # Mock identify_job to return a job with unclear specs
-        from web.job_identification import JobIdentification, UnclearSpecification
+        from job_identification import JobIdentification, UnclearSpecification
         
         unclear_spec = UnclearSpecification(
             spec_name="gearing",
