@@ -415,7 +415,7 @@ def recommend() -> Union[Tuple[Response, int], Response]:
             "instructions": job.instructions,
             "available_categories": [cat for cat in valid_categories if candidates.get(cat)],
             "hint": "This typically means the product database needs to be refreshed or expanded.",
-        }), 200
+        }), 422
     
     # Step 4: Build recommendation context and prompt
     context = build_recommendation_context(

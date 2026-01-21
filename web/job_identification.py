@@ -148,7 +148,7 @@ class RecipeInstructions:
             List of unique [category_key] references found in ingredient names.
         """
         categories = []
-        pattern = r'\[([a-z_]+)\]'
+        pattern = r'\[([a-zA-Z0-9_]+)\]'
         
         for ingredient in self.ingredients:
             name = ingredient.get("name", "")
@@ -170,7 +170,6 @@ class RecipeInstructions:
             Tuple of (is_valid, list_of_errors)
             Checks:
             - All ingredients are mentioned in at least one step
-            - All ingredient references in steps are in ingredients list
         """
         errors = []
         ingredient_names = self.get_ingredient_names()
@@ -298,13 +297,15 @@ class JobIdentification:
         # Extract ingredients from instructions (items in brackets)
         ingredients = []
         ingredient_names = set()
-        pattern = r'\[([a-z_]+)\]'
+        pattern = r'\[([a-zA-Z0-9_]+)\]'
         
         for instruction in instructions:
             matches = re.findall(pattern, instruction)
             for match in matches:
                 if match not in ingredient_names:
-                    ingredients.append({"name": f"[{match}]", "type": "part"})
+                    # Infer type from category key pattern
+                    ingredient_type = "tool" if "tool" in match.lower() else "part"
+                    ingredients.append({"name": f"[{match}]", "type": ingredient_type})
                     ingredient_names.add(match)
         
         return RecipeInstructions(ingredients=ingredients, steps=instructions)
