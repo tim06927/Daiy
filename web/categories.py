@@ -213,7 +213,7 @@ def discover_categories_from_catalog() -> Dict[str, Dict[str, Any]]:
     Returns:
         Dict mapping category key to category configuration.
     """
-    from catalog import get_categories, get_product_count
+    from .catalog import get_categories, get_product_count
     
     categories: Dict[str, Dict[str, Any]] = {}
     
