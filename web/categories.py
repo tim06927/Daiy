@@ -224,7 +224,11 @@ def discover_categories_from_catalog(csv_path: str = CSV_PATH) -> Dict[str, Dict
         
         # Get category counts
         if "category" not in df.columns:
-            logger.warning("No 'category' column in catalog, using overrides only")
+            logger.error(
+                "CRITICAL: No 'category' column found in product catalog. "
+                f"Available columns: {list(df.columns)}. "
+                f"Falling back to {len(CATEGORY_OVERRIDES)} override categories only."
+            )
             return dict(CATEGORY_OVERRIDES)
         
         category_counts = df["category"].value_counts().to_dict()
@@ -252,10 +256,19 @@ def discover_categories_from_catalog(csv_path: str = CSV_PATH) -> Dict[str, Dict
                 categories[cat_key]["product_count"] = 0
                 
     except FileNotFoundError:
-        logger.warning(f"Catalog not found at {csv_path}, using overrides only")
+        logger.error(
+            f"CRITICAL: Product catalog not found at {csv_path}. "
+            f"The application will have limited functionality with only "
+            f"{len(CATEGORY_OVERRIDES)} override categories available. "
+            f"Please ensure the CSV file exists before starting the app."
+        )
         categories = dict(CATEGORY_OVERRIDES)
     except Exception as e:
-        logger.error(f"Error discovering categories: {e}, using overrides only")
+        logger.error(
+            f"CRITICAL: Error discovering categories: {e}. "
+            f"Falling back to {len(CATEGORY_OVERRIDES)} override categories only. "
+            f"This may cause unexpected behavior."
+        )
         categories = dict(CATEGORY_OVERRIDES)
     
     return categories

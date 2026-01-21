@@ -148,7 +148,7 @@ class RecipeInstructions:
             List of unique [category_key] references found in ingredient names.
         """
         categories = []
-        pattern = r'\[([a-z_]+)\]'
+        pattern = r'\[([a-zA-Z0-9_]+)\]'
         
         for ingredient in self.ingredients:
             name = ingredient.get("name", "")
@@ -182,6 +182,16 @@ class RecipeInstructions:
             if not any(re.search(escaped, step) for step in self.steps):
                 errors.append(f"Ingredient '{ingredient}' not used in any step")
         
+        # Check if steps reference unknown ingredients
+        # Heuristic: treat quoted phrases as explicit ingredient references
+        for step in self.steps:
+            quoted_refs = re.findall(r'["\']([^"\']+)["\']', step)
+            for ref in quoted_refs:
+                if ref not in ingredient_names:
+                    errors.append(
+                        f"Step references unknown ingredient '{ref}' in: {step}"
+                    )
+        
         return (len(errors) == 0, errors)
 
 
@@ -197,7 +207,7 @@ def extract_categories_from_instructions(instructions: List[str]) -> List[str]:
         List of unique category keys found in instructions.
     """
     categories = []
-    pattern = r'\[([a-z_]+)\]'
+    pattern = r'\[([a-zA-Z0-9_]+)\]'
     
     for step in instructions:
         matches = re.findall(pattern, step)
@@ -298,13 +308,15 @@ class JobIdentification:
         # Extract ingredients from instructions (items in brackets)
         ingredients = []
         ingredient_names = set()
-        pattern = r'\[([a-z_]+)\]'
+        pattern = r'\[([a-zA-Z0-9_]+)\]'
         
         for instruction in instructions:
             matches = re.findall(pattern, instruction)
             for match in matches:
                 if match not in ingredient_names:
-                    ingredients.append({"name": f"[{match}]", "type": "part"})
+                    # Infer type from category key pattern
+                    ingredient_type = "tool" if "tool" in match.lower() else "part"
+                    ingredients.append({"name": f"[{match}]", "type": ingredient_type})
                     ingredient_names.add(match)
         
         return RecipeInstructions(ingredients=ingredients, steps=instructions)
