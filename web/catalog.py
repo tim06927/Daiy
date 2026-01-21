@@ -101,6 +101,7 @@ def query_products(
     Args:
         categories: Filter by category list (OR condition).
         filters: Additional column filters (exact match).
+            Column names are validated against the actual database schema.
         limit: Maximum number of results.
         db_path: Path to SQLite database.
         
@@ -118,9 +119,13 @@ def query_products(
         params.extend(categories)
     
     if filters:
+        # Get valid columns from database schema to prevent SQL injection
+        # This approach allows new columns added during scraping without code changes
+        valid_columns = _get_table_columns(db_path)
+        
         for col, val in filters.items():
-            # Sanitize column name
-            if not col.replace('_', '').isalnum():
+            # Validate column exists in database schema
+            if col not in valid_columns:
                 continue
             
             if val is None:
@@ -141,6 +146,27 @@ def query_products(
         df = _add_derived_columns(df)
     
     return df
+
+
+def _get_table_columns(db_path: str = DEFAULT_DB_PATH) -> set:
+    """Get the list of valid columns from the products table schema.
+    
+    This allows dynamic validation of filter columns based on the actual
+    database schema, supporting new columns added during scraping without
+    requiring code changes.
+    
+    Args:
+        db_path: Path to SQLite database.
+        
+    Returns:
+        Set of valid column names from the products table.
+    """
+    with _get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        # Query the table schema using PRAGMA
+        cursor.execute("PRAGMA table_info(products)")
+        columns = {row[1] for row in cursor.fetchall()}  # row[1] is column name
+    return columns
 
 
 def _add_derived_columns(df: pd.DataFrame) -> pd.DataFrame:
