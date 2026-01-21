@@ -269,7 +269,8 @@ AVAILABLE PRODUCTS BY CATEGORY:
 YOUR TASK:
 1. Create a recipe format with INGREDIENTS (specific product names) and STEPS (detailed instructions)
 2. Replace all category references with SPECIFIC PRODUCTS from the available products
-3. Make sure the steps are clear, ordered, and easy to follow
+3. Ensure every ingredient is used in at least one step
+4. Ensure every step references only ingredients from the list
 
 RESPONSE FORMAT (return pure JSON only, no prose):
 {{

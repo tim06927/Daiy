@@ -170,6 +170,7 @@ class RecipeInstructions:
             Tuple of (is_valid, list_of_errors)
             Checks:
             - All ingredients are mentioned in at least one step
+            - All ingredient references in steps are in ingredients list
         """
         errors = []
         ingredient_names = self.get_ingredient_names()
@@ -180,6 +181,16 @@ class RecipeInstructions:
             escaped = re.escape(ingredient)
             if not any(re.search(escaped, step) for step in self.steps):
                 errors.append(f"Ingredient '{ingredient}' not used in any step")
+        
+        # Check if steps reference unknown ingredients
+        # Heuristic: treat quoted phrases as explicit ingredient references
+        for step in self.steps:
+            quoted_refs = re.findall(r'["\']([^"\']+)["\']', step)
+            for ref in quoted_refs:
+                if ref not in ingredient_names:
+                    errors.append(
+                        f"Step references unknown ingredient '{ref}' in: {step}"
+                    )
         
         return (len(errors) == 0, errors)
 
