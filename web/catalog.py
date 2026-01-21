@@ -7,7 +7,6 @@ Memory usage: <50MB (queries on-demand) vs 500MB+ (loading full CSV).
 """
 
 import json
-import os
 import re
 import sqlite3
 import sys
