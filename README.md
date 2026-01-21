@@ -11,7 +11,7 @@ Recent improvements focused on memory efficiency and production deployment:
 - ✅ **75% memory reduction** - From 800MB+ to <200MB (fits Render 512MB tier)
 - ✅ **Real-time pipeline** - Scraper → Database → Web app (no restart needed)
 - ✅ **Removed heavy dependencies** - numpy, psycopg2, pillow-heif, openpyxl
-- ✅ **Image optimization** - Resize to 2048x2048 before processing
+- ✅ **Image optimization** - Convert images to PNG format while preserving full quality
 
 ### Backend Enhancements
 - ✅ **Fixed type invariance in dynamic specs** - Proper handling of `Mapping[str, Optional[str]]` for flexible product field storage
