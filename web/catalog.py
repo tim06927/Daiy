@@ -41,7 +41,12 @@ def _get_db_connection(db_path: str = DEFAULT_DB_PATH):
 
 
 def _parse_specs(specs_json: Optional[str]) -> Dict[str, Any]:
-    """Parse specs_json field from database."""
+    """Parse specs_json or specs field from database.
+    
+    Handles both column names for compatibility:
+    - specs_json (scraper schema)
+    - specs (CSV export schema)
+    """
     if not specs_json or pd.isna(specs_json):
         return {}
     try:
@@ -141,9 +146,15 @@ def query_products(
 
 def _add_derived_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Add derived columns (specs_dict, speed, application) to query results."""
-    # Parse specs JSON
+    # Parse specs JSON - handle both column names for compatibility
+    specs_col = None
     if "specs_json" in df.columns:
-        df["specs_dict"] = df["specs_json"].apply(_parse_specs)
+        specs_col = "specs_json"
+    elif "specs" in df.columns:
+        specs_col = "specs"
+    
+    if specs_col:
+        df["specs_dict"] = df[specs_col].apply(_parse_specs)
     else:
         df["specs_dict"] = [{} for _ in range(len(df))]
     
