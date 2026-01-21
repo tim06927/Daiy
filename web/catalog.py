@@ -52,7 +52,7 @@ def _parse_specs(specs_json: Optional[str]) -> Dict[str, Any]:
     try:
         result = json.loads(specs_json)
         return dict(result) if isinstance(result, dict) else {}
-    except:
+    except (json.JSONDecodeError, TypeError, ValueError):
         return {}
 
 
