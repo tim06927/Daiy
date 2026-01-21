@@ -20,19 +20,20 @@ if __package__ is None or __package__ == "":
         SHARED_FIT_DIMENSIONS,
         get_category_config,
     )
-    from catalog import query_products
+    from catalog import query_products, get_categories as get_catalog_categories
 else:
     from .categories import (
         PRODUCT_CATEGORIES,
         SHARED_FIT_DIMENSIONS,
         get_category_config,
     )
-    from .catalog import query_products
+    from .catalog import query_products, get_categories as get_catalog_categories
 
 __all__ = [
     "select_candidates_dynamic",
     "apply_fit_filter",
     "prepare_product_for_response",
+    "validate_categories",
 ]
 
 logger = logging.getLogger(__name__)
@@ -255,6 +256,8 @@ def validate_categories_against_catalog(
 ) -> List[str]:
     """Filter categories to only those with products in catalog.
     
+    DEPRECATED: Use validate_categories() instead for memory efficiency.
+    
     Args:
         categories: Requested categories.
         df: Product catalog DataFrame.
@@ -263,6 +266,27 @@ def validate_categories_against_catalog(
         List of categories that have products available.
     """
     available = set(get_available_categories_from_catalog(df))
+    valid = [c for c in categories if c in available]
+    
+    if len(valid) < len(categories):
+        missing = set(categories) - set(valid)
+        logger.warning(f"Categories without products: {missing}")
+    
+    return valid
+
+
+def validate_categories(categories: List[str]) -> List[str]:
+    """Filter categories to only those with products in catalog.
+    
+    Memory-efficient version using SQL query instead of loading full catalog.
+    
+    Args:
+        categories: Requested categories.
+        
+    Returns:
+        List of categories that have products available.
+    """
+    available = set(get_catalog_categories())
     valid = [c for c in categories if c in available]
     
     if len(valid) < len(categories):

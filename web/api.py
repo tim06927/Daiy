@@ -22,9 +22,9 @@ if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).parent))
     from candidate_selection import (
         select_candidates_dynamic,
-        validate_categories_against_catalog,
+        validate_categories,
     )
-    from catalog import get_catalog
+    from catalog import get_categories as get_catalog_categories
     from categories import (
         PRODUCT_CATEGORIES,
         SHARED_FIT_DIMENSIONS,
@@ -47,9 +47,9 @@ else:
     # Running as package
     from .candidate_selection import (
         select_candidates_dynamic,
-        validate_categories_against_catalog,
+        validate_categories,
     )
-    from .catalog import get_catalog
+    from .catalog import get_categories as get_catalog_categories
     from .categories import (
         PRODUCT_CATEGORIES,
         SHARED_FIT_DIMENSIONS,
@@ -89,11 +89,6 @@ def _process_image_for_openai(
     else:
         from .image_utils import process_image_for_openai
     return process_image_for_openai(image_base64)
-
-
-def _get_catalog_df():
-    """Get the catalog DataFrame from the shared catalog module."""
-    return get_catalog()
 
 
 def _call_llm_recommendation(
@@ -330,10 +325,9 @@ def recommend() -> Union[Tuple[Response, int], Response]:
     else:
         job = identify_job(problem_text, processed_image, image_meta)
     
-    # Validate categories against available catalog
-    df = _get_catalog_df()
+    # Validate categories against available catalog (memory-efficient SQL query)
     referenced_categories = job.referenced_categories or job.categories
-    valid_categories = validate_categories_against_catalog(referenced_categories, df)
+    valid_categories = validate_categories(referenced_categories)
     
     if not valid_categories:
         return jsonify({
@@ -520,8 +514,8 @@ def list_categories() -> Response:
     Returns:
         JSON list of category configurations.
     """
-    df = _get_catalog_df()
-    available = set(df["category"].dropna().unique())
+    # Use lightweight SQL query instead of loading full catalog
+    available = set(get_catalog_categories())
     
     categories = []
     for key, config in PRODUCT_CATEGORIES.items():
