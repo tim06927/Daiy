@@ -40,7 +40,6 @@ if __package__ is None or __package__ == "":
     )
     from logging_utils import log_interaction
     from prompts import (
-        build_grounding_context_dynamic,
         build_recommendation_context,
         make_clarification_prompt_dynamic,
         make_recommendation_prompt,
@@ -67,9 +66,7 @@ else:
     )
     from .logging_utils import log_interaction
     from .prompts import (
-        build_grounding_context_dynamic,
         build_recommendation_context,
-        make_clarification_prompt_dynamic,
         make_recommendation_prompt,
     )
 
@@ -432,9 +429,8 @@ def recommend() -> Union[Tuple[Response, int], Response]:
     llm_payload = _call_llm_recommendation(prompt, processed_image, image_meta)
     
     # Step 6: Parse and format response
-    # Handle both new recipe format and legacy final_instructions format
     recipe = None
-    final_instructions = llm_payload.get("final_instructions", job.instructions)
+    final_instructions = job.instructions
     
     if "recipe" in llm_payload:
         recipe = llm_payload.get("recipe", {})
@@ -491,28 +487,6 @@ def recommend() -> Union[Tuple[Response, int], Response]:
         if prod:
             optional_extras.append(prod)
     
-    # Build legacy format for backwards compatibility
-    legacy_sections = {
-        "why_it_fits": [diagnosis] if diagnosis else [],
-        "suggested_workflow": final_instructions,
-        "checklist": [],
-    }
-    
-    # Build legacy products_by_category
-    products_by_category = []
-    for cat in valid_categories:
-        cat_candidates = candidates.get(cat, [])
-        if not cat_candidates:
-            continue
-        
-        config = PRODUCT_CATEGORIES.get(cat, {})
-        products_by_category.append({
-            "category": config.get("display_name", cat.replace("_", " ").title()),
-            "category_key": cat,
-            "best": cat_candidates[0] if cat_candidates else None,
-            "alternatives": cat_candidates[1:] if len(cat_candidates) > 1 else [],
-        })
-    
     # Log final recommendation result
     log_interaction(
         "recommendation_result",
@@ -537,9 +511,6 @@ def recommend() -> Union[Tuple[Response, int], Response]:
         "optional_extras": optional_extras,
         "job": job.to_dict(),
         "fit_values": known_values,
-        # Legacy format for backwards compatibility
-        "sections": legacy_sections,
-        "products_by_category": products_by_category,
     })
 
 
