@@ -353,12 +353,6 @@ discovered_fields (field discovery results)
 ├── category, field_name, original_labels
 ├── frequency, sample_values
 └── discovered_at
-
-[Legacy category-specific tables]
-├── chain_specs (chains)
-├── cassette_specs (cassettes)
-├── glove_specs (gloves)
-└── tool_specs (tools)
 ```
 
 ### CSV Export
@@ -371,8 +365,8 @@ python -m scrape.csv_utils --export data/bc_products.csv
 
 - **Modular frontend** - Separate CSS/JS files for maintainability (153-line HTML template)
 - **Type-safe dynamic specs** - Flexible product field storage using `Mapping[str, Optional[str]]`
-- **SQLite database** - Normalized schema with category-specific and dynamic spec tables
-- **CSV export** - For easy viewing, sharing, and backward compatibility
+- **SQLite database** - Normalized schema with dynamic spec tables
+- **CSV export** - For easy viewing and sharing
 - **Category spec registry** - Flexible field mapping per product category in [scrape/config.py](scrape/config.py)
 - **Grounding pattern** - LLM can only recommend real products from inventory
 - **Smart clarification** - AI infers missing specs before asking user (confidence-based)

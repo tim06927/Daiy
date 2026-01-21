@@ -118,7 +118,6 @@ CONFIG = {
 **Exports:** `AppState` object
 
 **State Properties:**
-- `selectedSpeed`, `selectedUseCase` - Legacy clarification values
 - `selectedValues` - Generic clarification storage
 - `compressedImage`, `imageDataUrl` - Image state
 - `currentQuery`, `cachedJob` - Query state
@@ -155,9 +154,7 @@ CONFIG = {
 **Key Functions:**
 - `fetchRecommendations(problemText)` - POST to `/api/recommend`
   - Sends clarification answers in new format
-  - Maintains legacy format for backward compatibility
   - Caches job identification
-  - Persists inferred values from API
 
 **Error Handling:**
 - HTTP error detection
@@ -177,10 +174,6 @@ CONFIG = {
 - `updateSubmitButton()` - Show/hide submit button based on answers
 - `submitClarifications()` - Submit answers and trigger new search
 
-**Legacy Support:**
-- `selectSpeed()`, `selectUseCase()` - Backward compatibility wrappers
-- `showOtherInput()` - Legacy other input handler
-
 #### `products.js` - Product Rendering
 **Purpose:** Render product lists and instructions  
 **Dependencies:** None  
@@ -199,7 +192,6 @@ CONFIG = {
 - Lazy loading images
 - Fallback icons when no image
 - Category metadata mapping
-- Product format normalization (new/legacy)
 
 #### `main.js` - Application Control
 **Purpose:** Initialize app and orchestrate workflow  
