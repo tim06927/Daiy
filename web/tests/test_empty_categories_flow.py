@@ -5,7 +5,6 @@ Tests that when a category has no products, the system gracefully returns
 diagnostic information instead of a 404 error.
 """
 
-import json
 import sys
 from pathlib import Path
 
