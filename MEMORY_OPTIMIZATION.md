@@ -164,7 +164,7 @@ with sqlite3.connect('data/products.db') as conn:
 - `web/api.py` - Remove DataFrame loading
 - `requirements.txt` - Remove unused dependencies
 - `pyproject.toml` - Update dependencies
-- `web/image_utils.py` - Add image resizing to reduce memory peaks
+- `web/image_utils.py` - Optimize image format conversion to reduce memory peaks
 
 ### Testing
 
