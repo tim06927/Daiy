@@ -21,8 +21,10 @@ This application is optimized for deployment on Render's free tier (512MB RAM li
    - **Name**: `daiy-demo` (or your choice)
    - **Environment**: `Python 3`
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `python web/app.py`
+   - **Start Command**: `gunicorn --workers 1 --timeout 120 --bind 0.0.0.0:$PORT web.app:app`
    - **Plan**: `Free` (512MB RAM)
+
+> **Note**: The `--timeout 120` flag is essential for LLM calls which can take 30-60 seconds. Without it, gunicorn's default 30s timeout will cause 502 errors.
 
 ### 2. Environment Variables
 
@@ -30,8 +32,6 @@ Add in Render dashboard under "Environment":
 
 ```
 OPENAI_API_KEY=sk-...your-key...
-FLASK_HOST=0.0.0.0
-FLASK_PORT=10000
 ```
 
 Optional (for basic auth):
