@@ -41,7 +41,6 @@ if __package__ is None or __package__ == "":
     from logging_utils import log_interaction
     from prompts import (
         build_recommendation_context,
-        make_clarification_prompt_dynamic,
         make_recommendation_prompt,
     )
 else:
