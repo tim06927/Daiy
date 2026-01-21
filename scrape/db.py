@@ -337,9 +337,6 @@ def get_all_products(
                 product["specs"] = json.loads(product["specs_json"])
             del product["specs_json"]
 
-            if include_specs:
-                # Legacy spec tables are no longer used - only dynamic_specs
-                pass
 
             products.append(product)
 
@@ -466,11 +463,7 @@ def get_products_by_category(
             
             del product["specs_json"]
             
-            # Include dynamic specs if requested
-            if include_specs:
-                # Legacy spec tables are no longer used - only dynamic_specs
-                pass
-            
+
             products.append(product)
         
         return products
