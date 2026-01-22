@@ -1,7 +1,7 @@
 """Legacy CSV utilities - deprecated, use database directly."""
 
 import csv
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 __all__ = [
     "load_existing_products",
