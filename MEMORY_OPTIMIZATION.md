@@ -187,7 +187,7 @@ print(f'{len(df)} products, {df.memory_usage(deep=True).sum()/1024/1024:.1f}MB')
 ### Troubleshooting
 
 **Q: Database not found error?**  
-A: On first run, the app creates it from CSV automatically. Ensure `data/bc_products_sample.csv` exists.
+A: Ensure `data/products.db` exists. Run `python -m scrape.cli` to create it with data.
 
 **Q: Still using too much memory?**  
 A: Check if pandas is loading large query results. Use `limit` parameter to cap result size.

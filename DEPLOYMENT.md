@@ -299,9 +299,8 @@ View logs in Render dashboard:
 
 For issues:
 1. Check logs in Render dashboard
-2. Review [MEMORY_OPTIMIZATION.md](MEMORY_OPTIMIZATION.md)
-3. Verify [PIPELINE.md](PIPELINE.md) for data flow
-4. Check [web/README.md](web/README.md) for architecture details
+2. Verify [PIPELINE.md](PIPELINE.md) for data flow
+3. Check [web/README.md](web/README.md) for architecture details
 
 ## Success Checklist
 

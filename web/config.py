@@ -7,9 +7,6 @@ from pathlib import Path
 _THIS_DIR = Path(__file__).parent
 _PROJECT_ROOT = _THIS_DIR.parent
 
-# Data - use absolute path for consistent loading
-CSV_PATH = str(_PROJECT_ROOT / "data" / "bc_products_sample.csv")
-
 # LLM Configuration
 LLM_MODEL = "gpt-5.2"
 

@@ -17,7 +17,6 @@ __all__ = [
     "RETRY_STATUS_CODES",
     "MAX_PAGES_PER_CATEGORY",
     "DEFAULT_MAX_PAGES",
-    "OUTPUT_PATH",
     "DB_PATH",
     "CATEGORY_SPECS",
     "get_spec_config",
@@ -61,8 +60,7 @@ RETRY_STATUS_CODES = {429, 500, 502, 503, 504}  # Status codes to retry on
 MAX_PAGES_PER_CATEGORY = 50  # Safety limit to avoid runaway scraping
 DEFAULT_MAX_PAGES = 10  # Default when not specified
 
-# Output paths
-OUTPUT_PATH = "data/bc_products_sample.csv"
+# Database path
 DB_PATH = "data/products.db"
 
 

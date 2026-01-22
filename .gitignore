@@ -41,12 +41,13 @@ scrape/logs/
 htmlcov/
 .hypothesis/
 
-# Data files
+# Data files - only allow SQLite database for deployment
 *.csv
 data/*.csv
 *.xlsx
-
-# Allow database file for deployment
+data/*.json
+data/*.pdf
+data/*.html
 !data/products.db
 
 # OS
