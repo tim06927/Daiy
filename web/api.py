@@ -11,6 +11,7 @@ The /api/recommend endpoint uses this flow.
 import json
 import logging
 import sys
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -38,11 +39,12 @@ if __package__ is None or __package__ == "":
         merge_inferred_with_user_selections,
         extract_categories_from_instructions,
     )
-    from logging_utils import log_interaction
+    from logging_utils import log_interaction, log_performance
     from prompts import (
         build_recommendation_context,
         make_recommendation_prompt,
     )
+    from timing import timer, get_timings, reset_timings
 else:
     # Running as package
     from .candidate_selection import (
@@ -63,11 +65,12 @@ else:
         merge_inferred_with_user_selections,
         extract_categories_from_instructions,
     )
-    from .logging_utils import log_interaction
+    from .logging_utils import log_interaction, log_performance
     from .prompts import (
         build_recommendation_context,
         make_recommendation_prompt,
     )
+    from .timing import timer, get_timings, reset_timings
 
 __all__ = ["api"]
 
@@ -276,6 +279,10 @@ def recommend() -> Union[Tuple[Response, int], Response]:
             "job": {...}
         }
     """
+    # Initialize timing tracker for this request
+    reset_timings()
+    request_id = str(uuid.uuid4())[:8]
+    
     data = request.get_json(force=True)
     
     # Validate problem_text is a string
@@ -311,6 +318,7 @@ def recommend() -> Union[Tuple[Response, int], Response]:
         log_interaction(
             "user_input",
             {
+                "request_id": request_id,
                 "problem_text": problem_text,
                 "image_meta": image_meta,
                 "has_clarifications": bool(clarification_answers),
@@ -321,13 +329,18 @@ def recommend() -> Union[Tuple[Response, int], Response]:
     # Step 1: Job Identification (use cached if available)
     if cached_job:
         job = JobIdentification.from_dict(cached_job)
-        log_interaction("job_identification_cached", job.to_dict())
+        log_interaction("job_identification_cached", {
+            "request_id": request_id,
+            **job.to_dict()
+        })
     else:
-        job = identify_job(problem_text, processed_image, image_meta)
+        with timer("llm_call_job_identification"):
+            job = identify_job(problem_text, processed_image, image_meta)
     
     # Validate categories against available catalog (memory-efficient SQL query)
-    referenced_categories = job.referenced_categories or job.categories
-    valid_categories = validate_categories(referenced_categories)
+    with timer("app_validate_categories"):
+        referenced_categories = job.referenced_categories or job.categories
+        valid_categories = validate_categories(referenced_categories)
     
     if not valid_categories:
         return jsonify({
@@ -350,7 +363,8 @@ def recommend() -> Union[Tuple[Response, int], Response]:
     ]
     
     # Merge inferred with user selections
-    known_values = merge_inferred_with_user_selections(job, selected_values)
+    with timer("app_merge_selections"):
+        known_values = merge_inferred_with_user_selections(job, selected_values)
     
     # Add clarification answers to known values
     for answer in clarification_answers:
@@ -368,11 +382,16 @@ def recommend() -> Union[Tuple[Response, int], Response]:
         log_interaction(
             "clarification_required",
             {
+                "request_id": request_id,
                 "questions": questions,
                 "instructions_preview": job.instructions,
                 "inferred_values": known_values,
             },
         )
+        
+        # Log partial performance metrics
+        timings = get_timings()
+        log_performance(timings, request_id=request_id)
         
         return jsonify({
             "need_clarification": True,
@@ -383,10 +402,12 @@ def recommend() -> Union[Tuple[Response, int], Response]:
         }), 200
     
     # Step 3: Select products for all referenced categories
-    candidates = select_candidates_dynamic(valid_categories, known_values)
+    with timer("app_candidate_selection"):
+        candidates = select_candidates_dynamic(valid_categories, known_values)
     
     # Log what we found
     log_interaction("candidate_selection", {
+        "request_id": request_id,
         "categories": valid_categories,
         "known_values": known_values,
         "candidates_count": {cat: len(prods) for cat, prods in candidates.items()},
@@ -408,82 +429,87 @@ def recommend() -> Union[Tuple[Response, int], Response]:
         }), 422
     
     # Step 4: Build recommendation context and prompt
-    context = build_recommendation_context(
-        problem_text=problem_text,
-        instructions=job.instructions,
-        clarifications=clarification_answers,
-        category_products=candidates,
-        image_base64=processed_image,
-    )
+    with timer("app_build_context"):
+        context = build_recommendation_context(
+            problem_text=problem_text,
+            instructions=job.instructions,
+            clarifications=clarification_answers,
+            category_products=candidates,
+            image_base64=processed_image,
+        )
     
-    prompt = make_recommendation_prompt(context, bool(processed_image))
+    with timer("app_build_prompt"):
+        prompt = make_recommendation_prompt(context, bool(processed_image))
     
     # Step 5: Call LLM for final recommendation
-    llm_payload = _call_llm_recommendation(prompt, processed_image, image_meta)
+    with timer("llm_call_recommendation"):
+        llm_payload = _call_llm_recommendation(prompt, processed_image, image_meta)
     
     # Step 6: Parse and format response
-    recipe = None
-    final_instructions = job.instructions
-    
-    if "recipe" in llm_payload:
-        recipe = llm_payload.get("recipe", {})
-        # Extract steps from recipe for display
-        final_instructions = recipe.get("steps", final_instructions)
-    
-    diagnosis = llm_payload.get("diagnosis", "")
-    
-    # Build product responses
-    def _build_product_response(
-        product_ref: Dict[str, Any],
-        candidates: Dict[str, List[Dict[str, Any]]],
-    ) -> Optional[Dict[str, Any]]:
-        """Convert LLM product reference to full product response."""
-        category = product_ref.get("category")
-        index = product_ref.get("product_index", 0)
-        reasoning = product_ref.get("reasoning", "")
+    with timer("app_format_response"):
+        recipe = None
+        final_instructions = job.instructions
         
-        if not category or category not in candidates:
-            return None
+        if "recipe" in llm_payload:
+            recipe = llm_payload.get("recipe", {})
+            # Extract steps from recipe for display
+            final_instructions = recipe.get("steps", final_instructions)
         
-        products = candidates[category]
-        if not products or index >= len(products):
-            return None
+        diagnosis = llm_payload.get("diagnosis", "")
         
-        product = products[index]
-        config = PRODUCT_CATEGORIES.get(category, {})
+        # Build product responses
+        def _build_product_response(
+            product_ref: Dict[str, Any],
+            candidates: Dict[str, List[Dict[str, Any]]],
+        ) -> Optional[Dict[str, Any]]:
+            """Convert LLM product reference to full product response."""
+            category = product_ref.get("category")
+            index = product_ref.get("product_index", 0)
+            reasoning = product_ref.get("reasoning", "")
+            
+            if not category or category not in candidates:
+                return None
+            
+            products = candidates[category]
+            if not products or index >= len(products):
+                return None
+            
+            product = products[index]
+            config = PRODUCT_CATEGORIES.get(category, {})
+            
+            return {
+                "category": category,
+                "category_display": config.get("display_name", category.replace("_", " ").title()),
+                "product": product,
+                "reasoning": reasoning,
+            }
         
-        return {
-            "category": category,
-            "category_display": config.get("display_name", category.replace("_", " ").title()),
-            "product": product,
-            "reasoning": reasoning,
-        }
-    
-    # Process primary products
-    primary_products = []
-    for ref in llm_payload.get("primary_products", []):
-        prod = _build_product_response(ref, candidates)
-        if prod:
-            primary_products.append(prod)
-    
-    # Process tools
-    tools = []
-    for ref in llm_payload.get("tools", []):
-        prod = _build_product_response(ref, candidates)
-        if prod:
-            tools.append(prod)
-    
-    # Process optional extras (max 3)
-    optional_extras = []
-    for ref in llm_payload.get("optional_extras", [])[:3]:
-        prod = _build_product_response(ref, candidates)
-        if prod:
-            optional_extras.append(prod)
+        # Process primary products
+        primary_products = []
+        for ref in llm_payload.get("primary_products", []):
+            prod = _build_product_response(ref, candidates)
+            if prod:
+                primary_products.append(prod)
+        
+        # Process tools
+        tools = []
+        for ref in llm_payload.get("tools", []):
+            prod = _build_product_response(ref, candidates)
+            if prod:
+                tools.append(prod)
+        
+        # Process optional extras (max 3)
+        optional_extras = []
+        for ref in llm_payload.get("optional_extras", [])[:3]:
+            prod = _build_product_response(ref, candidates)
+            if prod:
+                optional_extras.append(prod)
     
     # Log final recommendation result
     log_interaction(
         "recommendation_result",
         {
+            "request_id": request_id,
             "diagnosis": diagnosis,
             "final_instructions": final_instructions,
             "primary_products_count": len(primary_products),
@@ -492,6 +518,10 @@ def recommend() -> Union[Tuple[Response, int], Response]:
             "fit_values": known_values,
         },
     )
+    
+    # Log full performance metrics at the end of successful recommendation
+    timings = get_timings()
+    log_performance(timings, request_id=request_id)
     
     return jsonify({
         # New recipe format

@@ -542,3 +542,62 @@ Use `python web/view_logs.py` to inspect logs.
 - **Candidate limits** - MAX_CASSETTES/CHAINS/TOOLS reduce context size
 - **Early filtering** - `select_candidates()` filters before LLM call
 - **Single LLM call** - Recommendation uses one API call
+
+## Performance Tracking
+
+The app includes built-in performance timing to measure LLM vs app latency:
+
+**Track timing in code:**
+```python
+from web.timing import timer, get_timings, reset_timings
+
+with timer("llm_call"):
+    response = openai_client.chat.completions.create(...)
+
+timings = get_timings()
+print(f"LLM: {timings['__summary__']['llm_percent']}%")
+```
+
+**Analyze logs:**
+```bash
+python web/view_performance.py --days 7
+```
+
+Output shows:
+- Mean/P50/P95/P99 latencies for LLM and app operations
+- Percentage breakdown of total request time
+- Per-operation timing details (job_identification, clarification, recommendation, candidate_selection, etc.)
+
+**Integration:**
+- All `/api/recommend` requests automatically tracked
+- Metrics logged to JSONL with `request_id` for correlation with other events
+- Request ID enables linking timing data to user_input, clarification_required, and recommendation_result events
+
+**Performance baselines:**
+- Job Identification (LLM): 0.3-1.0s
+- Recommendation (LLM): 1.0-5.0s
+- Candidate Selection (App): 20-500ms
+- Total request: 1.5-6.0s
+
+For implementation details, see `timing.py` and `view_performance.py` docstrings.
+
+## Memory Optimization
+
+**Database-backed queries** (replacing CSV loading):
+- Queries products on-demand from SQLite instead of loading all into RAM
+- Reduces startup memory from 800MB+ to <200MB
+- Enables 512MB Render deployment tier with 100k+ products
+- Connection pooling and indexed queries for performance
+
+**Key modules:**
+- `catalog.py` - Database query functions (query_products, get_categories)
+- `candidate_selection.py` - Efficient filtering with product limits
+- `categories.py` - Dynamic discovery from database with caching
+
+**Memory-efficient patterns:**
+- No full catalog loading - only query what's needed
+- Product iteration avoids list concatenation
+- Temporary result filtering with generators where possible
+- One database connection per request with automatic cleanup
+
+Results: ~150-200MB steady-state memory (vs 800MB+ with CSV loading), handles 100k+ products reliably.

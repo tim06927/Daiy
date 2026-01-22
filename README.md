@@ -17,6 +17,7 @@ Recent improvements focused on memory efficiency and production deployment:
 - ✅ **Fixed type invariance in dynamic specs** - Proper handling of `Mapping[str, Optional[str]]` for flexible product field storage
 - ✅ **Robust None-value filtering** - Dynamic specs system skips None values internally, simplifying call sites
 - ✅ **Type-safe imports** - All functions properly annotated with Mapping types for covariance
+- ✅ **Performance timing & analytics** - Track LLM vs app latency breakdown for optimization
 
 ### Three-Phase LLM Flow (Complete)
 1. **Job Identification** - Generates step-by-step instructions with `[category_key]` placeholders
@@ -51,7 +52,7 @@ Restructured monolithic 2200-line `index.html` into 10 maintainable files:
 - Frontend architecture: [web/static/README.md](web/static/README.md)
 - Scraper docs: [scrape/README.md](scrape/README.md)
 - **Pipeline flow**: [PIPELINE.md](PIPELINE.md) - Scraper to web app integration
-- **Memory optimization**: [MEMORY_OPTIMIZATION.md](MEMORY_OPTIMIZATION.md) - 512MB deployment
+- **Performance & memory**: See [web/README.md](web/README.md#performance-tracking) and [web/README.md](web/README.md#memory-optimization)
 
 ---
 
