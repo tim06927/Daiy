@@ -18,6 +18,14 @@ import time
 from contextlib import contextmanager
 from typing import Dict, Any, Optional
 
+try:
+    from flask import g, has_request_context
+    FLASK_AVAILABLE = True
+except ImportError:
+    FLASK_AVAILABLE = False
+    g = None
+    has_request_context = None
+
 __all__ = ["timer", "get_timings", "reset_timings", "TimingTracker"]
 
 
@@ -107,16 +115,27 @@ class TimingTracker:
         self.active_timers.clear()
 
 
-# Global tracker instance (one per request - consider using Flask g for request context)
+# Global tracker instance for non-Flask contexts (e.g., CLI tools, tests)
 _tracker: Optional[TimingTracker] = None
 
 
 def _get_tracker() -> TimingTracker:
-    """Get or create the global tracker."""
-    global _tracker
-    if _tracker is None:
-        _tracker = TimingTracker()
-    return _tracker
+    """Get or create the tracker for the current context.
+    
+    In Flask request context, uses flask.g for thread-safe per-request storage.
+    Otherwise, uses a global tracker for CLI tools and tests.
+    """
+    if FLASK_AVAILABLE and has_request_context():
+        # Use Flask's request-scoped storage for thread safety
+        if not hasattr(g, 'timing_tracker'):
+            g.timing_tracker = TimingTracker()
+        return g.timing_tracker
+    else:
+        # Fall back to global tracker for CLI tools and tests
+        global _tracker
+        if _tracker is None:
+            _tracker = TimingTracker()
+        return _tracker
 
 
 @contextmanager
@@ -158,6 +177,16 @@ def get_timings() -> Dict[str, Any]:
 
 
 def reset_timings() -> None:
-    """Reset all timings for a new request."""
-    global _tracker
-    _tracker = TimingTracker()
+    """Reset all timings for a new request.
+    
+    In Flask request context, this clears the request-scoped tracker.
+    Otherwise, it resets the global tracker for CLI tools and tests.
+    """
+    if FLASK_AVAILABLE and has_request_context():
+        # Clear Flask's request-scoped storage
+        if hasattr(g, 'timing_tracker'):
+            g.timing_tracker = TimingTracker()
+    else:
+        # Reset global tracker for CLI tools and tests
+        global _tracker
+        _tracker = TimingTracker()

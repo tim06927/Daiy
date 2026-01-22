@@ -32,7 +32,7 @@ def format_timestamp(iso_string: str) -> str:
     try:
         dt = datetime.fromisoformat(iso_string)
         return dt.strftime("%Y-%m-%d %H:%M:%S")
-    except:
+    except (ValueError, TypeError, AttributeError):
         return iso_string
 
 
@@ -75,7 +75,7 @@ def print_error(error: Dict[str, Any]) -> None:
         if isinstance(error["context"], str):
             try:
                 context = json.loads(error["context"])
-            except:
+            except (json.JSONDecodeError, ValueError):
                 context = {"raw": error["context"]}
         else:
             context = error["context"]
