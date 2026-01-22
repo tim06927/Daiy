@@ -37,7 +37,7 @@ class TestErrorLogger:
         """Should create error_log table with proper schema."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
-            logger = ErrorLogger(db_path=db_path)
+            ErrorLogger(db_path=db_path)
 
             # Verify table exists
             conn = sqlite3.connect(str(db_path))
