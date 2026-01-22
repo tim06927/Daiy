@@ -30,7 +30,7 @@ class TestErrorLogger:
         """ErrorLogger should create database and table."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
-            logger = ErrorLogger(db_path=db_path)
+            ErrorLogger(db_path=db_path)
             assert db_path.exists()
 
     def test_table_creation(self):
