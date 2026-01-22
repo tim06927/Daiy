@@ -761,10 +761,10 @@ def create_html_log_from_interactions(interactions: List[Dict[str, Any]]) -> str
                 try:
                     data = json.loads(data)
                 except (json.JSONDecodeError, ValueError):
-                    # If parsing fails, leave the original string so it can still be displayed.
+                except json.JSONDecodeError:
                     pass
             
-            data_str = json.dumps(data, indent=2) if data else "{}"
+            data_str = json.dumps(data, indent2) if data else "{}"
             
             html_parts.append(f"""
             <div class="interaction">
