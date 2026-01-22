@@ -402,7 +402,7 @@ class ErrorLogger:
                 if event.get("data"):
                     try:
                         event["data"] = json.loads(event["data"])
-                    except:
+                    except (json.JSONDecodeError, TypeError, ValueError):
                         pass
                 trace.append(event)
             
