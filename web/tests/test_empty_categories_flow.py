@@ -5,11 +5,8 @@ Tests that when a category has no products, the system gracefully returns
 diagnostic information instead of a 404 error.
 """
 
-import json
 import sys
 from pathlib import Path
-
-import pytest
 
 # Setup path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -109,7 +106,7 @@ def test_empty_categories_frontend_handler():
     assert "Missing Product Data" in error_html
     assert "drivetrain_tools" in error_html
     assert "cassettes" in error_html
-    assert "drivetrain_tools" in error_html
+    assert "cassette_tools" in error_html
     assert "Use [drivetrain_tools]" in error_html
 
 
