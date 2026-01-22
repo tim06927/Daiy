@@ -185,8 +185,10 @@ def reset_timings() -> None:
     if FLASK_AVAILABLE and has_request_context():
         # Clear Flask's request-scoped storage
         if hasattr(g, 'timing_tracker'):
+            g.timing_tracker.reset()
+        else:
             g.timing_tracker = TimingTracker()
     else:
         # Reset global tracker for CLI tools and tests
-        global _tracker
-        _tracker = TimingTracker()
+        tracker = _get_tracker()
+        tracker.reset()
