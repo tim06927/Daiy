@@ -1,7 +1,7 @@
 # Daiy Makefile
 # Run `make help` to see available targets
 
-.PHONY: help install run scrape scrape-full export refresh-data discover-categories discover-fields view-data clean
+.PHONY: help install run scrape scrape-full refresh-data discover-categories discover-fields view-data clean
 .PHONY: pipeline pipeline-full pipeline-overnight
 
 # Python command (uses venv if available)
@@ -18,13 +18,14 @@ help:
 	@echo "  setup            Create .env from example (if not exists)"
 	@echo ""
 	@echo "Web App:"
-	@echo "  run              Start the Flask web app"
+	@echo "  run              Start the web app with gunicorn (production)"
+	@echo "  run-dev          Start with Flask dev server (auto-reload)"
 	@echo ""
 	@echo "Scraping:"
 	@echo "  scrape           Run incremental scrape (configured categories)"
 	@echo "  scrape-full      Run full scrape (ignore existing data)"
 	@echo ""
-	@echo "Full Pipelines (discover + scrape + export):"
+	@echo "Full Pipelines (discover + scrape):"
 	@echo "  pipeline SUPER=<path>           Incremental pipeline for a super-category"
 	@echo "  pipeline-full SUPER=<path>      Full pipeline for a super-category"
 	@echo "  pipeline-overnight SUPER=<path> Overnight mode with longer delays (10-30s)"
@@ -34,8 +35,7 @@ help:
 	@echo "  OVERNIGHT=1                     Enable overnight mode (longer delays)"
 	@echo ""
 	@echo "Data Management:"
-	@echo "  export           Export database to CSV"
-	@echo "  refresh-data     Scrape + export + show git diff"
+	@echo "  refresh-data     Run incremental scrape to database"
 	@echo ""
 	@echo "Discovery & Visualization:"
 	@echo "  discover-categories  Discover categories from sitemap"
@@ -76,6 +76,9 @@ setup:
 # =============================================================================
 
 run:
+	$(PYTHON) -m gunicorn --workers 1 --timeout 60 --bind 0.0.0.0:5000 web.app:app
+
+run-dev:
 	$(PYTHON) -m web.app
 
 # =============================================================================
@@ -124,13 +127,9 @@ pipeline:
 	@echo "Step 2/3: Scraping (incremental mode)..."
 	$(PYTHON) -m scrape.cli --discover-scrape $(SUPER) --max-pages $(MAX_PAGES) --skip-field-discovery $(OVERNIGHT_FLAG)
 	@echo ""
-	@echo "Step 3/3: Exporting to CSV..."
-	$(PYTHON) -c "from scrape.csv_utils import export_db_to_csv; export_db_to_csv('$(DB_PATH)', '$(CSV_PATH)')"
-	@echo ""
 	@echo "=== Pipeline Complete ==="
 	@echo "Finished at: $$(date)"
 	@echo "Database: $(DB_PATH)"
-	@echo "CSV: $(CSV_PATH)"
 
 # Generic full pipeline (re-scrape everything)
 pipeline-full:
@@ -153,13 +152,9 @@ pipeline-full:
 	@echo "Step 2/3: Scraping (full mode - ignoring existing data)..."
 	$(PYTHON) -m scrape.cli --discover-scrape $(SUPER) --max-pages $(MAX_PAGES) --skip-field-discovery --mode full $(OVERNIGHT_FLAG)
 	@echo ""
-	@echo "Step 3/3: Exporting to CSV..."
-	$(PYTHON) -c "from scrape.csv_utils import export_db_to_csv; export_db_to_csv('$(DB_PATH)', '$(CSV_PATH)')"
-	@echo ""
 	@echo "=== Pipeline Complete ==="
 	@echo "Finished at: $$(date)"
 	@echo "Database: $(DB_PATH)"
-	@echo "CSV: $(CSV_PATH)"
 
 # Overnight pipeline - convenience shortcut for pipeline with overnight mode
 pipeline-overnight:
@@ -169,23 +164,16 @@ pipeline-overnight:
 # Data Management
 # =============================================================================
 
-# CSV output path
-CSV_PATH ?= data/bc_products_sample.csv
+# Database path
 DB_PATH ?= data/products.db
 
-export:
-	$(PYTHON) -c "from scrape.csv_utils import export_db_to_csv; export_db_to_csv('$(DB_PATH)', '$(CSV_PATH)')"
-
-refresh-data: scrape export
+refresh-data: scrape
 	@echo ""
 	@echo "=== Data Refresh Complete ==="
 	@echo "Database: $(DB_PATH)"
-	@echo "CSV: $(CSV_PATH)"
 	@echo ""
-	@echo "Git status:"
-	@git diff --stat $(CSV_PATH) 2>/dev/null || echo "  (file not tracked or no changes)"
-	@echo ""
-	@echo "To commit: git add $(CSV_PATH) && git commit -m 'Update product data' && git push"
+	@echo "View database stats:"
+	@echo "  $(PYTHON) -m scrape.cli --stats"
 
 # =============================================================================
 # Discovery

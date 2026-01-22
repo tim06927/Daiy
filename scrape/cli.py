@@ -16,13 +16,6 @@ from scrape.config import (
     DB_PATH,
     DEFAULT_MAX_PAGES,
     MAX_PAGES_PER_CATEGORY,
-    OUTPUT_PATH,
-)
-from scrape.csv_utils import (
-    export_category_to_csv,
-    export_db_to_csv,
-    load_existing_products,
-    save_products_to_csv,
 )
 from scrape.db import get_existing_urls, get_product_count, init_db
 from scrape.logging_config import get_logger, setup_logging
@@ -39,7 +32,6 @@ def scrape_all(
     existing_urls: Set[str],
     force_refresh: bool,
     max_pages: int = DEFAULT_MAX_PAGES,
-    use_db: bool = True,
     db_path: str = DB_PATH,
     categories: Optional[List[str]] = None,
     overnight: bool = False,
@@ -50,7 +42,6 @@ def scrape_all(
         existing_urls: Set of URLs to skip
         force_refresh: If True, re-scrape existing URLs
         max_pages: Maximum pages per category
-        use_db: Whether to save to SQLite
         db_path: Path to SQLite database
         categories: Optional list of categories to scrape (default: all)
         overnight: If True, use longer delays between requests
@@ -77,7 +68,6 @@ def scrape_all(
             existing_urls=existing_urls,
             force_refresh=force_refresh,
             max_pages=max_pages,
-            use_db=use_db,
             db_path=db_path,
             overnight=overnight,
         )
@@ -99,12 +89,6 @@ Examples:
   
   # Full refresh of chains category only, up to 10 pages
   python -m scrape.cli --mode full --categories chains --max-pages 10
-  
-  # Export database to CSV
-  python -m scrape.cli --export-csv data/export.csv
-  
-  # Export only cassettes to their own CSV
-  python -m scrape.cli --export-category cassettes --export-csv data/cassettes.csv
   
   # Show database statistics
   python -m scrape.cli --stats
@@ -146,31 +130,6 @@ Examples:
         "--db",
         default=DB_PATH,
         help=f"SQLite database path (default: {DB_PATH})",
-    )
-    parser.add_argument(
-        "--no-db",
-        action="store_true",
-        help="Don't save to database (legacy CSV-only mode)",
-    )
-
-    # CSV output
-    parser.add_argument(
-        "--output",
-        default=OUTPUT_PATH,
-        help=f"Output CSV path for legacy mode (default: {OUTPUT_PATH})",
-    )
-
-    # Export options
-    parser.add_argument(
-        "--export-csv",
-        metavar="PATH",
-        help="Export database to CSV file",
-    )
-    parser.add_argument(
-        "--export-category",
-        metavar="CATEGORY",
-        choices=list(CATEGORY_URLS.keys()),
-        help="Export only this category (use with --export-csv)",
     )
 
     # Info commands
@@ -309,15 +268,6 @@ def main() -> None:
             show_stats(args.db)
             return
 
-        # Handle export commands
-        if args.export_csv:
-            init_db(args.db)
-            if args.export_category:
-                export_category_to_csv(args.db, args.export_category, args.export_csv)
-            else:
-                export_db_to_csv(args.db, args.export_csv)
-            return
-
         # Handle discover-and-scrape workflow
         if args.discover_scrape:
             discover_and_scrape_workflow(
@@ -332,49 +282,27 @@ def main() -> None:
             )
             return
 
-        # Main scraping flow (original behavior)
+        # Main scraping flow
         force_refresh = args.mode == "full"
-        use_db = not args.no_db
         max_pages = min(args.max_pages, MAX_PAGES_PER_CATEGORY)
 
-        existing_rows: List[Dict[str, str]] = []
-        existing_fieldnames: List[str] = []
-        existing_urls: Set[str] = set()
-
+        # Get existing URLs from database
+        init_db(args.db)
+        existing_urls = get_existing_urls(args.db)
         if not force_refresh:
-            if use_db:
-                # Get existing URLs from database
-                init_db(args.db)
-                existing_urls = get_existing_urls(args.db)
-                logger.info(f"Found {len(existing_urls)} existing products in database")
-            else:
-                # Legacy: get from CSV
-                existing_rows, existing_fieldnames = load_existing_products(args.output)
-                existing_urls = {row["url"] for row in existing_rows if "url" in row and row["url"]}
+            logger.info(f"Found {len(existing_urls)} existing products in database")
 
         new_products = scrape_all(
             existing_urls,
             force_refresh,
             max_pages=max_pages,
-            use_db=use_db,
             db_path=args.db,
             categories=args.categories,
             overnight=args.overnight,
         )
 
-        # Save to CSV if using legacy mode or explicitly requested
-        if not use_db:
-            save_products_to_csv(
-                new_products,
-                args.output,
-                existing_rows=None if force_refresh else existing_rows,
-                fieldnames=existing_fieldnames,
-            )
-        else:
-            logger.info(f"Products saved to database: {args.db}")
-            logger.info(f"Total products in database: {get_product_count(args.db)}")
-            print(f"\nTo export to CSV, run:")
-            print(f"  python -m scrape.cli --export-csv {args.output}")
+        logger.info(f"Products saved to database: {args.db}")
+        logger.info(f"Total products in database: {get_product_count(args.db)}")
     
     except KeyboardInterrupt:
         logger.info("Scraper interrupted by user")

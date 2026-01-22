@@ -10,7 +10,6 @@ from scrape.config import (
     DB_PATH,
     get_spec_config,
 )
-from scrape.csv_utils import export_db_to_csv
 from scrape.db import (
     get_all_discovered_fields,
     get_discovered_fields,
@@ -44,7 +43,6 @@ __all__ = [
     "init_db",
     "get_existing_urls",
     "get_product_count",
-    "export_db_to_csv",
     "discover_and_scrape_workflow",
     # Dynamic specs (new flexible system)
     "get_discovered_fields",

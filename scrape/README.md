@@ -21,7 +21,6 @@ This scraper extracts product details from any bike component category on the si
 - **Dynamic specs system** - Flexible field discovery and storage for any category (no schema changes needed)
 - **Type-safe specs** - Proper handling of optional/None values in dynamic specs
 - **Multi-category products** - Products can belong to multiple categories without duplication
-- **CSV export** - Export database to CSV with flattened category-specific fields (includes dynamic specs)
 
 ### Product Discovery & Enhancement
 - **Pagination support** - Automatically follows pagination to scrape all products in a category
@@ -52,7 +51,7 @@ scrape/
 ├── html_utils.py            # HTML parsing utilities
 ├── scraper.py               # Core scraping logic with retries and session management
 ├── db.py                    # SQLite database schema and helpers
-├── csv_utils.py             # CSV export utilities
+├── csv_utils.py             # Deprecated CSV utilities (legacy compatibility)
 ├── workflows.py             # High-level scraping workflows (discover-scrape)
 ├── cli.py                   # Command-line interface with verbose/overnight modes
 ├── discover_fields.py       # Auto-discover spec fields from product sampling
@@ -131,23 +130,19 @@ High-level orchestration for complex multi-step operations:
 - `discover_and_scrape_workflow()` - Full workflow: discover → analyze → scrape (field discovery is built-in)
 
 #### `csv_utils.py`
-Data export/import:
-- `load_existing_products()` - Reads existing CSV rows and header
-- `product_to_row()` - Converts `Product` to CSV row (flattens category_specs with prefix)
-- `save_products_to_csv()` - Exports products to CSV
-- `export_db_to_csv()` - Export database to CSV with flattened category specs
-- `export_category_to_csv()` - Export single category to CSV
+Deprecated CSV utilities (use database directly):
+- `load_existing_products()` - Reads existing CSV rows (legacy compatibility only)
 
 #### `cli.py`
 Command-line interface:
 - `--mode incremental` (default) skips URLs already in database
 - `--mode full` forces a complete rescrape
-- `--output` overrides the CSV path
 - `--max-pages` limit pages per category (default: 10)
 - `--overnight` enables slow mode (10-30s delays) for unattended runs
 - `--verbose` enables detailed console logging
 - `--discover-scrape <path>` - Discover and scrape all subcategories under a path
 - `--skip-field-discovery` - Skip field discovery phase
+- `--stats` - Show database statistics
 - `--field-sample-size` - Products to sample for field discovery (default: 15)
 - `--dry-run` - Preview what would be scraped without executing
 
@@ -204,8 +199,7 @@ The easiest way to run the scraper is via the Makefile in the project root:
 make help              # Show all available commands
 make scrape            # Run incremental scrape (configured categories)
 make scrape-full       # Full refresh (ignore existing data)
-make refresh-data      # Scrape + export CSV + show git diff
-make export            # Export database to CSV
+make refresh-data      # Run incremental scrape and update database
 
 # Pipeline targets (discover → analyze → scrape)
 make pipeline SUPER=components/drivetrain MAX_PAGES=5
@@ -233,8 +227,8 @@ python -m scrape.cli --verbose
 # Limit pages per category
 python -m scrape.cli --max-pages 5
 
-# Custom output CSV
-python -m scrape.cli --output path.csv
+# Show database statistics
+python -m scrape.cli --stats
 ```
 
 ### Discover-scrape workflow
@@ -265,16 +259,6 @@ python -m scrape.discover_categories --output data/categories.json
 # Discover spec fields for a category
 python -m scrape.discover_fields cassettes --sample-size 20
 python -m scrape.discover_fields chains --threshold 0.3
-```
-
-### Export database to CSV
-
-```bash
-# Export all products
-python -m scrape.csv_utils --export data/products.csv
-
-# Export specific category
-python -m scrape.csv_utils --export data/chains.csv --category chains
 ```
 
 ### View scrape data and coverage
@@ -309,35 +293,29 @@ from scrape import (
     scrape_category,
     init_db,
     get_existing_urls,
-    export_db_to_csv,
     discover_and_scrape_workflow,
 )
 
 # Or import from specific modules
 from scrape.scraper import scrape_category, parse_product_page
 from scrape.db import init_db, get_all_products, get_spec_table_for_category
-from scrape.csv_utils import export_db_to_csv, product_to_row
 from scrape.workflows import discover_and_scrape_workflow
 from scrape.config import CATEGORY_SPECS, get_spec_config
 
 # Initialize database
 init_db("data/products.db")
 
-# Scrape a category with pagination (saves to DB)
+# Scrape a category with pagination (saves to DB automatically)
 products = scrape_category(
     "chains",
     "https://www.bike-components.de/en/components/drivetrain/chains/",
     max_pages=5,
-    use_db=True,
     db_path="data/products.db"
 )
 
-# Export to CSV
-export_db_to_csv("data/products.db", "output.csv", category="chains")
-```
-
-# Save to CSV
-save_products_to_csv(products, "output.csv")
+# Query products from database
+from scrape.db import get_all_products
+all_products = get_all_products("data/products.db", category="chains")
 ```
 
 ### Extend for new categories

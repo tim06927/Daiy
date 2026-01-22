@@ -51,23 +51,23 @@ See the full prompt sent to the LLM and the recommendation response.
 ## Scrape New Data
 
 ```bash
-python scrape/cli.py --mode incremental
+python -m scrape.cli --mode incremental
 ```
 
-This adds new products from bike-components.de to `data/bc_products_sample.csv`.
+This adds new products from bike-components.de to the SQLite database (`data/products.db`).
 
 ## Project Structure
 
 - **scrape/** - Web scraper for bike components
 - **grounded_demo/** - CLI proof-of-concept
 - **web/** - Flask web application
-- **data/** - CSV data files
+- **data/** - SQLite database (`products.db`) and sample data
 - **ARCHITECTURE.md** - Deep dive into design patterns
 - **CONTRIBUTING.md** - Guidelines for developers
 
 ## Key Concept: Grounding
 
-The LLM can **only recommend products in the CSV**.
+The LLM can **only recommend products in the database**.
 
 This prevents hallucination and ensures all recommendations are:
 - Real (products actually exist)

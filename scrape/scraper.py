@@ -330,7 +330,6 @@ def scrape_category(
     existing_urls: Optional[Set[str]] = None,
     force_refresh: bool = False,
     max_pages: int = DEFAULT_MAX_PAGES,
-    use_db: bool = True,
     db_path: str = DB_PATH,
     overnight: bool = False,
     discovered_fields: Optional[List[Dict[str, Any]]] = None,
@@ -343,7 +342,6 @@ def scrape_category(
         existing_urls: Set of URLs to skip (for incremental scraping)
         force_refresh: If True, re-scrape even existing URLs
         max_pages: Maximum number of pages to scrape (safety limit)
-        use_db: If True, save products to SQLite database
         db_path: Path to the SQLite database
         overnight: If True, use longer delays between requests
         discovered_fields: List of discovered field mappings for this category.
@@ -371,8 +369,8 @@ def scrape_category(
         "force_refresh": force_refresh,
     })
 
-    if use_db:
-        init_db(db_path)
+    # Initialize database for this scrape session
+    init_db(db_path)
 
     products: List[Product] = []
     seen_urls = existing_urls if existing_urls is not None else set()
@@ -428,16 +426,15 @@ def scrape_category(
                         logger.debug(f"      [{i}/{len(product_links)}] EXISTING (multi-category, previous run): {product_url}")
                     
                     # Product already scraped - just add category association
-                    if use_db:
-                        from scrape.db import get_connection, add_product_category
-                        with get_connection(db_path) as conn:
-                            cursor = conn.cursor()
-                            cursor.execute("SELECT id FROM products WHERE url = ?", (product_url,))
-                            row = cursor.fetchone()
-                            if row:
-                                product_id = row[0]
-                                add_product_category(db_path, product_id, category_key)
-                                logger.debug(f"        Added category '{category_key}' to product ID {product_id}")
+                    from scrape.db import get_connection, add_product_category
+                    with get_connection(db_path) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT id FROM products WHERE url = ?", (product_url,))
+                        row = cursor.fetchone()
+                        if row:
+                            product_id = row[0]
+                            add_product_category(db_path, product_id, category_key)
+                            logger.debug(f"        Added category '{category_key}' to product ID {product_id}")
                     continue
 
                 logger.info(f"      [{i}/{len(product_links)}] {product_url}")
@@ -453,8 +450,7 @@ def scrape_category(
                     seen_urls.add(product_url)
 
                     # Save to database immediately
-                    if use_db:
-                        save_product_to_db(product, db_path)
+                    save_product_to_db(product, db_path)
 
                 except KeyboardInterrupt:
                     logger.info("Interrupted during product fetch")
@@ -472,8 +468,7 @@ def scrape_category(
                 break
 
             # Update scrape state after each page
-            if use_db:
-                update_scrape_state(db_path, category_key, page_num, total_pages)
+            update_scrape_state(db_path, category_key, page_num, total_pages)
 
             # Get next page URL
             next_url = extract_next_page_url(soup, current_url)

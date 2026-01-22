@@ -308,7 +308,7 @@ _call_llm_recommendation() ──→ LLM Phase 3
 ### Prerequisites
 - Python 3.8+
 - OpenAI API key with access to `gpt-5-mini`
-- Product data CSV at `data/bc_products_sample.csv`
+- SQLite database at `data/products.db` (auto-created from CSV on first run)
 
 ### Installation
 
@@ -523,9 +523,9 @@ Use `python web/view_logs.py` to inspect logs.
 ## Troubleshooting
 
 ### "No products found"
-- Verify `data/bc_products_sample.csv` exists
-- Run scraper: `python scrape/cli.py`
-- Check that products have speed info in their names
+- Verify `data/products.db` exists
+- Run scraper: `python -m scrape.cli`
+- Check database has products: `sqlite3 data/products.db "SELECT COUNT(*) FROM products"`
 
 ### "OpenAI API error"
 - Check `OPENAI_API_KEY` in `.env` file
