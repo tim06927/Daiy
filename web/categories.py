@@ -18,10 +18,8 @@ import pandas as pd
 # Handle imports for both direct execution and package import
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).parent))
-    from config import CSV_PATH
     from catalog import get_categories, get_product_count
 else:
-    from .config import CSV_PATH
     from .catalog import get_categories, get_product_count
 
 logger = logging.getLogger(__name__)
