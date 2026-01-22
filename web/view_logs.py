@@ -854,7 +854,10 @@ if __name__ == "__main__":
     else:
         # Use original JSONL mode
         if args.log_file:
-            main(args.log_file)
+            # Emulate passing the log file as a command-line argument to main()
+            sys.argv = [sys.argv[0], str(args.log_file)]
         else:
-            main()
+            # No log file specified: emulate running with no extra CLI args
+            sys.argv = [sys.argv[0]]
+        main()
 
