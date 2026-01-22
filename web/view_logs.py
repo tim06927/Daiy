@@ -760,7 +760,7 @@ def create_html_log_from_interactions(interactions: List[Dict[str, Any]]) -> str
             if isinstance(data, str):
                 try:
                     data = json.loads(data)
-                except:
+                except (json.JSONDecodeError, ValueError):
                     pass
             
             data_str = json.dumps(data, indent=2) if data else "{}"
