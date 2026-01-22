@@ -170,9 +170,9 @@ def main():
         for error_type, count in summary["errors_by_type"].items():
             print(f"  {error_type}: {count}")
     
-    if summary.get("top_error_messages"):
+    if summary.get("top_messages"):
         print("\nTop Error Messages:")
-        for item in summary["top_error_messages"][:5]:
+        for item in summary["top_messages"][:5]:
             msg = item["message"][:60]
             if len(item["message"]) > 60:
                 msg += "..."
