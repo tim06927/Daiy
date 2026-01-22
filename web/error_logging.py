@@ -403,6 +403,7 @@ class ErrorLogger:
                     try:
                         event["data"] = json.loads(event["data"])
                     except (json.JSONDecodeError, TypeError, ValueError):
+                        # Ignore JSON parsing issues; keep original data representation.
                         pass
                 trace.append(event)
             
