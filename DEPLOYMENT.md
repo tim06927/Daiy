@@ -113,6 +113,47 @@ If you see memory issues:
 2. Verify indexes exist: `sqlite3 data/products.db ".indexes products"`
 3. Check query result sizes in logs
 
+### Error Tracking
+
+The application includes a comprehensive error tracking system that persists across deployments:
+
+**Error Types:**
+- `llm_error` - OpenAI API errors, rate limits, parsing failures
+- `validation_error` - Invalid user input
+- `database_error` - Query failures
+- `processing_error` - Image processing issues
+- `unexpected_error` - Uncaught exceptions with full stack traces
+
+**Access Error Logs:**
+
+After deploying the error tracking system, use the Render CLI to view errors:
+
+```bash
+# Install and authenticate Render CLI (one-time setup)
+brew install render  # or npm install -g render
+render login
+
+# View error summary from deployed service
+make render-errors
+
+# Filter by error type
+make render-errors-type TYPE=llm_error
+
+# Export errors for analysis
+make render-errors-export OUTPUT=errors.json
+```
+
+**Local Development:**
+```bash
+# View errors from local database
+make errors
+python web/view_errors.py --all
+python web/view_errors.py --type llm_error
+python web/view_errors.py --export json
+```
+
+All errors stored in `data/products.db` (error_log table) persist across redeployments. See [RENDER_ERROR_LOGS.md](RENDER_ERROR_LOGS.md) for detailed guide.
+
 ## Performance
 
 - **Cold start**: ~3-5 seconds (first request after sleep)
@@ -186,6 +227,48 @@ Render free tier has:
 - **Sleep after 15min inactivity** - First request wakes it up (3-5s delay)
 - **750 hours/month** - Automatic shutdown if exceeded
 - **Limited bandwidth** - Fine for demos
+
+## Testing & Verification
+
+### Pre-Deployment Checklist
+
+- [ ] `OPENAI_API_KEY` set in Render environment
+- [ ] Database file exists (`data/products.db`) or persistent disk configured
+- [ ] Build command includes database creation (if needed)
+- [ ] Start command uses `--workers 1` and `--timeout 120`
+- [ ] Error tracking system deployed (`web/error_logging.py`, `web/view_errors.py`)
+- [ ] Render CLI installed and authenticated for error log access
+- [ ] All tests passing: `pytest web/tests/ -v`
+
+### Post-Deployment Verification
+
+1. **Health check:**
+   ```bash
+   curl https://your-app.onrender.com/
+   ```
+
+2. **Make test recommendation:**
+   ```bash
+   curl -X POST https://your-app.onrender.com/api/recommend \
+     -H "Content-Type: application/json" \
+     -d '{"problem_text": "I need to upgrade my cassette to 11-speed"}'
+   ```
+
+3. **Check error logs:**
+   ```bash
+   make render-errors
+   ```
+
+4. **Monitor metrics:**
+   - Render dashboard → Logs tab
+   - Memory usage (<512MB)
+   - Response times (<5s)
+   - Error rates
+
+5. **Test flows:**
+   - Simple recommendations
+   - Clarification questions
+   - Image upload (if applicable)
 
 ## Production Deployment
 

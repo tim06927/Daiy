@@ -601,3 +601,316 @@ For implementation details, see `timing.py` and `view_performance.py` docstrings
 - One database connection per request with automatic cleanup
 
 Results: ~150-200MB steady-state memory (vs 800MB+ with CSV loading), handles 100k+ products reliably.
+
+## Error Tracking & Monitoring
+
+Comprehensive error logging system for alpha deployments (especially on Render):
+
+### Overview
+
+**Problem:** On Render, ephemeral filesystems don't persist log files across redeployments, making it impossible to access error logs after the deployment updates.
+
+**Solution:** Store all errors in persistent SQLite database (`data/products.db`) alongside product data. Errors survive redeployments and are queryable via CLI tool.
+
+### Error Types
+
+All errors logged with full context, stack traces, and recovery suggestions:
+
+- **llm_error** - OpenAI API errors, JSON parsing failures, model errors
+  - Common causes: API quota exceeded, invalid response format, network issues
+  - Includes: HTTP status, error message, recovery suggestion
+
+- **validation_error** - Invalid user input, constraint violations, type mismatches
+  - Common causes: Missing required fields, invalid problem_text, malformed JSON
+  - Includes: Field name, expected vs actual value, recovery suggestion
+
+- **database_error** - Query failures, connection issues, missing data
+  - Common causes: Database locked, query timeout, constraint violation
+  - Includes: Query details, operation context, recovery suggestion
+
+- **processing_error** - Image processing failures, file operations
+  - Common causes: Invalid image format, file too large, codec issues
+  - Includes: File details, error stage, recovery suggestion
+
+- **unexpected_error** - Uncaught exceptions with full stack trace
+  - Common causes: Bugs, edge cases, unhandled scenarios
+  - Includes: Full stack trace, operation context, request_id for debugging
+
+### Database Schema
+
+Errors stored in `error_log` table (created automatically):
+
+```sql
+CREATE TABLE error_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL,           -- ISO 8601 timestamp
+    request_id TEXT NOT NULL,          -- UUID correlating to other events
+    error_type TEXT NOT NULL,          -- llm_error, validation_error, etc.
+    error_message TEXT NOT NULL,       -- Error summary
+    stack_trace TEXT,                  -- Full traceback for unexpected errors
+    context JSON,                      -- Operation context (as JSON)
+    operation TEXT,                    -- What was being done (e.g., "validate_input")
+    phase TEXT,                        -- LLM phase (1, 2, or 3)
+    user_input TEXT,                   -- Original problem text (truncated)
+    timing_data JSON,                  -- Performance metrics if available
+    recovery_suggestion TEXT           -- How to fix or retry
+);
+
+CREATE INDEX idx_timestamp ON error_log(timestamp);
+CREATE INDEX idx_request_id ON error_log(request_id);
+CREATE INDEX idx_error_type ON error_log(error_type);
+```
+
+### Access Error Logs
+
+#### View All Errors
+
+```bash
+python web/view_errors.py
+```
+
+Shows summary statistics:
+- Total errors, count by type, 24-hour count
+- Top error messages
+- Recent errors with details
+
+#### Filter by Request ID
+
+Trace entire transaction for a specific user request:
+```bash
+python web/view_errors.py --request abc123def456
+```
+
+Shows all errors for that request_id, with:
+- Timestamp, error type, message
+- Operation context (which phase, what parameters)
+- Stack trace (last 10 lines)
+- Recovery suggestion
+
+#### Filter by Error Type
+
+```bash
+python web/view_errors.py --type llm_error          # All LLM errors
+python web/view_errors.py --type validation_error   # Input validation errors
+python web/view_errors.py --type database_error     # Database query errors
+```
+
+#### List Recent Errors with Pagination
+
+```bash
+python web/view_errors.py --all                     # List all (paginated)
+python web/view_errors.py --all --limit 50          # Show 50 errors
+python web/view_errors.py --all --offset 50         # Skip first 50
+```
+
+#### Export for Analysis
+
+Export all errors to JSON/JSONL:
+
+```bash
+# Export as JSON (pretty-printed)
+python web/view_errors.py --export json --output errors.json
+
+# Export as JSONL (one error per line, better for stream processing)
+python web/view_errors.py --export jsonl --output errors.jsonl
+```
+
+Exported format:
+```json
+{
+  "id": 123,
+  "timestamp": "2025-01-21T14:30:45.123Z",
+  "request_id": "550e8400-e29b",
+  "error_type": "llm_error",
+  "error_message": "OpenAI API rate limit exceeded",
+  "operation": "llm_recommendation_phase_3",
+  "phase": "3",
+  "context": {"model": "gpt-4-mini", "status_code": 429},
+  "recovery_suggestion": "Wait 60 seconds and retry"
+}
+```
+
+### Integration with Logging
+
+Errors are correlated with existing event logging via `request_id`:
+
+**Flow of a single user request:**
+
+```
+user_input event          ←─────┐
+   │                            │
+   ├─→ clarification_required    ├─ Same request_id
+   │       (optional)            │
+   │                            │
+   ├─→ llm_call_phase_1         │
+   ├─→ llm_response_phase_1     │
+   │                            │
+   ├─→ llm_call_phase_3         │
+   ├─→ llm_response_phase_3     │
+   │                            │
+   ├─→ performance_metrics      │
+   │                            │
+   └─→ recommendation_result ←──┘
+
+If any error occurs during the request:
+   ├─→ error event (llm_error, validation_error, etc.)
+       - Same request_id for tracing
+       - Includes timing_data up to error point
+```
+
+All events logged to both:
+1. **JSONL files** - `web/logs/llm_interactions_YYYYMMDD.jsonl` (human-readable, local development)
+2. **SQLite database** - `data/products.db` (persistent across redeployments, for errors only)
+
+Use `request_id` to correlate errors with associated user_input and LLM calls.
+
+### Implementation Details
+
+#### error_logging.py
+
+Main error logging module:
+
+```python
+from web.error_logging import (
+    log_llm_error,
+    log_validation_error,
+    log_database_error,
+    log_processing_error,
+    log_unexpected_error,
+)
+
+# Log an LLM error with recovery suggestion
+log_llm_error(
+    "OpenAI API rate limited",
+    request_id="550e8400-e29b",
+    operation="llm_recommendation",
+    context={"status_code": 429},
+    recovery_suggestion="Wait 60 seconds and retry"
+)
+
+# Or catch and log an exception
+try:
+    response = openai_client.chat.completions.create(...)
+except Exception as e:
+    log_llm_error(
+        str(e),
+        request_id=request_id,
+        operation="llm_recommendation",
+        context={"model": "gpt-4-mini"},
+    )
+```
+
+#### view_errors.py
+
+CLI tool for querying and exporting errors:
+
+```bash
+# Show summary and recent errors
+python web/view_errors.py
+
+# Filter by error type
+python web/view_errors.py --type llm_error
+
+# Trace specific request
+python web/view_errors.py --request 550e8400-e29b
+
+# Export to JSON for analysis
+python web/view_errors.py --export json --output errors.json
+
+# Get help
+python web/view_errors.py --help
+```
+
+#### api.py Integration
+
+All API errors logged automatically:
+
+- **JSON parsing** → `validation_error` with recovery suggestion
+- **Input validation** → `validation_error` with field details
+- **Image processing** → `processing_error` with file details
+- **Database queries** → `database_error` with operation context
+- **LLM calls** → `llm_error` with API status
+- **Unexpected** → `unexpected_error` with full stack trace
+
+Example from recommend() endpoint:
+
+```python
+try:
+    # Phase 1: Identify job
+    job = identify_job(problem_text, request_id=request_id)
+except Exception as e:
+    log_llm_error(
+        str(e),
+        request_id=request_id,
+        operation="job_identification",
+        phase="1",
+        context={"error_type": type(e).__name__},
+        recovery_suggestion="Check image format and problem text",
+    )
+    return jsonify({"error": "...", "request_id": request_id}), 400
+```
+
+### Monitoring Workflow
+
+**For development (local):**
+1. Run app: `python web/app.py`
+2. View interactions: `python web/view_logs.py`
+3. View errors: `python web/view_errors.py`
+
+**For Render deployment:**
+1. Connect to Render (SSH or logs)
+2. Query errors: `python web/view_errors.py --all`
+3. Filter by request: `python web/view_errors.py --request <id>`
+4. Export for analysis: `python web/view_errors.py --export json`
+5. Download exported file for offline analysis
+
+**Alert patterns to watch:**
+- Spike in `llm_error` → Check API quota, rate limits
+- `validation_error` → Review user inputs, edge cases
+- Specific `error_message` repeated → Likely a bug or data issue
+- `processing_error` with image errors → Image format/size issues
+
+### Render Deployment Persistence
+
+**Why SQLite solves the persistence problem:**
+
+| Storage Method | Persists Across Redeploy? | Query Support | External Service? |
+|---|---|---|---|
+| Log files (JSONL) | ❌ Ephemeral filesystem | No (manual search) | No |
+| Environment DB (ephemeral) | ❌ Clears on redeploy | Yes | No |
+| **SQLite on disk** | ✅ Stored with app data | ✅ SQL queries | No |
+| Cloud service (Datadog, etc.) | ✅ Yes | ✅ Yes | ✅ Costs $$ |
+| Cloud storage (S3) | ✅ Yes | Manual | ✅ Costs $$ |
+
+**Implementation:** Errors written to `error_log` table in `data/products.db` (same database as products). Since Render preserves `/data` directory between deployments, all errors persist indefinitely.
+
+### Testing Error Logging
+
+Generate test errors to verify system:
+
+```bash
+# In Python shell
+from web.error_logging import log_llm_error
+import uuid
+
+request_id = str(uuid.uuid4())
+
+log_llm_error(
+    "Test LLM error for validation",
+    request_id=request_id,
+    operation="test",
+    context={"test": True},
+    recovery_suggestion="This is a test error"
+)
+
+# View the error
+# python web/view_errors.py --request <request_id>
+```
+
+Or trigger real errors by:
+1. Sending invalid JSON to `/api/recommend`
+2. Submitting empty problem_text
+3. Uploading invalid image format
+4. Querying with impossible product specifications
+
+All errors will be logged and visible via `python web/view_errors.py`.

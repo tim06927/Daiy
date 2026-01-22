@@ -40,6 +40,7 @@ Restructured monolithic 2200-line `index.html` into 10 maintainable files:
 - ✅ All clarification questions are **dynamic** and **LLM-generated**
 - ✅ **Multi-category products** - No duplicates or missing items
 - ✅ **Comprehensive logging** - User inputs, clarifications, LLM calls/responses tracked
+- ✅ **Error tracking** - Persistent SQLite error logs for production monitoring
 - ✅ **HTML log viewer** - Interactive session browser with filters
 - ✅ **Modular frontend** - Separate concerns for easy maintenance
 - ✅ **Vision-enabled** - Image upload for bike photo analysis
@@ -53,6 +54,8 @@ Restructured monolithic 2200-line `index.html` into 10 maintainable files:
 - Scraper docs: [scrape/README.md](scrape/README.md)
 - **Pipeline flow**: [PIPELINE.md](PIPELINE.md) - Scraper to web app integration
 - **Performance & memory**: See [web/README.md](web/README.md#performance-tracking) and [web/README.md](web/README.md#memory-optimization)
+- **Error tracking**: [web/README.md](web/README.md#error-tracking--monitoring) - Production error monitoring
+- **Render deployment**: [DEPLOYMENT.md](DEPLOYMENT.md) | [RENDER_ERROR_LOGS.md](RENDER_ERROR_LOGS.md)
 
 ---
 

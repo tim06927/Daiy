@@ -3,9 +3,13 @@
 
 .PHONY: help install run scrape scrape-full refresh-data discover-categories discover-fields view-data clean
 .PHONY: pipeline pipeline-full pipeline-overnight
+.PHONY: errors errors-all errors-type errors-request errors-export
+.PHONY: render-errors render-errors-all render-errors-type render-errors-export
 
 # Python command (uses venv if available)
 PYTHON := $(shell if [ -f .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
+# Render CLI binary (override with RENDER_CLI=raster3d if you prefer)
+RENDER_CLI ?= render
 
 # Default target
 help:
@@ -42,6 +46,19 @@ help:
 	@echo "  discover-fields CAT=<category>  Discover fields for a category"
 	@echo "  view-data            Open scrape data viewer in browser"
 	@echo ""
+	@echo "Error Tracking & Monitoring:"
+	@echo "  errors              View error summary (Render deployment)"
+	@echo "  errors-all          List all errors with pagination"
+	@echo "  errors-type TYPE=<type>  Filter by error type (llm_error, validation_error, etc.)"
+	@echo "  errors-request ID=<request-id>  Trace errors for specific request"
+	@echo "  errors-export FORMAT=json|jsonl  Export errors to file"
+	@echo ""
+	@echo "Render Error Logs (requires 'render' CLI):"
+	@echo "  render-errors          View error summary from Render deployment"
+	@echo "  render-errors-all      List all errors from Render"
+	@echo "  render-errors-type TYPE=<type>  Filter by error type on Render"
+	@echo "  render-errors-export OUTPUT=<file>  Export errors from Render to file"
+	@echo ""
 	@echo "Maintenance:"
 	@echo "  clean            Remove generated files and caches"
 	@echo ""
@@ -49,7 +66,11 @@ help:
 	@echo "  make refresh-data"
 	@echo "  make discover-fields CAT=cassettes"
 	@echo "  make pipeline SUPER=components/drivetrain MAX_PAGES=5"
-	@echo "  make pipeline SUPER=accessories MAX_PAGES=10 OVERNIGHT=1"
+	@echo "  make errors"
+	@echo "  make errors-type TYPE=llm_error"
+	@echo "  make errors-export FORMAT=json"
+	@echo "  make render-errors"
+	@echo "  make render-errors-export OUTPUT=render_errors.json"
 	@echo ""
 	@echo "Background/Overnight Pipelines (recommended for large scrapes):"
 	@echo "  mkdir -p logs"
@@ -205,3 +226,68 @@ clean:
 clean-db:
 	rm -f $(DB_PATH)
 	@echo "Removed database: $(DB_PATH)"
+
+# =============================================================================
+# Error Tracking & Monitoring (for Render deployment)
+# =============================================================================
+
+errors:
+	$(PYTHON) web/view_errors.py
+
+errors-all:
+	$(PYTHON) web/view_errors.py --all
+
+errors-type:
+	@if [ -z "$(TYPE)" ]; then \
+		echo "Usage: make errors-type TYPE=<type>"; \
+		echo "Error types: llm_error, validation_error, database_error, processing_error, unexpected_error"; \
+	else \
+		$(PYTHON) web/view_errors.py --type $(TYPE); \
+	fi
+
+errors-request:
+	@if [ -z "$(ID)" ]; then \
+		echo "Usage: make errors-request ID=<request-id>"; \
+	else \
+		$(PYTHON) web/view_errors.py --request $(ID); \
+	fi
+
+errors-export:
+	@if [ -z "$(FORMAT)" ]; then \
+		echo "Usage: make errors-export FORMAT=json|jsonl"; \
+	else \
+		$(PYTHON) web/view_errors.py --export $(FORMAT) --output errors_export.$(FORMAT); \
+		echo "✓ Exported to errors_export.$(FORMAT)"; \
+	fi
+
+# =============================================================================
+# Render Error Logs (requires render CLI)
+# =============================================================================
+
+render-errors:
+	@echo "Connecting to Render..."
+	RENDER_CLI=$(RENDER_CLI) $(PYTHON) scripts/get_render_errors.py
+
+render-errors-all:
+	@if [ -z "$(SERVICE)" ]; then \
+		RENDER_CLI=$(RENDER_CLI) $(PYTHON) scripts/get_render_errors.py daiy-web-prod; \
+	else \
+		RENDER_CLI=$(RENDER_CLI) $(PYTHON) scripts/get_render_errors.py $(SERVICE); \
+	fi
+
+render-errors-type:
+	@if [ -z "$(TYPE)" ]; then \
+		echo "Usage: make render-errors-type TYPE=<type>"; \
+		echo "Error types: llm_error, validation_error, database_error, processing_error, unexpected_error"; \
+	else \
+		$(RENDER_CLI) exec --service=daiy-web-prod "cd /app && python web/view_errors.py --type $(TYPE)"; \
+	fi
+
+render-errors-export:
+	@if [ -z "$(OUTPUT)" ]; then \
+		RENDER_CLI=$(RENDER_CLI) $(PYTHON) scripts/get_render_errors.py daiy-web-prod render_errors_export.json; \
+		echo "✓ Exported to render_errors_export.json"; \
+	else \
+		RENDER_CLI=$(RENDER_CLI) $(PYTHON) scripts/get_render_errors.py daiy-web-prod $(OUTPUT); \
+		echo "✓ Exported to $(OUTPUT)"; \
+	fi
