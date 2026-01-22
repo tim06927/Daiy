@@ -914,3 +914,259 @@ Or trigger real errors by:
 4. Querying with impossible product specifications
 
 All errors will be logged and visible via `python web/view_errors.py`.
+
+## Interaction Logging
+
+Complete audit trail of all LLM interactions, from initial user input through final recommendations. All events stored in persistent SQLite database (`data/products.db`) for production visibility and local development debugging.
+
+### Event Types
+
+Every interaction is tagged with an `event_type` and `request_id` for request tracing:
+
+| Event Type | When Fired | Data Logged | Use Case |
+|---|---|---|---|
+| `user_input` | Request begins | problem_text, image size, clarification_answers | Audit trail of user requests |
+| `clarification_required` | Phase 1 or 2 | unclear_specs, confidence_score, questions asked | Understand why clarifications were needed |
+| `llm_call_phase_1` | Before identifying job | model, prompt details, parameters | Debug LLM behavior |
+| `llm_response_phase_1` | After identifying job | identified_job, use_case, gearing, cost_range | Verify job identification accuracy |
+| `llm_call_phase_3` | Before generating recommendations | model, final_instructions, product_count | Verify product matching |
+| `llm_response_phase_3` | After recommendations generated | primary_products, recommended_tools, sections | Track final output |
+| `recommendation_result` | Request completes | product_rankings, sections, generation time | Complete transaction audit |
+| `performance_metrics` | After completion (optional) | total_time, phase_times, api_calls, tokens_used | Performance analysis |
+
+### Database Schema
+
+Interactions stored in `interactions` table (created automatically):
+
+```sql
+CREATE TABLE interactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL,           -- ISO 8601 timestamp
+    request_id TEXT NOT NULL,          -- UUID linking all events for one request
+    event_type TEXT NOT NULL,          -- user_input, llm_call_phase_1, etc.
+    data JSON NOT NULL                 -- Event-specific data as JSON
+);
+
+CREATE INDEX idx_interactions_request ON interactions(request_id);
+CREATE INDEX idx_interactions_type ON interactions(event_type);
+CREATE INDEX idx_interactions_timestamp ON interactions(timestamp);
+```
+
+### Request Tracing
+
+All events for a single user request share the same `request_id`. This enables complete request tracing:
+
+**Example trace for single recommendation request:**
+
+```
+Request ID: 550e8400-e29b-41d4-a716-446655440000
+
+[2025-01-22 10:15:30.123] user_input
+  - problem_text: "Chain keeps slipping on cassette 8 and 9"
+  - has_image: true
+  - image_size: 245382 bytes
+
+[2025-01-22 10:15:32.456] llm_call_phase_1
+  - model: "gpt-4-mini"
+  - prompt_tokens: 1243
+
+[2025-01-22 10:15:35.789] llm_response_phase_1
+  - identified_job: "improve_shifting"
+  - use_case: "urban_commuting"
+  - gearing: "3x9"
+  - cost_range: "budget"
+
+[2025-01-22 10:15:36.123] clarification_required
+  - unclear_specs: ["drivetrain_condition", "shifting_speed_preference"]
+  - confidence: 0.72
+
+[2025-01-22 10:15:38.789] llm_call_phase_3
+  - model: "gpt-4-mini"
+  - product_candidates: 45
+
+[2025-01-22 10:15:42.012] llm_response_phase_3
+  - primary_products: 3
+  - recommended_tools: 2
+  - sections: 4
+
+[2025-01-22 10:15:42.345] recommendation_result
+  - total_time_ms: 12222
+  - status: "success"
+
+[2025-01-22 10:15:42.678] performance_metrics
+  - phase_1_time_ms: 5233
+  - phase_3_time_ms: 3876
+  - total_api_calls: 2
+  - total_tokens: 3456
+```
+
+### Access Interaction Logs
+
+#### View All Interactions
+
+```bash
+python web/view_logs.py --db sqlite
+```
+
+Shows HTML viewer with all events from past 24 hours, event type, timestamp, request_id, and summary statistics.
+
+#### Filter by Request ID
+
+Retrieve complete request trace:
+
+```bash
+python web/view_logs.py --db sqlite --request 550e8400-e29b-41d4-a716-446655440000
+```
+
+Returns all events for that request_id in chronological order. Essential for debugging specific user issues.
+
+#### Filter by Event Type
+
+Find all events of a specific type:
+
+```bash
+python web/view_logs.py --db sqlite --type user_input
+python web/view_logs.py --db sqlite --type clarification_required
+python web/view_logs.py --db sqlite --type llm_call_phase_1
+python web/view_logs.py --db sqlite --type recommendation_result
+```
+
+Useful for analyzing patterns (e.g., "How many requests needed clarification?").
+
+#### Using Makefile Shortcuts
+
+```bash
+make interactions                          # View all interactions
+make interactions-request ID=550e8400-e29b # View request trace
+make interactions-type TYPE=user_input     # Filter by type
+```
+
+### Querying Interactions Programmatically
+
+Direct Python access via `error_logging` module:
+
+```python
+from web.error_logging import ErrorLogger
+
+logger = ErrorLogger()
+
+# Get all interactions for a request
+trace = logger.get_interaction_trace(request_id="550e8400-e29b")
+for event in trace:
+    print(f"{event['timestamp']} {event['event_type']}")
+
+# Get summary statistics
+summary = logger.get_interaction_summary()
+print(f"Total: {summary['total']}")
+print(f"By type: {summary['by_type']}")
+```
+
+### Integration with Error Tracking
+
+Errors and interactions stored in same database, linked by `request_id`:
+
+```bash
+# Get complete trace including errors
+python web/view_logs.py --db sqlite --request 550e8400-e29b
+python web/view_errors.py --request 550e8400-e29b
+```
+
+Correlate errors with user input to debug specific issues:
+
+```python
+from web.error_logging import ErrorLogger
+
+logger = ErrorLogger()
+trace = logger.get_interaction_trace(request_id)
+
+# Find user input and any errors
+user_input = next(e for e in trace if e['event_type'] == 'user_input')
+errors = logger.get_errors(request_id=request_id)
+
+print(f"User asked: {user_input['data']['problem_text']}")
+for error in errors:
+    print(f"Error at {error['operation']}: {error['error_message']}")
+```
+
+### Unified Database Architecture
+
+All application state stored in single `data/products.db` SQLite database:
+
+| Table | Purpose |
+|---|---|
+| `products` | Bike components from scraper |
+| `error_log` | All errors with context |
+| `interactions` | All LLM interactions |
+
+**Benefits:**
+- ✅ Single backup/restore point
+- ✅ Request tracing across errors and interactions
+- ✅ No external services required
+- ✅ Persists on Render across redeployments
+- ✅ Efficient SQL queries
+- ✅ Local file storage (no cloud costs)
+
+### Monitoring Workflow
+
+**Local Development:**
+
+```bash
+# Terminal 1: Run app
+python web/app.py
+
+# Terminal 2: Monitor interactions
+python web/view_logs.py --db sqlite
+
+# Terminal 3: Check for errors
+python web/view_errors.py --all
+```
+
+**Render Deployment Monitoring:**
+
+```bash
+# View recent interactions
+python web/view_logs.py --db sqlite --limit 100
+
+# Trace specific request
+python web/view_logs.py --db sqlite --request <request_id>
+
+# Check for errors
+python web/view_errors.py --type llm_error --limit 50
+```
+
+### Testing Interaction Logging
+
+Generate test interactions:
+
+```bash
+python -c "
+import uuid
+from web.error_logging import ErrorLogger
+
+logger = ErrorLogger()
+request_id = str(uuid.uuid4())
+
+# Log test events
+logger.log_interaction('user_input', request_id, {
+    'problem_text': 'Test request',
+    'has_image': False
+})
+
+logger.log_interaction('recommendation_result', request_id, {
+    'status': 'success',
+    'total_time_ms': 2500
+})
+
+# Retrieve and display
+trace = logger.get_interaction_trace(request_id)
+print(f'✅ Logged {len(trace)} test interactions')
+print(f'Request ID: {request_id}')
+"
+```
+
+View in log viewer:
+
+```bash
+python web/view_logs.py --db sqlite --request <request_id>
+```
+

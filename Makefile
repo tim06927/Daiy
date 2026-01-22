@@ -53,6 +53,11 @@ help:
 	@echo "  errors-request ID=<request-id>  Trace errors for specific request"
 	@echo "  errors-export FORMAT=json|jsonl  Export errors to file"
 	@echo ""
+	@echo "Interaction Logs (user input, LLM calls, recommendations):"
+	@echo "  interactions            View all interactions from database"
+	@echo "  interactions-request ID=<request-id>  View all events for a specific request"
+	@echo "  interactions-type TYPE=<type>  Filter by event type (user_input, llm_call_phase_1, etc.)"
+	@echo ""
 	@echo "Render Error Logs (requires 'render' CLI):"
 	@echo "  render-errors          View error summary from Render deployment"
 	@echo "  render-errors-all      List all errors from Render"
@@ -69,6 +74,7 @@ help:
 	@echo "  make errors"
 	@echo "  make errors-type TYPE=llm_error"
 	@echo "  make errors-export FORMAT=json"
+	@echo "  make interactions-request ID=abc123"
 	@echo "  make render-errors"
 	@echo "  make render-errors-export OUTPUT=render_errors.json"
 	@echo ""
@@ -290,4 +296,26 @@ render-errors-export:
 	else \
 		RENDER_CLI=$(RENDER_CLI) $(PYTHON) scripts/get_render_errors.py daiy-web-prod $(OUTPUT); \
 		echo "✓ Exported to $(OUTPUT)"; \
+	fi
+
+# =============================================================================
+# Interaction Logs (user input, LLM calls, recommendations)
+# =============================================================================
+
+interactions:
+	$(PYTHON) web/view_logs.py --db sqlite
+
+interactions-request:
+	@if [ -z "$(ID)" ]; then \
+		echo "Usage: make interactions-request ID=<request-id>"; \
+	else \
+		$(PYTHON) web/view_logs.py --db sqlite --request $(ID); \
+	fi
+
+interactions-type:
+	@if [ -z "$(TYPE)" ]; then \
+		echo "Usage: make interactions-type TYPE=<type>"; \
+		echo "Event types: user_input, clarification_required, llm_call_phase_1, llm_response_phase_1, llm_call_phase_3, llm_response_phase_3, recommendation_result, performance_metrics"; \
+	else \
+		$(PYTHON) web/view_logs.py --db sqlite --type $(TYPE); \
 	fi

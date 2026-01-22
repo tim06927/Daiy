@@ -35,6 +35,7 @@ __all__ = [
     "log_database_error",
     "log_processing_error",
     "log_unexpected_error",
+    "log_interaction",
     "init_error_logging_db",
 ]
 
@@ -59,12 +60,12 @@ class ErrorLogger:
         return conn
     
     def _ensure_table_exists(self) -> None:
-        """Create error_log table if it doesn't exist."""
+        """Create error_log and interactions tables if they don't exist."""
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
             
-            # Create table
+            # Create error_log table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS error_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,13 +84,25 @@ class ErrorLogger:
                 )
             """)
             
-            # Create indexes separately
+            # Create interactions table (for all events: user_input, llm_calls, recommendations, etc.)
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_timestamp
+                CREATE TABLE IF NOT EXISTS interactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    request_id TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    data JSON,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Create indexes for error_log
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_error_timestamp
                 ON error_log(timestamp)
             """)
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_request_id
+                CREATE INDEX IF NOT EXISTS idx_error_request_id
                 ON error_log(request_id)
             """)
             cursor.execute("""
@@ -97,10 +110,24 @@ class ErrorLogger:
                 ON error_log(error_type)
             """)
             
+            # Create indexes for interactions
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_interaction_request_id
+                ON interactions(request_id)
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_interaction_event_type
+                ON interactions(event_type)
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_interaction_timestamp
+                ON interactions(timestamp)
+            """)
+            
             conn.commit()
             conn.close()
         except Exception as e:
-            logger.error(f"Failed to create error_log table: {e}")
+            logger.error(f"Failed to create tables: {e}")
     
     def log_error(
         self,
@@ -287,6 +314,146 @@ class ErrorLogger:
             logger.info(f"Exported errors to {output_path}")
         except Exception as e:
             logger.error(f"Failed to export errors: {e}")
+    
+    def log_interaction(
+        self,
+        event_type: str,
+        request_id: str,
+        data: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Log an interaction event (user_input, llm_call, recommendation, etc.) to database."""
+        try:
+            timestamp = datetime.now().isoformat()
+            
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            data_json = json.dumps(data) if data else None
+            
+            cursor.execute("""
+                INSERT INTO interactions (
+                    timestamp, request_id, event_type, data
+                ) VALUES (?, ?, ?, ?)
+            """, (
+                timestamp, request_id, event_type, data_json
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.debug(f"Logged interaction {event_type} for request {request_id}")
+        except Exception as e:
+            logger.error(f"Failed to log interaction: {e}")
+    
+    def get_interactions(
+        self,
+        request_id: Optional[str] = None,
+        event_type: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list:
+        """Query interactions from database."""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            query = "SELECT * FROM interactions WHERE 1=1"
+            params = []
+            
+            if request_id:
+                query += " AND request_id = ?"
+                params.append(request_id)
+            
+            if event_type:
+                query += " AND event_type = ?"
+                params.append(event_type)
+            
+            query += " ORDER BY timestamp ASC LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+            
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            conn.close()
+            
+            return [dict(row) for row in rows]
+        except Exception as e:
+            logger.error(f"Failed to query interactions: {e}")
+            return []
+    
+    def get_interaction_trace(self, request_id: str) -> list:
+        """Get all interactions (events) for a specific request in chronological order."""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT * FROM interactions
+                WHERE request_id = ?
+                ORDER BY timestamp ASC
+            """, (request_id,))
+            
+            rows = cursor.fetchall()
+            conn.close()
+            
+            trace = []
+            for row in rows:
+                event = dict(row)
+                # Parse JSON data field
+                if event.get("data"):
+                    try:
+                        event["data"] = json.loads(event["data"])
+                    except:
+                        pass
+                trace.append(event)
+            
+            return trace
+        except Exception as e:
+            logger.error(f"Failed to get interaction trace: {e}")
+            return []
+    
+    def get_interaction_summary(self) -> Dict[str, Any]:
+        """Get interaction summary statistics."""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            # Total interactions
+            cursor.execute("SELECT COUNT(*) as count FROM interactions")
+            total = cursor.fetchone()["count"]
+            
+            # Interactions by type
+            cursor.execute("""
+                SELECT event_type, COUNT(*) as count
+                FROM interactions
+                GROUP BY event_type
+                ORDER BY count DESC
+            """)
+            by_type = {row["event_type"]: row["count"] for row in cursor.fetchall()}
+            
+            # Unique requests
+            cursor.execute("""
+                SELECT COUNT(DISTINCT request_id) as count FROM interactions
+            """)
+            unique_requests = cursor.fetchone()["count"]
+            
+            # Recent interactions (last 24 hours)
+            cursor.execute("""
+                SELECT COUNT(*) as count FROM interactions
+                WHERE timestamp > datetime('now', '-1 day')
+            """)
+            recent = cursor.fetchone()["count"]
+            
+            conn.close()
+            
+            return {
+                "total_interactions": total,
+                "interactions_by_type": by_type,
+                "unique_requests": unique_requests,
+                "interactions_24h": recent,
+            }
+        except Exception as e:
+            logger.error(f"Failed to get interaction summary: {e}")
+            return {}
 
 
 # Global error logger instance
@@ -402,3 +569,18 @@ def log_unexpected_error(
         stack_trace=stack_trace,
         recovery_suggestion="Report this issue to developers with the request ID",
     )
+
+
+def log_interaction(
+    event_type: str,
+    request_id: str,
+    data: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Log an interaction event (user_input, llm_call, recommendation, etc.).
+    
+    Args:
+        event_type: Type of event (user_input, llm_call_phase_1, llm_response_phase_1, etc.)
+        request_id: UUID for correlating all events in a request
+        data: Event-specific data (dict or any JSON-serializable object)
+    """
+    _get_error_logger().log_interaction(event_type, request_id, data)

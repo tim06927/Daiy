@@ -38,6 +38,7 @@ if __package__ is None or __package__ == "":
         log_database_error,
         log_processing_error,
         log_unexpected_error,
+        log_interaction as log_interaction_db,
     )
     from job_identification import (
         JobIdentification,
@@ -71,6 +72,7 @@ else:
         log_database_error,
         log_processing_error,
         log_unexpected_error,
+        log_interaction as log_interaction_db,
     )
     from .job_identification import (
         JobIdentification,
@@ -92,6 +94,21 @@ logger = logging.getLogger(__name__)
 
 # Create blueprint for API
 api = Blueprint("api", __name__, url_prefix="/api")
+
+
+def _log_interaction_both(
+    event_type: str,
+    request_id: str,
+    data: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Log interaction to both JSONL (local) and database (Render)."""
+    # Log to JSONL for local development
+    log_interaction(event_type, data or {})
+    # Log to database for production persistence
+    try:
+        log_interaction_db(event_type, request_id, data)
+    except Exception as e:
+        logger.error(f"Failed to log interaction to database: {e}")
 
 
 def _process_image_for_openai(
@@ -387,10 +404,10 @@ def recommend() -> Union[Tuple[Response, int], Response]:
         
         # Log user input
         if not cached_job:
-            log_interaction(
+            _log_interaction_both(
                 "user_input",
+                request_id,
                 {
-                    "request_id": request_id,
                     "problem_text": problem_text,
                     "image_meta": image_meta,
                     "has_clarifications": bool(clarification_answers),
@@ -401,10 +418,7 @@ def recommend() -> Union[Tuple[Response, int], Response]:
         # Step 1: Job Identification (use cached if available)
         if cached_job:
             job = JobIdentification.from_dict(cached_job)
-            log_interaction("job_identification_cached", {
-                "request_id": request_id,
-                **job.to_dict()
-            })
+            _log_interaction_both("job_identification_cached", request_id, job.to_dict())
         else:
             with timer("llm_call_job_identification"):
                 job = identify_job(problem_text, processed_image, image_meta)
@@ -460,10 +474,10 @@ def recommend() -> Union[Tuple[Response, int], Response]:
             questions = [spec.to_dict() for spec in unanswered_specs]
             
             # Log that we're asking for clarification
-            log_interaction(
+            _log_interaction_both(
                 "clarification_required",
+                request_id,
                 {
-                    "request_id": request_id,
                     "questions": questions,
                     "instructions_preview": job.instructions,
                     "inferred_values": known_values,
@@ -496,8 +510,7 @@ def recommend() -> Union[Tuple[Response, int], Response]:
             return jsonify({"error": "Failed to find matching products"}), 500
         
         # Log what we found
-        log_interaction("candidate_selection", {
-            "request_id": request_id,
+        _log_interaction_both("candidate_selection", request_id, {
             "categories": valid_categories,
             "known_values": known_values,
             "candidates_count": {cat: len(prods) for cat, prods in candidates.items()},
@@ -605,10 +618,10 @@ def recommend() -> Union[Tuple[Response, int], Response]:
                     optional_extras.append(prod)
         
         # Log final recommendation result
-        log_interaction(
+        _log_interaction_both(
             "recommendation_result",
+            request_id,
             {
-                "request_id": request_id,
                 "diagnosis": diagnosis,
                 "final_instructions": final_instructions,
                 "primary_products_count": len(primary_products),
