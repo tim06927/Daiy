@@ -16,12 +16,21 @@
   margin-left: 0.35rem;
   flex-shrink: 0;
   transition: all 0.15s;
+  padding: 0;
+  font-family: inherit;
 }
 
-.help-tooltip:hover {
+.help-tooltip:hover,
+.help-tooltip:focus {
   background: var(--accent-light);
   border-color: var(--accent);
   color: var(--accent);
+  outline: none;
+}
+
+.help-tooltip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .help-tooltip .tooltip-text {
@@ -56,12 +65,19 @@
   border-color: var(--text) transparent transparent transparent;
 }
 
-/* Desktop: show on hover */
+/* Desktop: show on hover or focus */
 @media (hover: hover) {
-  .help-tooltip:hover .tooltip-text {
+  .help-tooltip:hover .tooltip-text,
+  .help-tooltip:focus .tooltip-text {
     visibility: visible;
     opacity: 1;
   }
+}
+
+/* Show on focus for keyboard users (all devices) */
+.help-tooltip:focus .tooltip-text {
+  visibility: visible;
+  opacity: 1;
 }
 
 /* Mobile: show on click/tap via JS-added class */
