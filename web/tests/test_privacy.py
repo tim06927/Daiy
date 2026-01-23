@@ -174,6 +174,40 @@ class TestConsentRoutes:
         response = client.get('/api/categories')
         assert response.status_code == 200
 
+    def test_consent_page_has_back_button(self, client):
+        """Test that consent page has a Back button."""
+        response = client.get('/consent')
+        assert response.status_code == 200
+        content = response.data.decode('utf-8')
+        # Check for Back button
+        assert 'id="back-btn"' in content
+        assert 'Back' in content
+
+    def test_consent_page_has_continue_button(self, client):
+        """Test that consent page has a Continue button."""
+        response = client.get('/consent')
+        assert response.status_code == 200
+        content = response.data.decode('utf-8')
+        # Check for Continue button
+        assert 'id="continue-btn"' in content
+        assert 'Continue' in content
+
+    def test_consent_page_has_checkbox_validation_script(self, client):
+        """Test that consent page has JavaScript for checkbox validation."""
+        response = client.get('/consent')
+        assert response.status_code == 200
+        content = response.data.decode('utf-8')
+        # Check for checkbox validation script
+        assert 'checkbox.addEventListener' in content or 'continueBtn.disabled' in content
+
+    def test_consent_page_has_back_button_script(self, client):
+        """Test that consent page has JavaScript for back button."""
+        response = client.get('/consent')
+        assert response.status_code == 200
+        content = response.data.decode('utf-8')
+        # Check for back button script
+        assert 'window.history.back' in content or "history.back()" in content
+
 
 class TestUrlSecurityOpenRedirect:
     """Test protection against open redirect attacks."""
