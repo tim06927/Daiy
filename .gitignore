@@ -35,6 +35,9 @@ web/logs/
 scrape/logs/
 *.jsonl
 
+# Uploads directory (for photo storage)
+web/uploads/
+
 # Testing
 .pytest_cache/
 .coverage
@@ -48,6 +51,7 @@ data/*.csv
 data/*.json
 data/*.pdf
 data/*.html
+data/.last_purge
 !data/products.db
 
 # OS

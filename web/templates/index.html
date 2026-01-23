@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>Snap-to-Cart – AI Component Finder</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
   
   <!-- External Stylesheets -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
@@ -66,6 +67,11 @@
       
       <div class="hero-section">
         <p class="hero-tagline">Upload a photo or describe your problem. We'll find the right parts and explain why they fit.</p>
+      </div>
+      
+      <!-- Alpha Notice -->
+      <div class="alpha-notice">
+        <p>⚠️ <strong>Alpha demo</strong> — please don't enter personal data (name, email, phone, address).</p>
       </div>
       
       {% if show_demo_notice %}
@@ -165,6 +171,11 @@
       </div>
     </div>
   </div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <a href="{{ url_for('privacy') }}">Privacy Policy</a>
+  </footer>
 
   <!-- External JavaScript Modules -->
   <script src="{{ url_for('static', filename='js/config.js') }}"></script>

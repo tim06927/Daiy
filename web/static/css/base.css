@@ -228,3 +228,40 @@ body {
     padding: 1rem;
   }
 }
+
+/* ========== ALPHA NOTICE ========== */
+.alpha-notice {
+  margin-top: 1.5rem;
+  padding: 0.75rem 1rem;
+  max-width: 500px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--warning);
+  background: #fffbeb;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius-sm);
+}
+
+.alpha-notice strong {
+  color: inherit;
+}
+
+/* ========== FOOTER ========== */
+.app-footer {
+  margin-top: 2rem;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+
+.app-footer a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.app-footer a:hover {
+  text-decoration: underline;
+  color: var(--accent);
+}

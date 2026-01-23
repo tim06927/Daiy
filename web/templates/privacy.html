@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Privacy Policy – Snap-to-Cart</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <style>
+    .privacy-container {
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 2rem;
+      background: var(--surface, #fff);
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .privacy-title {
+      font-size: 1.75rem;
+      margin-bottom: 1.5rem;
+      color: var(--text-primary, #1a1a1a);
+    }
+    .privacy-section {
+      margin-bottom: 1.5rem;
+    }
+    .privacy-section h2 {
+      font-size: 1.125rem;
+      color: var(--text-primary, #1a1a1a);
+      margin-bottom: 0.5rem;
+    }
+    .privacy-section p, .privacy-section ul {
+      color: var(--text-secondary, #666);
+      line-height: 1.6;
+    }
+    .privacy-section ul {
+      margin-left: 1.5rem;
+    }
+    .privacy-section li {
+      margin-bottom: 0.25rem;
+    }
+    .privacy-back {
+      display: inline-block;
+      margin-top: 1.5rem;
+      color: var(--primary, #2563eb);
+      text-decoration: none;
+    }
+    .privacy-back:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="privacy-container">
+    <h1 class="privacy-title">Privacy Policy</h1>
+    
+    <div class="privacy-section">
+      <h2>Controller</h2>
+      <p>DAIY<br>Contact: <a href="mailto:hello@daiy.de">hello@daiy.de</a></p>
+    </div>
+    
+    <div class="privacy-section">
+      <h2>What We Store</h2>
+      <p>This alpha demo stores the following data for debugging and improvement purposes:</p>
+      <ul>
+        <li>User inputs: text descriptions, uploaded photos, model/effort selections, clarification choices and answers</li>
+        <li>Generated content: LLM prompts and responses</li>
+        <li>Technical logs: error logs and runtime logs</li>
+      </ul>
+      <p>We apply automatic redaction to remove obvious personal patterns (email addresses, phone numbers) before storing text data.</p>
+    </div>
+    
+    <div class="privacy-section">
+      <h2>What We Don't Store</h2>
+      <ul>
+        <li>IP addresses</li>
+        <li>Stable user identifiers or tracking cookies</li>
+        <li>Personal data beyond what you explicitly enter</li>
+      </ul>
+    </div>
+    
+    <div class="privacy-section">
+      <h2>Where Data Is Stored</h2>
+      <p>Data is stored in an SQLite database on the Render server hosting this application.</p>
+    </div>
+    
+    <div class="privacy-section">
+      <h2>Purpose</h2>
+      <p>The stored data is used solely for debugging issues and improving this alpha demo. It is not used for marketing, profiling, or shared with third parties beyond what is described below.</p>
+    </div>
+    
+    <div class="privacy-section">
+      <h2>LLM Processing</h2>
+      <p>Your prompts are sent to OpenAI to generate responses. OpenAI's data collection options are disabled for this service, meaning OpenAI does not use your inputs for training their models.</p>
+    </div>
+    
+    <div class="privacy-section">
+      <h2>Data Retention</h2>
+      <p>All stored data is automatically deleted after <strong>90 days</strong>.</p>
+    </div>
+    
+    <div class="privacy-section">
+      <h2>Deletion Requests</h2>
+      <p>To request deletion of your data before the 90-day retention period expires, please email <a href="mailto:hello@daiy.de">hello@daiy.de</a>.</p>
+    </div>
+    
+    <a href="/" class="privacy-back">← Back to App</a>
+  </div>
+</body>
+</html>

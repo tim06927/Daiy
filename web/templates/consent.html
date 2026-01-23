@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Consent Required – Snap-to-Cart</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <style>
+    .consent-container {
+      max-width: 600px;
+      margin: 60px auto;
+      padding: 2rem;
+      background: var(--surface, #fff);
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .consent-title {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      color: var(--text-primary, #1a1a1a);
+    }
+    .consent-text {
+      color: var(--text-secondary, #666);
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+    .consent-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .consent-checkbox-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .consent-checkbox-row input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin-top: 2px;
+      cursor: pointer;
+    }
+    .consent-checkbox-row label {
+      cursor: pointer;
+      color: var(--text-primary, #1a1a1a);
+    }
+    .consent-btn {
+      background: var(--primary, #2563eb);
+      color: #fff;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .consent-btn:hover:not(:disabled) {
+      background: var(--primary-hover, #1d4ed8);
+    }
+    .consent-btn:disabled {
+      background: var(--text-muted, #999);
+      cursor: not-allowed;
+    }
+    .consent-footer {
+      margin-top: 1.5rem;
+      font-size: 0.875rem;
+      color: var(--text-muted, #888);
+    }
+    .consent-footer a {
+      color: var(--primary, #2563eb);
+    }
+  </style>
+</head>
+<body>
+  <div class="consent-container">
+    <h1 class="consent-title">Alpha Demo – Consent Required</h1>
+    
+    <div class="consent-text">
+      <p>This is an <strong>alpha demo</strong> for testing and development purposes.</p>
+      <p>Your inputs (text, photos, selections) and the generated prompts/responses are stored for debugging and improving the service.</p>
+      <p><strong>Please don't enter personal data</strong> such as your name, address, email, or phone number.</p>
+    </div>
+    
+    <form class="consent-form" method="POST" action="{{ url_for('consent') }}">
+      {% if next_url %}
+      <input type="hidden" name="next" value="{{ next_url }}" />
+      {% endif %}
+      
+      <div class="consent-checkbox-row">
+        <input type="checkbox" id="consent" name="consent" required />
+        <label for="consent">I understand and agree</label>
+      </div>
+      
+      <button type="submit" class="consent-btn" id="continue-btn" disabled>Continue</button>
+    </form>
+    
+    <div class="consent-footer">
+      <a href="{{ url_for('privacy') }}">Privacy Policy</a>
+    </div>
+  </div>
+  
+  <script>
+    // Enable button when checkbox is checked
+    const checkbox = document.getElementById('consent');
+    const button = document.getElementById('continue-btn');
+    checkbox.addEventListener('change', function() {
+      button.disabled = !this.checked;
+    });
+  </script>
+</body>
+</html>
