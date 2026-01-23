@@ -81,6 +81,13 @@
   left: 4px;
 }
 
+/* Tooltip label prefix */
+.tooltip-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-right: 0.15rem;
+}
+
 /* ========== BUTTONS & TABS ========== */
 .tab-selector {
   display: flex;

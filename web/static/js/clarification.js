@@ -1,37 +1,7 @@
 /**
  * Clarification UI rendering and interaction
+ * Note: Depends on utils.js for escapeHtml, createHelpTooltip, and toggleTooltip functions
  */
-
-/**
- * Create a help tooltip (? bubble) element
- * @param {string} text - Tooltip text content
- * @returns {string} HTML string for tooltip
- */
-function createHelpTooltip(text) {
-  if (!text) return '';
-  return `<span class="help-tooltip" onclick="toggleTooltip(this)" tabindex="0">?<span class="tooltip-text">${escapeHtml(text)}</span></span>`;
-}
-
-/**
- * Toggle tooltip visibility (for mobile click support)
- * @param {HTMLElement} element - The tooltip element
- */
-function toggleTooltip(element) {
-  // Close other open tooltips
-  document.querySelectorAll('.help-tooltip.active').forEach(el => {
-    if (el !== element) el.classList.remove('active');
-  });
-  element.classList.toggle('active');
-}
-
-// Close tooltips when clicking outside
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.help-tooltip')) {
-    document.querySelectorAll('.help-tooltip.active').forEach(el => {
-      el.classList.remove('active');
-    });
-  }
-});
 
 /**
  * Show clarification panel with questions

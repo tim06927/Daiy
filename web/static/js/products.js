@@ -1,31 +1,7 @@
 /**
  * Product rendering and display logic
+ * Note: Depends on utils.js for escapeHtml and createHelpTooltip functions
  */
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(value) {
-  if (value === null || value === undefined) return '';
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-/**
- * Create a help tooltip (? bubble) for product info
- * @param {string} text - Tooltip text content
- * @param {string} label - Optional label before the ? icon
- * @returns {string} HTML string for tooltip
- */
-function createProductTooltip(text, label = '') {
-  if (!text) return '';
-  const labelHtml = label ? `<span style="font-size: 0.65rem; color: var(--text-muted); margin-right: 0.15rem;">${escapeHtml(label)}</span>` : '';
-  return `${labelHtml}<span class="help-tooltip" onclick="toggleTooltip(this)" tabindex="0">?<span class="tooltip-text">${escapeHtml(text)}</span></span>`;
-}
 
 /**
  * Build product image HTML with fallback icon
@@ -83,7 +59,7 @@ function createProductCard(product, isBest, icon) {
   
   // Create tooltip for "why it fits" if available
   const whyItFits = product.why_it_fits || '';
-  const tooltipHtml = whyItFits ? createProductTooltip(whyItFits, 'Why') : '';
+  const tooltipHtml = whyItFits ? createHelpTooltip(whyItFits, 'Why') : '';
   
   card.innerHTML = `
     ${imageMarkup}
@@ -123,7 +99,7 @@ function createAltProductCard(product, icon) {
   
   // Create tooltip for "why it fits" if available
   const whyItFits = product.why_it_fits || '';
-  const tooltipHtml = whyItFits ? createProductTooltip(whyItFits) : '';
+  const tooltipHtml = whyItFits ? createHelpTooltip(whyItFits) : '';
   
   card.innerHTML = `
     ${imageMarkup}
@@ -177,7 +153,7 @@ function renderSection(products, sectionTitle, sectionClass, showReason = false)
     // Create category name with optional tooltip for reasoning
     let headerContent = `<span class="category-name">${meta.icon} ${escapeHtml(meta.name)}</span>`;
     if (showReason && reasoning) {
-      headerContent += createProductTooltip(reasoning, 'Why');
+      headerContent += createHelpTooltip(reasoning, 'Why');
     }
     header.innerHTML = headerContent;
     section.appendChild(header);

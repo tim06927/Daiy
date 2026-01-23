@@ -48,7 +48,6 @@ data/*.csv
 data/*.json
 data/*.pdf
 data/*.html
-!data/products.db
 
 # OS
 .DS_Store
