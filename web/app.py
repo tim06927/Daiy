@@ -226,7 +226,9 @@ def consent() -> Union[str, Response]:
     POST: Process consent and redirect to original destination
     """
     # Validate redirect URL to prevent open redirect attacks
-    next_url = _get_safe_redirect_url(request.args.get("next"), "/")
+    # For POST, check form first (hidden field), then fall back to query args
+    next_param = request.form.get("next") or request.args.get("next")
+    next_url = _get_safe_redirect_url(next_param, "/")
 
     if request.method == "POST":
         if request.form.get("consent"):
@@ -235,8 +237,7 @@ def consent() -> Union[str, Response]:
             session["alpha_consent_ts"] = datetime.now(timezone.utc).isoformat()
 
             # Redirect to original destination (validated for safety)
-            post_next = _get_safe_redirect_url(request.form.get("next"), "/")
-            return redirect(post_next)
+            return redirect(next_url)
         # If checkbox not checked, show form again
 
     return render_template("consent.html", next_url=next_url)
