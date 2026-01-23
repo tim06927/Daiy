@@ -1,5 +1,6 @@
 /**
  * Clarification UI rendering and interaction
+ * Note: Depends on utils.js for escapeHtml, createHelpTooltip, and toggleTooltip functions
  */
 
 /**
@@ -38,9 +39,12 @@ function showClarification(data) {
       
       const section = document.createElement('div');
       section.className = 'clarification-section';
+      
+      // Create label with optional help tooltip for hint
+      const tooltipHtml = q.hint ? createHelpTooltip(q.hint) : '';
+      
       section.innerHTML = `
-        <div class="clarification-label">${q.question}</div>
-        ${q.hint ? `<div class="clarification-hint">💡 ${q.hint}</div>` : ''}
+        <div class="clarification-label">${escapeHtml(q.question)}${tooltipHtml}</div>
         <div class="option-buttons" id="${q.spec_name}-buttons"></div>
         <div class="other-input-container" id="${q.spec_name}-other-container">
           <input type="text" class="other-input" id="${q.spec_name}-other-input" placeholder="Enter your answer...">
@@ -92,7 +96,7 @@ function showClarification(data) {
     previewSection.innerHTML = `
       <div class="clarification-label">Preliminary Instructions:</div>
       <ul class="preview-instructions">
-        ${instructionsPreview.map(step => `<li>${step}</li>`).join('')}
+        ${instructionsPreview.map(step => `<li>${escapeHtml(step)}</li>`).join('')}
       </ul>
     `;
     clarificationContent.appendChild(previewSection);

@@ -17,18 +17,19 @@ web/
 ├── static/
 │   ├── css/
 │   │   ├── base.css           # Variables, resets, layout, header (230 lines)
-│   │   ├── components.css     # Buttons, forms, clarification UI (614 lines)
-│   │   └── products.css       # Product cards, categories, alternatives (346 lines)
+│   │   ├── components.css     # Buttons, forms, clarification UI, tooltips (680 lines)
+│   │   └── products.css       # Product cards, categories, alternatives (350 lines)
 │   └── js/
 │       ├── config.js          # Application constants (27 lines)
 │       ├── state.js           # Reactive state management (97 lines)
+│       ├── utils.js           # Shared utilities (escapeHtml, tooltips) (50 lines)
 │       ├── image.js           # Image upload & compression (137 lines)
 │       ├── api.js             # Backend communication (59 lines)
-│       ├── clarification.js   # Clarification UI rendering (251 lines)
-│       ├── products.js        # Product display logic (321 lines)
+│       ├── clarification.js   # Clarification UI rendering (180 lines)
+│       ├── products.js        # Product display logic (280 lines)
 │       └── main.js            # Application initialization (215 lines)
 └── templates/
-    └── index.html             # Clean HTML structure (154 lines)
+    └── index.html             # Clean HTML structure (155 lines)
 ```
 
 ## Architecture Principles
@@ -220,11 +221,12 @@ Scripts load in dependency order at the end of `<body>`:
 ```html
 <script src="/static/js/config.js"></script>       <!-- 1. Constants -->
 <script src="/static/js/state.js"></script>        <!-- 2. State -->
-<script src="/static/js/image.js"></script>        <!-- 3. Image (uses config, state) -->
-<script src="/static/js/api.js"></script>          <!-- 4. API (uses config, state) -->
-<script src="/static/js/clarification.js"></script> <!-- 5. Clarification (uses state) -->
-<script src="/static/js/products.js"></script>     <!-- 6. Products -->
-<script src="/static/js/main.js"></script>         <!-- 7. Main (uses all) -->
+<script src="/static/js/utils.js"></script>        <!-- 3. Utilities (escapeHtml, tooltips) -->
+<script src="/static/js/image.js"></script>        <!-- 4. Image (uses config, state) -->
+<script src="/static/js/api.js"></script>          <!-- 5. API (uses config, state) -->
+<script src="/static/js/clarification.js"></script> <!-- 6. Clarification (uses state, utils) -->
+<script src="/static/js/products.js"></script>     <!-- 7. Products (uses utils) -->
+<script src="/static/js/main.js"></script>         <!-- 8. Main (uses all) -->
 ```
 
 **Dependency Graph:**
@@ -233,13 +235,15 @@ config.js (no deps)
     ↓
 state.js (no deps)
     ↓
+utils.js (no deps)
+    ↓
 image.js ← config, state
     ↓
 api.js ← config, state
     ↓
-clarification.js ← state, handleSearch (from main)
+clarification.js ← state, utils, handleSearch (from main)
     ↓
-products.js (no deps)
+products.js ← utils
     ↓
 main.js ← all modules
 ```

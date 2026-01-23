@@ -1,3 +1,109 @@
+/* ========== HELP TOOLTIP (? BUBBLE) ========== */
+.help-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: help;
+  margin-left: 0.35rem;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  padding: 0;
+  font-family: inherit;
+}
+
+.help-tooltip:hover,
+.help-tooltip:focus {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+  outline: none;
+}
+
+.help-tooltip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.help-tooltip .tooltip-text {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  z-index: 1000;
+  bottom: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  max-width: 280px;
+  padding: 0.5rem 0.75rem;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.4;
+  border-radius: var(--radius-xs);
+  box-shadow: var(--shadow-lg);
+  text-align: left;
+  transition: opacity 0.15s, visibility 0.15s;
+  pointer-events: none;
+}
+
+.help-tooltip .tooltip-text::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 4px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: var(--text) transparent transparent transparent;
+}
+
+/* Desktop: show on hover or focus */
+@media (hover: hover) {
+  .help-tooltip:hover .tooltip-text,
+  .help-tooltip:focus .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+  }
+}
+
+/* Show on focus for keyboard users (all devices) */
+.help-tooltip:focus .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Mobile: show on click/tap via JS-added class */
+.help-tooltip.active .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Left-aligned tooltip variant */
+.help-tooltip.tooltip-left .tooltip-text {
+  right: auto;
+  left: 0;
+}
+
+.help-tooltip.tooltip-left .tooltip-text::after {
+  right: auto;
+  left: 4px;
+}
+
+/* Tooltip label prefix */
+.tooltip-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-right: 0.15rem;
+}
+
 /* ========== BUTTONS & TABS ========== */
 .tab-selector {
   display: flex;
@@ -395,15 +501,14 @@
 /* ========== CLARIFICATION PANEL ========== */
 .clarification-panel {
   display: none;
-  padding: 1rem;
+  padding: 1.25rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
   position: relative;
-  display: none;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .clarification-panel.active {
@@ -411,14 +516,16 @@
 }
 
 .clarification-title {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--text);
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .clarification-section {
-  margin-bottom: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .clarification-section:last-child {
@@ -446,34 +553,30 @@
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text);
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
 }
 
+/* Hint is now shown in tooltip, keeping class for potential fallback */
 .clarification-hint {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.5rem;
-  line-height: 1.4;
-  background: var(--accent-light);
-  padding: 0.4rem 0.6rem;
-  border-radius: var(--radius-xs);
-  border-left: 3px solid var(--accent);
+  display: none;
 }
 
 .option-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 .option-btn {
-  padding: 0.4rem 0.75rem;
+  padding: 0.5rem 0.875rem;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
   border-radius: var(--radius-xs);
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 500;
   transition: all 0.15s;
 }
