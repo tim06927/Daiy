@@ -293,12 +293,92 @@ function initEventListeners() {
 }
 
 /**
+ * Initialize settings panel functionality
+ */
+function initSettingsPanel() {
+  const settingsToggle = document.getElementById('settings-toggle');
+  const settingsPanel = document.getElementById('settings-panel');
+  const modelSelect = document.getElementById('model-select');
+  const effortSelect = document.getElementById('effort-select');
+  
+  if (!settingsToggle || !settingsPanel) return;
+  
+  // Toggle settings panel visibility
+  settingsToggle.addEventListener('click', () => {
+    settingsPanel.classList.toggle('expanded');
+    settingsToggle.classList.toggle('expanded');
+  });
+  
+  // Populate model select
+  if (modelSelect) {
+    modelSelect.innerHTML = '';
+    Object.keys(CONFIG.MODELS).forEach(model => {
+      const option = document.createElement('option');
+      option.value = model;
+      option.textContent = model;
+      if (model === AppState.selectedModel) {
+        option.selected = true;
+      }
+      modelSelect.appendChild(option);
+    });
+    
+    modelSelect.addEventListener('change', (e) => {
+      AppState.setModel(e.target.value);
+      updateEffortOptions();
+    });
+  }
+  
+  // Populate effort select
+  updateEffortOptions();
+  
+  if (effortSelect) {
+    effortSelect.addEventListener('change', (e) => {
+      AppState.setEffort(e.target.value);
+    });
+  }
+}
+
+/**
+ * Update effort dropdown options based on selected model
+ */
+function updateEffortOptions() {
+  const effortSelect = document.getElementById('effort-select');
+  if (!effortSelect) return;
+  
+  const efforts = CONFIG.MODELS[AppState.selectedModel] || [];
+  effortSelect.innerHTML = '';
+  
+  efforts.forEach(effort => {
+    const option = document.createElement('option');
+    option.value = effort;
+    option.textContent = effort;
+    if (effort === AppState.selectedEffort) {
+      option.selected = true;
+    }
+    effortSelect.appendChild(option);
+  });
+  
+  // Update selected effort if current is not in list
+  if (!efforts.includes(AppState.selectedEffort) && efforts.length > 0) {
+    AppState.setEffort(efforts[0]);
+    effortSelect.value = efforts[0];
+  }
+}
+
+/**
  * Initialize application
  */
-function initApp() {
+async function initApp() {
+  // Fetch models from server (updates CONFIG)
+  await fetchModels();
+  
+  // Initialize model settings from localStorage or defaults
+  AppState.initModelSettings();
+  
   initElements();
   initEventListeners();
   initImageHandlers(elements);
+  initSettingsPanel();
   
   // Focus input on load
   elements.searchInput.focus();
