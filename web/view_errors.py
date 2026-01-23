@@ -76,6 +76,7 @@ def print_error(error: Dict[str, Any]) -> None:
             try:
                 context = json.loads(error["context"])
             except (json.JSONDecodeError, ValueError):
+                # If parsing fails, wrap the raw string so it can still be displayed
                 context = {"raw": error["context"]}
         else:
             context = error["context"]

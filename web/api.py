@@ -130,6 +130,8 @@ def _call_llm_recommendation(
     image_base64: Optional[str] = None,
     image_meta: Optional[Dict[str, Any]] = None,
     request_id: Optional[str] = None,
+    model: Optional[str] = None,
+    effort: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Call LLM for recommendation and parse response.
     
@@ -138,15 +140,30 @@ def _call_llm_recommendation(
         image_base64: Optional base64 image.
         image_meta: Optional image metadata.
         request_id: Request ID for error tracking.
+        model: Optional model name to use. Defaults to DEFAULT_MODEL.
+        effort: Optional reasoning effort level. Defaults to DEFAULT_EFFORT.
         
     Returns:
         Parsed recommendation dict.
     """
     from openai import OpenAI
     if __package__ is None or __package__ == "":
-        from config import LLM_MODEL
+        from config import DEFAULT_MODEL, DEFAULT_EFFORT, is_valid_model_effort
     else:
-        from .config import LLM_MODEL
+        from .config import DEFAULT_MODEL, DEFAULT_EFFORT, is_valid_model_effort
+    
+    # Use provided model/effort or defaults
+    selected_model = model if model else DEFAULT_MODEL
+    selected_effort = effort if effort else DEFAULT_EFFORT
+    
+    # Validate model/effort combination, fall back to defaults if invalid
+    if not is_valid_model_effort(selected_model, selected_effort):
+        logger.warning(
+            f"Invalid model/effort combination: {selected_model}/{selected_effort}. "
+            f"Using defaults: {DEFAULT_MODEL}/{DEFAULT_EFFORT}"
+        )
+        selected_model = DEFAULT_MODEL
+        selected_effort = DEFAULT_EFFORT
     
     client = OpenAI()
     
@@ -154,7 +171,8 @@ def _call_llm_recommendation(
         "llm_call_recommendation",
         {
             "request_id": request_id,
-            "model": LLM_MODEL,
+            "model": selected_model,
+            "reasoning_effort": selected_effort,
             "prompt": prompt,
             "image_attached": bool(image_base64),
             "image_meta": image_meta or {},
@@ -176,9 +194,11 @@ def _call_llm_recommendation(
         )
     
     try:
+        # Use new API request structure with reasoning effort
         resp = client.responses.create(
-            model=LLM_MODEL,
+            model=selected_model,
             input=input_payload,
+            reasoning={"effort": selected_effort},
         )
         
         for item in resp.output:
@@ -187,7 +207,12 @@ def _call_llm_recommendation(
                 
                 log_interaction(
                     "llm_response_recommendation",
-                    {"request_id": request_id, "model": LLM_MODEL, "raw_response": raw},
+                    {
+                        "request_id": request_id,
+                        "model": selected_model,
+                        "reasoning_effort": selected_effort,
+                        "raw_response": raw,
+                    },
                 )
                 
                 try:
@@ -217,7 +242,7 @@ def _call_llm_recommendation(
             request_id=request_id,
             phase="recommendation",
             operation="llm_call",
-            context={"model": LLM_MODEL, "error_type": type(e).__name__},
+            context={"model": selected_model, "error_type": type(e).__name__},
             recovery_suggestion="Check OpenAI API status and quota",
         )
         logger.exception("Error calling LLM for recommendation")
@@ -228,27 +253,49 @@ def _call_llm_recommendation(
 def _call_llm_clarification(
     prompt: str,
     image_base64: Optional[str] = None,
+    model: Optional[str] = None,
+    effort: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Call LLM for clarification and parse response.
     
     Args:
         prompt: Clarification prompt.
         image_base64: Optional base64 image.
+        model: Optional model name to use. Defaults to DEFAULT_MODEL.
+        effort: Optional reasoning effort level. Defaults to DEFAULT_EFFORT.
         
     Returns:
         Dict with inferred_values and options.
     """
     from openai import OpenAI
     if __package__ is None or __package__ == "":
-        from config import LLM_MODEL
+        from config import DEFAULT_MODEL, DEFAULT_EFFORT, is_valid_model_effort
     else:
-        from .config import LLM_MODEL
+        from .config import DEFAULT_MODEL, DEFAULT_EFFORT, is_valid_model_effort
+    
+    # Use provided model/effort or defaults
+    selected_model = model if model else DEFAULT_MODEL
+    selected_effort = effort if effort else DEFAULT_EFFORT
+    
+    # Validate model/effort combination, fall back to defaults if invalid
+    if not is_valid_model_effort(selected_model, selected_effort):
+        logger.warning(
+            f"Invalid model/effort combination: {selected_model}/{selected_effort}. "
+            f"Using defaults: {DEFAULT_MODEL}/{DEFAULT_EFFORT}"
+        )
+        selected_model = DEFAULT_MODEL
+        selected_effort = DEFAULT_EFFORT
     
     client = OpenAI()
     
     log_interaction(
         "llm_call_clarification",
-        {"model": LLM_MODEL, "prompt": prompt, "image_attached": bool(image_base64)},
+        {
+            "model": selected_model,
+            "reasoning_effort": selected_effort,
+            "prompt": prompt,
+            "image_attached": bool(image_base64),
+        },
     )
     
     input_payload = [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}]
@@ -266,9 +313,11 @@ def _call_llm_clarification(
         )
     
     try:
+        # Use new API request structure with reasoning effort
         resp = client.responses.create(
-            model=LLM_MODEL,
+            model=selected_model,
             input=input_payload,
+            reasoning={"effort": selected_effort},
         )
         
         for item in resp.output:
@@ -277,7 +326,11 @@ def _call_llm_clarification(
                 
                 log_interaction(
                     "llm_response_clarification",
-                    {"model": LLM_MODEL, "raw_response": raw},
+                    {
+                        "model": selected_model,
+                        "reasoning_effort": selected_effort,
+                        "raw_response": raw,
+                    },
                 )
                 
                 try:
@@ -304,7 +357,9 @@ def recommend() -> Union[Tuple[Response, int], Response]:
             "problem_text": "User's description of needs",
             "image_base64": "optional base64 image",
             "clarification_answers": [{"spec_name": "x", "answer": "y"}, ...],
-            "identified_job": {...}  // Cached job identification
+            "identified_job": {...},  // Cached job identification
+            "model": "gpt-5-mini",  // Optional: LLM model to use
+            "effort": "low"  // Optional: Reasoning effort level
         }
     
     Response JSON (need_clarification=true):
@@ -366,6 +421,10 @@ def recommend() -> Union[Tuple[Response, int], Response]:
         # Legacy support
         selected_values = data.get("selected_values", {})
         
+        # Extract model settings from request (optional)
+        selected_model = data.get("model")
+        selected_effort = data.get("effort")
+        
         # Process image
         raw_image_b64 = data.get("image_base64")
         try:
@@ -402,7 +461,7 @@ def recommend() -> Union[Tuple[Response, int], Response]:
             )
             return jsonify({"error": "problem_text is required"}), 400
         
-        # Log user input
+        # Log user input with model settings
         if not cached_job:
             _log_interaction_both(
                 "user_input",
@@ -412,6 +471,8 @@ def recommend() -> Union[Tuple[Response, int], Response]:
                     "image_meta": image_meta,
                     "has_clarifications": bool(clarification_answers),
                     "clarification_answers": clarification_answers if clarification_answers else [],
+                    "model": selected_model,
+                    "reasoning_effort": selected_effort,
                 },
             )
         
@@ -421,7 +482,13 @@ def recommend() -> Union[Tuple[Response, int], Response]:
             _log_interaction_both("job_identification_cached", request_id, job.to_dict())
         else:
             with timer("llm_call_job_identification"):
-                job = identify_job(problem_text, processed_image, image_meta)
+                job = identify_job(
+                    problem_text,
+                    processed_image,
+                    image_meta,
+                    model=selected_model,
+                    effort=selected_effort,
+                )
         
         # Validate categories against available catalog (memory-efficient SQL query)
         try:
@@ -555,7 +622,14 @@ def recommend() -> Union[Tuple[Response, int], Response]:
         
         # Step 5: Call LLM for final recommendation
         with timer("llm_call_recommendation"):
-            llm_payload = _call_llm_recommendation(prompt, processed_image, image_meta, request_id=request_id)
+            llm_payload = _call_llm_recommendation(
+                prompt,
+                processed_image,
+                image_meta,
+                request_id=request_id,
+                model=selected_model,
+                effort=selected_effort,
+            )
         
         # Step 6: Parse and format response
         with timer("app_format_response"):
@@ -689,3 +763,33 @@ def list_categories() -> Response:
             })
     
     return jsonify({"categories": categories})
+
+
+@api.route("/models", methods=["GET"])
+def list_models() -> Response:
+    """List available LLM models and their effort levels.
+    
+    Returns:
+        JSON with available models, their effort levels, and defaults.
+    """
+    if __package__ is None or __package__ == "":
+        from config import (
+            MODEL_EFFORT_LEVELS,
+            AVAILABLE_MODELS,
+            DEFAULT_MODEL,
+            DEFAULT_EFFORT,
+        )
+    else:
+        from .config import (
+            MODEL_EFFORT_LEVELS,
+            AVAILABLE_MODELS,
+            DEFAULT_MODEL,
+            DEFAULT_EFFORT,
+        )
+    
+    return jsonify({
+        "models": MODEL_EFFORT_LEVELS,
+        "available_models": AVAILABLE_MODELS,
+        "default_model": DEFAULT_MODEL,
+        "default_effort": DEFAULT_EFFORT,
+    })

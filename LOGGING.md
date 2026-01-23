@@ -9,6 +9,22 @@ This project includes comprehensive logging of all LLM interactions and scraper 
 
 All logs use JSON Lines format (one JSON object per line).
 
+## Model Settings Logging
+
+All LLM calls log the selected model and reasoning effort level. This enables:
+- **Auditability**: Track which model configuration was used for each recommendation
+- **Performance analysis**: Compare results across different model/effort combinations
+- **Debugging**: Understand model behavior and response quality
+
+The `model` and `reasoning_effort` fields appear in these event types:
+- `user_input` - Records the user's selected model settings at request time
+- `llm_call_job_identification` - Job identification phase
+- `llm_response_job_identification` - Job identification response
+- `llm_call_recommendation` - Product recommendation phase
+- `llm_response_recommendation` - Product recommendation response
+- `llm_call_clarification` - Clarification phase
+- `llm_response_clarification` - Clarification response
+
 ## Log Format
 
 Each log entry has the following structure:
@@ -23,12 +39,14 @@ Each log entry has the following structure:
 ## Event Types
 
 ### 1. `user_input`
-Captures when a user submits a new problem/prompt via the form. This event marks the start of a new session.
+Captures when a user submits a new problem/prompt via the form. This event marks the start of a new session. Now includes the selected model and effort level.
 ```json
 {
   "timestamp": "...",
   "event_type": "user_input",
-  "problem_text": "I need a new cassette for my gravel bike"
+  "problem_text": "I need a new cassette for my gravel bike",
+  "model": "gpt-5-mini",
+  "reasoning_effort": "low"
 }
 ```
 
@@ -58,12 +76,13 @@ Shows what the regex-based inference detected.
 ```
 
 ### 4. `llm_call_clarification`
-Logs the LLM call for clarification/inference.
+Logs the LLM call for clarification/inference. Includes the model and reasoning effort level selected by the user.
 ```json
 {
   "timestamp": "...",
   "event_type": "llm_call_clarification",
   "model": "gpt-5-mini",
+  "reasoning_effort": "low",
   "prompt": "You are assisting...",
   "missing_keys": ["drivetrain_speed"],
   "user_text": "I need a new cassette for my gravel bike"
@@ -77,6 +96,7 @@ Logs the raw LLM response for clarification.
   "timestamp": "...",
   "event_type": "llm_response_clarification",
   "model": "gpt-5-mini",
+  "reasoning_effort": "low",
   "raw_response": "{\"inferred_speed\": 11, \"inferred_use_case\": null, ...}"
 }
 ```
@@ -96,12 +116,13 @@ Parsed result from the clarification LLM.
 ```
 
 ### 6. `llm_call_recommendation`
-Logs the main LLM call for product recommendations.
+Logs the main LLM call for product recommendations. Includes the model and reasoning effort level selected by the user.
 ```json
 {
   "timestamp": "...",
   "event_type": "llm_call_recommendation",
   "model": "gpt-5-mini",
+  "reasoning_effort": "low",
   "prompt": "Given this context:..."
 }
 ```
@@ -113,6 +134,7 @@ Logs the final recommendation response.
   "timestamp": "...",
   "event_type": "llm_response_recommendation",
   "model": "gpt-5-mini",
+  "reasoning_effort": "low",
   "raw_response": "Based on your gravel riding needs..."
 }
 ```

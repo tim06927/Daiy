@@ -658,15 +658,20 @@ def create_html_log(log_file: Path) -> str:
     return html
 
 
-def main():
-    """Main entry point."""
-    if len(sys.argv) > 1:
-        # Use provided log file
-        log_file = Path(sys.argv[1])
-    else:
-        # Use today's log file (logs directory is in web/)
-        today = datetime.now().strftime("%Y%m%d")
-        log_file = Path(__file__).parent / f"logs/llm_interactions_{today}.jsonl"
+def main(log_file: Optional[Path] = None):
+    """Main entry point.
+    
+    Args:
+        log_file: Optional log file path. If not provided, reads from sys.argv or uses today's log.
+    """
+    if log_file is None:
+        if len(sys.argv) > 1:
+            # Use provided log file from command line
+            log_file = Path(sys.argv[1])
+        else:
+            # Use today's log file (logs directory is in web/)
+            today = datetime.now().strftime("%Y%m%d")
+            log_file = Path(__file__).parent / f"logs/llm_interactions_{today}.jsonl"
 
     # Generate HTML
     html_content = create_html_log(log_file)
@@ -760,11 +765,11 @@ def create_html_log_from_interactions(interactions: List[Dict[str, Any]]) -> str
             if isinstance(data, str):
                 try:
                     data = json.loads(data)
-                except (json.JSONDecodeError, ValueError):
                 except json.JSONDecodeError:
+                    # If parsing fails, leave data as the original string so it can still be displayed.
                     pass
             
-            data_str = json.dumps(data, indent2) if data else "{}"
+            data_str = json.dumps(data, indent=2) if data else "{}"
             
             html_parts.append(f"""
             <div class="interaction">
@@ -854,11 +859,5 @@ if __name__ == "__main__":
         main_db_mode(args)
     else:
         # Use original JSONL mode
-        if args.log_file:
-            # Emulate passing the log file as a command-line argument to main()
-            sys.argv = [sys.argv[0], str(args.log_file)]
-        else:
-            # No log file specified: emulate running with no extra CLI args
-            sys.argv = [sys.argv[0]]
-        main()
+        main(Path(args.log_file) if args.log_file else None)
 

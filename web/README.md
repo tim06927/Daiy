@@ -212,7 +212,14 @@ Product filtering for Phase 3:
 
 #### `config.py`
 Centralized configuration:
-- `LLM_MODEL` - OpenAI model (gpt-4-mini)
+- `LLM_MODEL` - Legacy default model (gpt-5.2)
+- `DEFAULT_MODEL` - Default model for user requests (gpt-5-mini)
+- `DEFAULT_EFFORT` - Default reasoning effort level (low)
+- `MODEL_EFFORT_LEVELS` - Available models and their supported effort levels:
+  - `gpt-5.2`: none, low, medium, high, xhigh
+  - `gpt-5.2-pro`: medium, high, xhigh
+  - `gpt-5-mini`: minimal, low, medium, high
+  - `gpt-5-nano`: minimal, low, medium, high
 - `FLASK_HOST/PORT` - Server settings
 - Product data paths and candidate limits
 
@@ -221,6 +228,7 @@ Structured JSONL logging:
 - `log_interaction()` - Write timestamped event to log
 - LOG_FILE - Path to today's log file
 - Event types: user_input, clarification_required, llm_call_*, llm_response_*, recommendation_result, llm_parse_error, llm_error, etc.
+- Model settings (`model`, `reasoning_effort`) are logged with every LLM call for auditability
 
 #### `view_logs.py`
 HTML log viewer:
@@ -339,6 +347,11 @@ The app will start at `http://127.0.0.1:5000`
    - **Products Tab** - Primary products with reasoning, tools, optional extras
    - **Instructions Tab** - Step-by-step instructions with product names
    - **Answered Questions** - Bubbles showing what you clarified
+7. **Adjust model settings** (optional):
+   - Click the Settings button at the bottom of the page
+   - Select a different model (gpt-5.2, gpt-5.2-pro, gpt-5-mini, gpt-5-nano)
+   - Select a reasoning effort level (varies by model)
+   - Settings are persisted across sessions
 
 ### API Endpoints
 
@@ -348,7 +361,20 @@ The app will start at `http://127.0.0.1:5000`
 ```json
 {
   "problem_text": "I need a new 12-speed chain for my road bike",
-  "image_base64": null
+  "image_base64": null,
+  "model": "gpt-5-mini",
+  "effort": "low"
+}
+```
+
+The `model` and `effort` parameters are optional. If not provided, defaults to `gpt-5-mini` with effort `low`.
+
+**API Request Structure for LLM Calls:**
+```json
+{
+  "model": "gpt-5.2",
+  "input": "…",
+  "reasoning": { "effort": "high" }
 }
 ```
 
@@ -384,7 +410,9 @@ The app will start at `http://127.0.0.1:5000`
   "clarification_answers": [
     {"spec_name": "use_case", "answer": "road"}
   ],
-  "identified_job": {...}  // From previous response
+  "identified_job": {...},  // From previous response
+  "model": "gpt-5-mini",
+  "effort": "low"
 }
 ```
 
@@ -460,6 +488,23 @@ The app will start at `http://127.0.0.1:5000`
       "fit_dimensions": []
     }
   ]
+}
+```
+
+#### GET `/api/models` - List Available Models
+
+**Response:**
+```json
+{
+  "models": {
+    "gpt-5.2": ["none", "low", "medium", "high", "xhigh"],
+    "gpt-5.2-pro": ["medium", "high", "xhigh"],
+    "gpt-5-mini": ["minimal", "low", "medium", "high"],
+    "gpt-5-nano": ["minimal", "low", "medium", "high"]
+  },
+  "available_models": ["gpt-5.2", "gpt-5.2-pro", "gpt-5-mini", "gpt-5-nano"],
+  "default_model": "gpt-5-mini",
+  "default_effort": "low"
 }
 ```
 

@@ -141,6 +141,31 @@
     </section>
   </div>
 
+  <!-- Settings Panel - Sticky at bottom -->
+  <div class="settings-container" id="settings-container">
+    <button class="settings-toggle" id="settings-toggle" type="button">
+      <span class="settings-icon">⚙️</span>
+      <span class="settings-label">Settings</span>
+      <span class="settings-chevron">▲</span>
+    </button>
+    <div class="settings-panel" id="settings-panel">
+      <div class="settings-content">
+        <div class="setting-group">
+          <label for="model-select">Model</label>
+          <select id="model-select" class="setting-select">
+            <!-- Options populated dynamically -->
+          </select>
+        </div>
+        <div class="setting-group">
+          <label for="effort-select">Reasoning Effort</label>
+          <select id="effort-select" class="setting-select">
+            <!-- Options populated dynamically -->
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- External JavaScript Modules -->
   <script src="{{ url_for('static', filename='js/config.js') }}"></script>
   <script src="{{ url_for('static', filename='js/state.js') }}"></script>

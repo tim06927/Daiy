@@ -30,14 +30,16 @@ class TestErrorLogger:
         """ErrorLogger should create database and table."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
-            ErrorLogger(db_path=db_path)
+            logger = ErrorLogger(db_path=db_path)
             assert db_path.exists()
+            assert logger.get_errors() == []
 
     def test_table_creation(self):
         """Should create error_log table with proper schema."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
-            ErrorLogger(db_path=db_path)
+            logger = ErrorLogger(db_path=db_path)
+            assert isinstance(logger, ErrorLogger)
 
             # Verify table exists
             conn = sqlite3.connect(str(db_path))
