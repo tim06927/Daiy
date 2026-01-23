@@ -182,7 +182,7 @@ body {
 
 /* Right Panel - Results */
 .results-panel {
-  padding: 0.5rem 0.75rem;
+  padding: 1rem 1.5rem;
   overflow-y: auto;
 }
 

@@ -3,6 +3,37 @@
  */
 
 /**
+ * Create a help tooltip (? bubble) element
+ * @param {string} text - Tooltip text content
+ * @returns {string} HTML string for tooltip
+ */
+function createHelpTooltip(text) {
+  if (!text) return '';
+  return `<span class="help-tooltip" onclick="toggleTooltip(this)" tabindex="0">?<span class="tooltip-text">${escapeHtml(text)}</span></span>`;
+}
+
+/**
+ * Toggle tooltip visibility (for mobile click support)
+ * @param {HTMLElement} element - The tooltip element
+ */
+function toggleTooltip(element) {
+  // Close other open tooltips
+  document.querySelectorAll('.help-tooltip.active').forEach(el => {
+    if (el !== element) el.classList.remove('active');
+  });
+  element.classList.toggle('active');
+}
+
+// Close tooltips when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.help-tooltip')) {
+    document.querySelectorAll('.help-tooltip.active').forEach(el => {
+      el.classList.remove('active');
+    });
+  }
+});
+
+/**
  * Show clarification panel with questions
  * @param {Object} data - Response data containing clarification questions
  */
@@ -38,9 +69,12 @@ function showClarification(data) {
       
       const section = document.createElement('div');
       section.className = 'clarification-section';
+      
+      // Create label with optional help tooltip for hint
+      const tooltipHtml = q.hint ? createHelpTooltip(q.hint) : '';
+      
       section.innerHTML = `
-        <div class="clarification-label">${q.question}</div>
-        ${q.hint ? `<div class="clarification-hint">💡 ${q.hint}</div>` : ''}
+        <div class="clarification-label">${escapeHtml(q.question)}${tooltipHtml}</div>
         <div class="option-buttons" id="${q.spec_name}-buttons"></div>
         <div class="other-input-container" id="${q.spec_name}-other-container">
           <input type="text" class="other-input" id="${q.spec_name}-other-input" placeholder="Enter your answer...">
@@ -92,7 +126,7 @@ function showClarification(data) {
     previewSection.innerHTML = `
       <div class="clarification-label">Preliminary Instructions:</div>
       <ul class="preview-instructions">
-        ${instructionsPreview.map(step => `<li>${step}</li>`).join('')}
+        ${instructionsPreview.map(step => `<li>${escapeHtml(step)}</li>`).join('')}
       </ul>
     `;
     clarificationContent.appendChild(previewSection);

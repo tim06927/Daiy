@@ -16,6 +16,18 @@ function escapeHtml(value) {
 }
 
 /**
+ * Create a help tooltip (? bubble) for product info
+ * @param {string} text - Tooltip text content
+ * @param {string} label - Optional label before the ? icon
+ * @returns {string} HTML string for tooltip
+ */
+function createProductTooltip(text, label = '') {
+  if (!text) return '';
+  const labelHtml = label ? `<span style="font-size: 0.65rem; color: var(--text-muted); margin-right: 0.15rem;">${escapeHtml(label)}</span>` : '';
+  return `${labelHtml}<span class="help-tooltip" onclick="toggleTooltip(this)" tabindex="0">?<span class="tooltip-text">${escapeHtml(text)}</span></span>`;
+}
+
+/**
  * Build product image HTML with fallback icon
  */
 function buildProductImage(product, icon) {
@@ -65,10 +77,13 @@ function createProductCard(product, isBest, icon) {
   const specs = [product.brand, product.application].filter(Boolean).join(' · ');
   const imageMarkup = buildProductImage(product, icon);
   const safeName = escapeHtml(product.name || 'Product');
-  const safeWhy = escapeHtml(product.why_it_fits || 'Compatible with your setup.');
   const safePrice = escapeHtml(product.price || '');
   const safeSpecs = escapeHtml(specs);
   const addToCartName = (product.name || '').replace(/'/g, "\\'");
+  
+  // Create tooltip for "why it fits" if available
+  const whyItFits = product.why_it_fits || '';
+  const tooltipHtml = whyItFits ? createProductTooltip(whyItFits, 'Why') : '';
   
   card.innerHTML = `
     ${imageMarkup}
@@ -76,11 +91,9 @@ function createProductCard(product, isBest, icon) {
       <div class="product-name">
         ${safeName}
         ${isBest ? '<span class="best-badge">Best</span>' : ''}
+        ${tooltipHtml}
       </div>
       <div class="product-specs">${safeSpecs}</div>
-      <div class="product-fit">
-        <strong>Why this fits:</strong> ${safeWhy}
-      </div>
     </div>
     <div class="product-actions">
       <div class="product-price">${safePrice}</div>
@@ -105,17 +118,17 @@ function createAltProductCard(product, icon) {
   
   const imageMarkup = buildProductImage(product, icon);
   const safeName = escapeHtml(product.name || 'Product');
-  const safeWhy = escapeHtml(product.why_it_fits || 'Alternative option.');
   const safePrice = escapeHtml(product.price || '');
   const addToCartName = (product.name || '').replace(/'/g, "\\'");
+  
+  // Create tooltip for "why it fits" if available
+  const whyItFits = product.why_it_fits || '';
+  const tooltipHtml = whyItFits ? createProductTooltip(whyItFits) : '';
   
   card.innerHTML = `
     ${imageMarkup}
     <div class="product-info">
-      <div class="product-name">${safeName}</div>
-      <div class="product-fit">
-        <strong>Why:</strong> ${safeWhy}
-      </div>
+      <div class="product-name">${safeName}${tooltipHtml}</div>
     </div>
     <div class="product-actions">
       <div class="product-price">${safePrice}</div>
@@ -160,9 +173,11 @@ function renderSection(products, sectionTitle, sectionClass, showReason = false)
     
     const header = document.createElement('div');
     header.className = 'category-header';
-    let headerContent = `<span class="category-name">${meta.icon} ${meta.name}</span>`;
+    
+    // Create category name with optional tooltip for reasoning
+    let headerContent = `<span class="category-name">${meta.icon} ${escapeHtml(meta.name)}</span>`;
     if (showReason && reasoning) {
-      headerContent += `<span class="category-reason">${reasoning}</span>`;
+      headerContent += createProductTooltip(reasoning, 'Why');
     }
     header.innerHTML = headerContent;
     section.appendChild(header);
