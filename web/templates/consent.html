@@ -63,6 +63,25 @@
       background: var(--text-muted, #999);
       cursor: not-allowed;
     }
+    .consent-back-btn {
+      background: transparent;
+      color: var(--text-secondary, #666);
+      border: 1px solid var(--text-muted, #ccc);
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .consent-back-btn:hover {
+      background: var(--surface-hover, #f5f5f5);
+      border-color: var(--text-secondary, #666);
+    }
+    .consent-buttons {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
     .consent-footer {
       margin-top: 1.5rem;
       font-size: 0.875rem;
@@ -93,7 +112,10 @@
         <label for="consent">I understand and agree</label>
       </div>
       
-      <button type="submit" class="consent-btn" id="continue-btn" disabled>Continue</button>
+      <div class="consent-buttons">
+        <button type="button" class="consent-back-btn" id="back-btn">Back</button>
+        <button type="submit" class="consent-btn" id="continue-btn" disabled>Continue</button>
+      </div>
     </form>
     
     <div class="consent-footer">
@@ -102,11 +124,17 @@
   </div>
   
   <script>
-    // Enable button when checkbox is checked
+    // Enable Continue button when checkbox is checked
     const checkbox = document.getElementById('consent');
-    const button = document.getElementById('continue-btn');
+    const continueBtn = document.getElementById('continue-btn');
     checkbox.addEventListener('change', function() {
-      button.disabled = !this.checked;
+      continueBtn.disabled = !this.checked;
+    });
+    
+    // Back button functionality
+    const backBtn = document.getElementById('back-btn');
+    backBtn.addEventListener('click', function() {
+      window.history.back();
     });
   </script>
 </body>
