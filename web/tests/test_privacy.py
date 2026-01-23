@@ -228,6 +228,96 @@ class TestConsentRoutes:
         assert 'window.history.back' in content or "history.back()" in content
 
 
+class TestUrlValidationHelpers:
+    """Test URL validation helper functions directly."""
+
+    def test_is_safe_redirect_url_rejects_external_https(self):
+        """Test that _is_safe_redirect_url rejects HTTPS URLs."""
+        from app import _is_safe_redirect_url
+        assert _is_safe_redirect_url('https://evil.com') is False
+
+    def test_is_safe_redirect_url_rejects_external_http(self):
+        """Test that _is_safe_redirect_url rejects HTTP URLs."""
+        from app import _is_safe_redirect_url
+        assert _is_safe_redirect_url('http://evil.com') is False
+
+    def test_is_safe_redirect_url_rejects_javascript(self):
+        """Test that _is_safe_redirect_url rejects javascript: URLs."""
+        from app import _is_safe_redirect_url
+        assert _is_safe_redirect_url('javascript:alert(1)') is False
+
+    def test_is_safe_redirect_url_rejects_data(self):
+        """Test that _is_safe_redirect_url rejects data: URLs."""
+        from app import _is_safe_redirect_url
+        assert _is_safe_redirect_url('data:text/html,<script>') is False
+
+    def test_is_safe_redirect_url_rejects_protocol_relative(self):
+        """Test that _is_safe_redirect_url rejects protocol-relative URLs."""
+        from app import _is_safe_redirect_url
+        assert _is_safe_redirect_url('//evil.com') is False
+        assert _is_safe_redirect_url('//evil.com/path') is False
+
+    def test_is_safe_redirect_url_rejects_backslash_variants(self):
+        """Test that _is_safe_redirect_url rejects backslash URL variants."""
+        from app import _is_safe_redirect_url
+        assert _is_safe_redirect_url('/\\evil.com') is False
+        assert _is_safe_redirect_url('\\/evil.com') is False
+
+    def test_is_safe_redirect_url_rejects_no_leading_slash(self):
+        """Test that _is_safe_redirect_url rejects URLs without leading slash."""
+        from app import _is_safe_redirect_url
+        assert _is_safe_redirect_url('evil.com') is False
+        assert _is_safe_redirect_url('path/to/page') is False
+
+    def test_is_safe_redirect_url_rejects_empty(self):
+        """Test that _is_safe_redirect_url rejects empty strings."""
+        from app import _is_safe_redirect_url
+        assert _is_safe_redirect_url('') is False
+        assert _is_safe_redirect_url(None) is False
+
+    def test_is_safe_redirect_url_accepts_root(self):
+        """Test that _is_safe_redirect_url accepts root path."""
+        from app import _is_safe_redirect_url
+        assert _is_safe_redirect_url('/') is True
+
+    def test_is_safe_redirect_url_accepts_internal_path(self):
+        """Test that _is_safe_redirect_url accepts internal paths."""
+        from app import _is_safe_redirect_url
+        assert _is_safe_redirect_url('/search') is True
+        assert _is_safe_redirect_url('/api/categories') is True
+
+    def test_is_safe_redirect_url_accepts_path_with_query(self):
+        """Test that _is_safe_redirect_url accepts paths with query strings."""
+        from app import _is_safe_redirect_url
+        assert _is_safe_redirect_url('/search?q=test') is True
+        assert _is_safe_redirect_url('/search?q=test&filter=active') is True
+
+    def test_is_safe_redirect_url_accepts_path_with_fragment(self):
+        """Test that _is_safe_redirect_url accepts paths with fragments."""
+        from app import _is_safe_redirect_url
+        assert _is_safe_redirect_url('/search#results') is True
+        assert _is_safe_redirect_url('/search?q=test#results') is True
+
+    def test_get_safe_redirect_url_returns_valid_url(self):
+        """Test that _get_safe_redirect_url returns valid URLs."""
+        from app import _get_safe_redirect_url
+        assert _get_safe_redirect_url('/search') == '/search'
+        assert _get_safe_redirect_url('/api/categories') == '/api/categories'
+
+    def test_get_safe_redirect_url_returns_default_for_invalid(self):
+        """Test that _get_safe_redirect_url returns default for invalid URLs."""
+        from app import _get_safe_redirect_url
+        assert _get_safe_redirect_url('https://evil.com') == '/'
+        assert _get_safe_redirect_url('//evil.com') == '/'
+        assert _get_safe_redirect_url('javascript:alert(1)') == '/'
+
+    def test_get_safe_redirect_url_custom_default(self):
+        """Test that _get_safe_redirect_url accepts custom default."""
+        from app import _get_safe_redirect_url
+        assert _get_safe_redirect_url('https://evil.com', '/home') == '/home'
+        assert _get_safe_redirect_url(None, '/home') == '/home'
+
+
 class TestUrlSecurityOpenRedirect:
     """Test protection against open redirect attacks."""
 
@@ -296,6 +386,118 @@ class TestUrlSecurityOpenRedirect:
         # The page should not contain the malicious URL
         content = response.data.decode('utf-8')
         assert 'evil.com' not in content
+
+    def test_rejects_data_url(self, client):
+        """Test that data: URLs are rejected."""
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': 'data:text/html,<script>alert(1)</script>'
+        })
+        assert response.status_code == 302
+        assert 'data:' not in response.headers.get('Location', '')
+        assert response.headers.get('Location', '').endswith('/')
+
+    def test_rejects_file_url(self, client):
+        """Test that file: URLs are rejected."""
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': 'file:///etc/passwd'
+        })
+        assert response.status_code == 302
+        assert 'file:' not in response.headers.get('Location', '')
+        assert response.headers.get('Location', '').endswith('/')
+
+    def test_rejects_backslash_slash_url(self, client):
+        """Test that backslash-slash URLs are rejected."""
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': '/\\evil.com'
+        })
+        assert response.status_code == 302
+        assert 'evil.com' not in response.headers.get('Location', '')
+
+    def test_rejects_slash_backslash_url(self, client):
+        """Test that slash-backslash URLs are rejected."""
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': '\\/evil.com'
+        })
+        assert response.status_code == 302
+        assert 'evil.com' not in response.headers.get('Location', '')
+
+    def test_rejects_url_without_leading_slash(self, client):
+        """Test that URLs without leading slash are rejected."""
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': 'evil.com'
+        })
+        assert response.status_code == 302
+        assert 'evil.com' not in response.headers.get('Location', '')
+        assert response.headers.get('Location', '').endswith('/')
+
+    def test_rejects_empty_next_parameter(self, client):
+        """Test that empty next parameter defaults to home."""
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': ''
+        })
+        assert response.status_code == 302
+        assert response.headers.get('Location', '').endswith('/')
+
+    def test_allows_internal_path_with_fragment(self, client):
+        """Test that internal paths with fragments are allowed."""
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': '/search#results'
+        })
+        assert response.status_code == 302
+        assert '/search#results' in response.headers.get('Location', '')
+
+    def test_allows_internal_path_with_query_and_fragment(self, client):
+        """Test that internal paths with query and fragment are allowed."""
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': '/search?q=bike#results'
+        })
+        assert response.status_code == 302
+        assert '/search?q=bike#results' in response.headers.get('Location', '')
+
+    def test_rejects_url_encoded_external_url(self, client):
+        """Test that URL-encoded external URLs are rejected."""
+        # %2F%2F encodes //
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': '%2F%2Fevil.com'
+        })
+        assert response.status_code == 302
+        # Should reject because it doesn't start with /
+        assert 'evil.com' not in response.headers.get('Location', '')
+
+    def test_consent_redirect_from_query_string(self, client):
+        """Test that consent redirect works from query string (GET request)."""
+        # First, visit consent page with next in query string
+        response = client.get('/consent?next=/api/categories')
+        assert response.status_code == 200
+        content = response.data.decode('utf-8')
+        # Check that the hidden field contains the next URL
+        assert 'value="/api/categories"' in content
+        
+        # Now POST consent with the next URL preserved
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': '/api/categories'
+        })
+        assert response.status_code == 302
+        assert '/api/categories' in response.headers.get('Location', '')
+
+    def test_consent_redirect_from_form_data(self, client):
+        """Test that consent redirect works from form data (POST request)."""
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': '/search?q=test'
+        })
+        assert response.status_code == 302
+        assert '/search?q=test' in response.headers.get('Location', '')
 
 
 class TestRobotsTxt:
