@@ -175,6 +175,76 @@ class TestConsentRoutes:
         assert response.status_code == 200
 
 
+class TestUrlSecurityOpenRedirect:
+    """Test protection against open redirect attacks."""
+
+    @pytest.fixture
+    def client(self, mock_csv_path, monkeypatch):
+        """Create Flask test client without consent."""
+        monkeypatch.setenv("CSV_PATH", mock_csv_path)
+        from app import app
+
+        app.config['TESTING'] = True
+        with app.test_client() as test_client:
+            yield test_client
+
+    def test_rejects_external_url_in_next(self, client):
+        """Test that external URLs in 'next' parameter are rejected."""
+        # Try to redirect to external site
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': 'https://evil.com'
+        })
+        assert response.status_code == 302
+        # Should redirect to home, not to evil.com
+        assert 'evil.com' not in response.headers.get('Location', '')
+        assert response.headers.get('Location', '').endswith('/')
+
+    def test_rejects_protocol_relative_url(self, client):
+        """Test that protocol-relative URLs are rejected."""
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': '//evil.com/path'
+        })
+        assert response.status_code == 302
+        assert 'evil.com' not in response.headers.get('Location', '')
+
+    def test_rejects_javascript_url(self, client):
+        """Test that javascript: URLs are rejected."""
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': 'javascript:alert(1)'
+        })
+        assert response.status_code == 302
+        assert 'javascript' not in response.headers.get('Location', '')
+
+    def test_allows_valid_internal_path(self, client):
+        """Test that valid internal paths are allowed."""
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': '/api/categories'
+        })
+        assert response.status_code == 302
+        assert '/api/categories' in response.headers.get('Location', '')
+
+    def test_allows_internal_path_with_query(self, client):
+        """Test that internal paths with query strings are allowed."""
+        response = client.post('/consent', data={
+            'consent': 'on',
+            'next': '/search?q=test'
+        })
+        assert response.status_code == 302
+        assert '/search?q=test' in response.headers.get('Location', '')
+
+    def test_get_consent_sanitizes_next_url(self, client):
+        """Test that GET /consent sanitizes the next URL too."""
+        response = client.get('/consent?next=https://evil.com')
+        assert response.status_code == 200
+        # The page should not contain the malicious URL
+        content = response.data.decode('utf-8')
+        assert 'evil.com' not in content
+
+
 class TestRobotsTxt:
     """Test robots.txt content."""
 

@@ -10,6 +10,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Union
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from flask import Flask, Response, redirect, render_template, request, session, url_for
@@ -62,6 +63,65 @@ else:
     from api import api
 
 app.register_blueprint(api)
+
+
+# ---------- URL SECURITY ----------
+
+
+def _is_safe_redirect_url(target: str) -> bool:
+    """Validate that a redirect URL is safe (internal only).
+
+    Prevents open redirect vulnerabilities by ensuring the target URL
+    is relative (no scheme/host) and doesn't redirect to external sites.
+
+    Args:
+        target: The URL to validate.
+
+    Returns:
+        True if the URL is safe for redirect, False otherwise.
+    """
+    if not target:
+        return False
+
+    # Parse the URL
+    parsed = urlparse(target)
+
+    # Reject URLs with a scheme (http://, https://, javascript:, etc.)
+    if parsed.scheme:
+        return False
+
+    # Reject URLs with a netloc (hostname)
+    if parsed.netloc:
+        return False
+
+    # Reject protocol-relative URLs (//example.com)
+    if target.startswith("//"):
+        return False
+
+    # Reject URLs that could be interpreted as protocol-relative
+    if target.startswith("/\\") or target.startswith("\\/"):
+        return False
+
+    # Must start with / to be a valid path
+    if not target.startswith("/"):
+        return False
+
+    return True
+
+
+def _get_safe_redirect_url(url: Optional[str], default: str = "/") -> str:
+    """Get a safe redirect URL, falling back to default if unsafe.
+
+    Args:
+        url: The requested redirect URL.
+        default: Default URL if the requested URL is unsafe.
+
+    Returns:
+        A safe URL to redirect to.
+    """
+    if url and _is_safe_redirect_url(url):
+        return url
+    return default
 
 
 # ---------- CONSENT ALLOWLIST ----------
@@ -149,9 +209,10 @@ def require_consent() -> Optional[Response]:
     if session.get("alpha_consent"):
         return None
 
-    # Redirect to consent page with return URL
+    # Redirect to consent page with return URL (validated for safety)
     next_url = request.full_path if request.query_string else request.path
-    return redirect(url_for("consent", next=next_url))
+    safe_next = _get_safe_redirect_url(next_url, "/")
+    return redirect(url_for("consent", next=safe_next))
 
 
 # ---------- FLASK ROUTES ----------
@@ -164,7 +225,8 @@ def consent() -> Union[str, Response]:
     GET: Show consent form
     POST: Process consent and redirect to original destination
     """
-    next_url = request.args.get("next", "/")
+    # Validate redirect URL to prevent open redirect attacks
+    next_url = _get_safe_redirect_url(request.args.get("next"), "/")
 
     if request.method == "POST":
         if request.form.get("consent"):
@@ -172,8 +234,8 @@ def consent() -> Union[str, Response]:
             session["alpha_consent"] = True
             session["alpha_consent_ts"] = datetime.now(timezone.utc).isoformat()
 
-            # Redirect to original destination
-            post_next = request.form.get("next", "/")
+            # Redirect to original destination (validated for safety)
+            post_next = _get_safe_redirect_url(request.form.get("next"), "/")
             return redirect(post_next)
         # If checkbox not checked, show form again
 
