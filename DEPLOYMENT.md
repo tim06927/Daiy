@@ -31,6 +31,12 @@ In Render dashboard under "Environment", add:
 
 ```
 OPENAI_API_KEY=sk-...your-key...
+FLASK_SECRET_KEY=<generate-a-random-hex-string>
+```
+
+**Important**: Generate a random secret key for `FLASK_SECRET_KEY`. Example:
+```bash
+python -c "import os; print(os.urandom(32).hex())"
 ```
 
 Optional:

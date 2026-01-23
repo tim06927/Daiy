@@ -48,8 +48,10 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(32).hex())
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-# Use secure cookies in production (when not localhost)
-app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production"
+# Use secure cookies in production (Render.com, deployed environments use HTTPS)
+# Only disable for local development (localhost)
+is_local = FLASK_HOST in ("localhost", "127.0.0.1")
+app.config["SESSION_COOKIE_SECURE"] = not is_local
 
 # Run startup purge (schema migration + initial purge if needed)
 run_startup_purge()
@@ -231,14 +233,18 @@ def consent() -> Union[str, Response]:
     next_url = _get_safe_redirect_url(next_param, "/")
 
     if request.method == "POST":
-        if request.form.get("consent"):
+        consent_value = request.form.get("consent")
+        print(f"[CONSENT DEBUG] POST received. consent={consent_value}, form_keys={list(request.form.keys())}, next_url={next_url}")
+        if consent_value:
             # Store consent in session
             session["alpha_consent"] = True
             session["alpha_consent_ts"] = datetime.now(timezone.utc).isoformat()
+            print(f"[CONSENT DEBUG] Session set. Session data: {dict(session)}")
 
             # Redirect to original destination (validated for safety)
             return redirect(next_url)
         # If checkbox not checked, show form again
+        print(f"[CONSENT DEBUG] Checkbox not checked, reloading form")
 
     return render_template("consent.html", next_url=next_url)
 
