@@ -15,12 +15,67 @@ const AppState = {
   currentQuery: '',
   cachedJob: null,
   
+  // Model settings state (sticky - persisted to localStorage)
+  selectedModel: null,
+  selectedEffort: null,
+  
+  // Initialize model settings from localStorage or defaults
+  initModelSettings() {
+    const savedModel = localStorage.getItem('daiy_model');
+    const savedEffort = localStorage.getItem('daiy_effort');
+    
+    this.selectedModel = savedModel || CONFIG.DEFAULT_MODEL;
+    this.selectedEffort = savedEffort || CONFIG.DEFAULT_EFFORT;
+    
+    // Validate the model/effort combination
+    if (!this.isValidModelEffort(this.selectedModel, this.selectedEffort)) {
+      this.selectedModel = CONFIG.DEFAULT_MODEL;
+      this.selectedEffort = CONFIG.DEFAULT_EFFORT;
+    }
+  },
+  
+  // Check if model/effort combination is valid
+  isValidModelEffort(model, effort) {
+    const efforts = CONFIG.MODELS[model];
+    return efforts && efforts.includes(effort);
+  },
+  
+  // Set model (and reset effort if incompatible)
+  setModel(model) {
+    this.selectedModel = model;
+    localStorage.setItem('daiy_model', model);
+    
+    // Reset effort if not compatible with new model
+    if (!this.isValidModelEffort(model, this.selectedEffort)) {
+      const defaultEfforts = CONFIG.MODELS[model];
+      this.selectedEffort = defaultEfforts ? defaultEfforts[0] : CONFIG.DEFAULT_EFFORT;
+      localStorage.setItem('daiy_effort', this.selectedEffort);
+    }
+  },
+  
+  // Set effort level
+  setEffort(effort) {
+    if (this.isValidModelEffort(this.selectedModel, effort)) {
+      this.selectedEffort = effort;
+      localStorage.setItem('daiy_effort', effort);
+    }
+  },
+  
+  // Get current model settings
+  getModelSettings() {
+    return {
+      model: this.selectedModel,
+      effort: this.selectedEffort
+    };
+  },
+  
   // Reset state to initial
   reset() {
     this.selectedValues = {};
     this.clarificationAnswers = [];
     this.pendingClarifications = [];
     this.cachedJob = null;
+    // Note: model settings are NOT reset - they are sticky
   },
   
   // Reset image state

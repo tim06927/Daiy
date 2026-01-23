@@ -21,7 +21,7 @@ if __package__ is None or __package__ == "":
         get_categories_for_prompt,
         get_all_category_names,
     )
-    from config import LLM_MODEL
+    from config import LLM_MODEL, DEFAULT_MODEL, DEFAULT_EFFORT, is_valid_model_effort
     from logging_utils import log_interaction
 else:
     from .categories import (
@@ -30,7 +30,7 @@ else:
         get_categories_for_prompt,
         get_all_category_names,
     )
-    from .config import LLM_MODEL
+    from .config import LLM_MODEL, DEFAULT_MODEL, DEFAULT_EFFORT, is_valid_model_effort
     from .logging_utils import log_interaction
 
 __all__ = [
@@ -578,6 +578,8 @@ def identify_job(
     problem_text: str,
     image_base64: Optional[str] = None,
     image_meta: Optional[Dict[str, Any]] = None,
+    model: Optional[str] = None,
+    effort: Optional[str] = None,
 ) -> JobIdentification:
     """Identify job from user input using LLM.
     
@@ -590,18 +592,34 @@ def identify_job(
         problem_text: User's description of their needs.
         image_base64: Optional base64-encoded image.
         image_meta: Optional metadata about the image.
+        model: Optional model name to use. Defaults to DEFAULT_MODEL.
+        effort: Optional reasoning effort level. Defaults to DEFAULT_EFFORT.
         
     Returns:
         JobIdentification result with instructions and unclear specs.
     """
+    # Use provided model/effort or defaults
+    selected_model = model if model else DEFAULT_MODEL
+    selected_effort = effort if effort else DEFAULT_EFFORT
+    
+    # Validate model/effort combination, fall back to defaults if invalid
+    if not is_valid_model_effort(selected_model, selected_effort):
+        logger.warning(
+            f"Invalid model/effort combination: {selected_model}/{selected_effort}. "
+            f"Using defaults: {DEFAULT_MODEL}/{DEFAULT_EFFORT}"
+        )
+        selected_model = DEFAULT_MODEL
+        selected_effort = DEFAULT_EFFORT
+    
     image_attached = bool(image_base64)
     prompt = _build_job_identification_prompt(problem_text, image_attached)
     
-    # Log the call
+    # Log the call with model settings
     log_interaction(
         "llm_call_job_identification",
         {
-            "model": LLM_MODEL,
+            "model": selected_model,
+            "reasoning_effort": selected_effort,
             "prompt": prompt,
             "user_text": problem_text,
             "image_attached": image_attached,
@@ -626,9 +644,11 @@ def identify_job(
     
     try:
         client = _get_openai_client()
+        # Use new API request structure with reasoning effort
         resp = client.responses.create(
-            model=LLM_MODEL,
+            model=selected_model,
             input=input_payload,
+            reasoning={"effort": selected_effort},
         )
         
         for item in resp.output:
@@ -638,7 +658,8 @@ def identify_job(
                 log_interaction(
                     "llm_response_job_identification",
                     {
-                        "model": LLM_MODEL,
+                        "model": selected_model,
+                        "reasoning_effort": selected_effort,
                         "raw_response": raw,
                     },
                 )
