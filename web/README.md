@@ -587,3 +587,631 @@ Use `python web/view_logs.py` to inspect logs.
 - **Candidate limits** - MAX_CASSETTES/CHAINS/TOOLS reduce context size
 - **Early filtering** - `select_candidates()` filters before LLM call
 - **Single LLM call** - Recommendation uses one API call
+
+## Performance Tracking
+
+The app includes built-in performance timing to measure LLM vs app latency:
+
+**Track timing in code:**
+```python
+from web.timing import timer, get_timings, reset_timings
+
+with timer("llm_call"):
+    response = openai_client.chat.completions.create(...)
+
+timings = get_timings()
+print(f"LLM: {timings['__summary__']['llm_percent']}%")
+```
+
+**Analyze logs:**
+```bash
+python web/view_performance.py --days 7
+```
+
+Output shows:
+- Mean/P50/P95/P99 latencies for LLM and app operations
+- Percentage breakdown of total request time
+- Per-operation timing details (job_identification, clarification, recommendation, candidate_selection, etc.)
+
+**Integration:**
+- All `/api/recommend` requests automatically tracked
+- Metrics logged to JSONL with `request_id` for correlation with other events
+- Request ID enables linking timing data to user_input, clarification_required, and recommendation_result events
+
+**Performance baselines:**
+- Job Identification (LLM): 0.3-1.0s
+- Recommendation (LLM): 1.0-5.0s
+- Candidate Selection (App): 20-500ms
+- Total request: 1.5-6.0s
+
+For implementation details, see `timing.py` and `view_performance.py` docstrings.
+
+## Memory Optimization
+
+**Database-backed queries** (replacing CSV loading):
+- Queries products on-demand from SQLite instead of loading all into RAM
+- Reduces startup memory from 800MB+ to <200MB
+- Enables 512MB Render deployment tier with 100k+ products
+- Connection pooling and indexed queries for performance
+
+**Key modules:**
+- `catalog.py` - Database query functions (query_products, get_categories)
+- `candidate_selection.py` - Efficient filtering with product limits
+- `categories.py` - Dynamic discovery from database with caching
+
+**Memory-efficient patterns:**
+- No full catalog loading - only query what's needed
+- Product iteration avoids list concatenation
+- Temporary result filtering with generators where possible
+- One database connection per request with automatic cleanup
+
+Results: ~150-200MB steady-state memory (vs 800MB+ with CSV loading), handles 100k+ products reliably.
+
+## Error Tracking & Monitoring
+
+Comprehensive error logging system for alpha deployments (especially on Render):
+
+### Overview
+
+**Problem:** On Render, ephemeral filesystems don't persist log files across redeployments, making it impossible to access error logs after the deployment updates.
+
+**Solution:** Store all errors in persistent SQLite database (`data/products.db`) alongside product data. Errors survive redeployments and are queryable via CLI tool.
+
+### Error Types
+
+All errors logged with full context, stack traces, and recovery suggestions:
+
+- **llm_error** - OpenAI API errors, JSON parsing failures, model errors
+  - Common causes: API quota exceeded, invalid response format, network issues
+  - Includes: HTTP status, error message, recovery suggestion
+
+- **validation_error** - Invalid user input, constraint violations, type mismatches
+  - Common causes: Missing required fields, invalid problem_text, malformed JSON
+  - Includes: Field name, expected vs actual value, recovery suggestion
+
+- **database_error** - Query failures, connection issues, missing data
+  - Common causes: Database locked, query timeout, constraint violation
+  - Includes: Query details, operation context, recovery suggestion
+
+- **processing_error** - Image processing failures, file operations
+  - Common causes: Invalid image format, file too large, codec issues
+  - Includes: File details, error stage, recovery suggestion
+
+- **unexpected_error** - Uncaught exceptions with full stack trace
+  - Common causes: Bugs, edge cases, unhandled scenarios
+  - Includes: Full stack trace, operation context, request_id for debugging
+
+### Database Schema
+
+Errors stored in `error_log` table (created automatically):
+
+```sql
+CREATE TABLE error_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL,           -- ISO 8601 timestamp
+    request_id TEXT NOT NULL,          -- UUID correlating to other events
+    error_type TEXT NOT NULL,          -- llm_error, validation_error, etc.
+    error_message TEXT NOT NULL,       -- Error summary
+    stack_trace TEXT,                  -- Full traceback for unexpected errors
+    context JSON,                      -- Operation context (as JSON)
+    operation TEXT,                    -- What was being done (e.g., "validate_input")
+    phase TEXT,                        -- LLM phase (1, 2, or 3)
+    user_input TEXT,                   -- Original problem text (truncated)
+    timing_data JSON,                  -- Performance metrics if available
+    recovery_suggestion TEXT           -- How to fix or retry
+);
+
+CREATE INDEX idx_timestamp ON error_log(timestamp);
+CREATE INDEX idx_request_id ON error_log(request_id);
+CREATE INDEX idx_error_type ON error_log(error_type);
+```
+
+### Access Error Logs
+
+#### View All Errors
+
+```bash
+python web/view_errors.py
+```
+
+Shows summary statistics:
+- Total errors, count by type, 24-hour count
+- Top error messages
+- Recent errors with details
+
+#### Filter by Request ID
+
+Trace entire transaction for a specific user request:
+```bash
+python web/view_errors.py --request abc123def456
+```
+
+Shows all errors for that request_id, with:
+- Timestamp, error type, message
+- Operation context (which phase, what parameters)
+- Stack trace (last 10 lines)
+- Recovery suggestion
+
+#### Filter by Error Type
+
+```bash
+python web/view_errors.py --type llm_error          # All LLM errors
+python web/view_errors.py --type validation_error   # Input validation errors
+python web/view_errors.py --type database_error     # Database query errors
+```
+
+#### List Recent Errors with Pagination
+
+```bash
+python web/view_errors.py --all                     # List all (paginated)
+python web/view_errors.py --all --limit 50          # Show 50 errors
+python web/view_errors.py --all --offset 50         # Skip first 50
+```
+
+#### Export for Analysis
+
+Export all errors to JSON/JSONL:
+
+```bash
+# Export as JSON (pretty-printed)
+python web/view_errors.py --export json --output errors.json
+
+# Export as JSONL (one error per line, better for stream processing)
+python web/view_errors.py --export jsonl --output errors.jsonl
+```
+
+Exported format:
+```json
+{
+  "id": 123,
+  "timestamp": "2025-01-21T14:30:45.123Z",
+  "request_id": "550e8400-e29b",
+  "error_type": "llm_error",
+  "error_message": "OpenAI API rate limit exceeded",
+  "operation": "llm_recommendation_phase_3",
+  "phase": "3",
+  "context": {"model": "gpt-4-mini", "status_code": 429},
+  "recovery_suggestion": "Wait 60 seconds and retry"
+}
+```
+
+### Integration with Logging
+
+Errors are correlated with existing event logging via `request_id`:
+
+**Flow of a single user request:**
+
+```
+user_input event          ←─────┐
+   │                            │
+   ├─→ clarification_required    ├─ Same request_id
+   │       (optional)            │
+   │                            │
+   ├─→ llm_call_phase_1         │
+   ├─→ llm_response_phase_1     │
+   │                            │
+   ├─→ llm_call_phase_3         │
+   ├─→ llm_response_phase_3     │
+   │                            │
+   ├─→ performance_metrics      │
+   │                            │
+   └─→ recommendation_result ←──┘
+
+If any error occurs during the request:
+   ├─→ error event (llm_error, validation_error, etc.)
+       - Same request_id for tracing
+       - Includes timing_data up to error point
+```
+
+All events logged to both:
+1. **JSONL files** - `web/logs/llm_interactions_YYYYMMDD.jsonl` (human-readable, local development)
+2. **SQLite database** - `data/products.db` (persistent across redeployments, for errors only)
+
+Use `request_id` to correlate errors with associated user_input and LLM calls.
+
+### Implementation Details
+
+#### error_logging.py
+
+Main error logging module:
+
+```python
+from web.error_logging import (
+    log_llm_error,
+    log_validation_error,
+    log_database_error,
+    log_processing_error,
+    log_unexpected_error,
+)
+
+# Log an LLM error with recovery suggestion
+log_llm_error(
+    "OpenAI API rate limited",
+    request_id="550e8400-e29b",
+    operation="llm_recommendation",
+    context={"status_code": 429},
+    recovery_suggestion="Wait 60 seconds and retry"
+)
+
+# Or catch and log an exception
+try:
+    response = openai_client.chat.completions.create(...)
+except Exception as e:
+    log_llm_error(
+        str(e),
+        request_id=request_id,
+        operation="llm_recommendation",
+        context={"model": "gpt-4-mini"},
+    )
+```
+
+#### view_errors.py
+
+CLI tool for querying and exporting errors:
+
+```bash
+# Show summary and recent errors
+python web/view_errors.py
+
+# Filter by error type
+python web/view_errors.py --type llm_error
+
+# Trace specific request
+python web/view_errors.py --request 550e8400-e29b
+
+# Export to JSON for analysis
+python web/view_errors.py --export json --output errors.json
+
+# Get help
+python web/view_errors.py --help
+```
+
+#### api.py Integration
+
+All API errors logged automatically:
+
+- **JSON parsing** → `validation_error` with recovery suggestion
+- **Input validation** → `validation_error` with field details
+- **Image processing** → `processing_error` with file details
+- **Database queries** → `database_error` with operation context
+- **LLM calls** → `llm_error` with API status
+- **Unexpected** → `unexpected_error` with full stack trace
+
+Example from recommend() endpoint:
+
+```python
+try:
+    # Phase 1: Identify job
+    job = identify_job(problem_text, request_id=request_id)
+except Exception as e:
+    log_llm_error(
+        str(e),
+        request_id=request_id,
+        operation="job_identification",
+        phase="1",
+        context={"error_type": type(e).__name__},
+        recovery_suggestion="Check image format and problem text",
+    )
+    return jsonify({"error": "...", "request_id": request_id}), 400
+```
+
+### Monitoring Workflow
+
+**For development (local):**
+1. Run app: `python web/app.py`
+2. View interactions: `python web/view_logs.py`
+3. View errors: `python web/view_errors.py`
+
+**For Render deployment:**
+1. Connect to Render (SSH or logs)
+2. Query errors: `python web/view_errors.py --all`
+3. Filter by request: `python web/view_errors.py --request <id>`
+4. Export for analysis: `python web/view_errors.py --export json`
+5. Download exported file for offline analysis
+
+**Alert patterns to watch:**
+- Spike in `llm_error` → Check API quota, rate limits
+- `validation_error` → Review user inputs, edge cases
+- Specific `error_message` repeated → Likely a bug or data issue
+- `processing_error` with image errors → Image format/size issues
+
+### Render Deployment Persistence
+
+**Why SQLite solves the persistence problem:**
+
+| Storage Method | Persists Across Redeploy? | Query Support | External Service? |
+|---|---|---|---|
+| Log files (JSONL) | ❌ Ephemeral filesystem | No (manual search) | No |
+| Environment DB (ephemeral) | ❌ Clears on redeploy | Yes | No |
+| **SQLite on disk** | ✅ Stored with app data | ✅ SQL queries | No |
+| Cloud service (Datadog, etc.) | ✅ Yes | ✅ Yes | ✅ Costs $$ |
+| Cloud storage (S3) | ✅ Yes | Manual | ✅ Costs $$ |
+
+**Implementation:** Errors written to `error_log` table in `data/products.db` (same database as products). Since Render preserves `/data` directory between deployments, all errors persist indefinitely.
+
+### Testing Error Logging
+
+Generate test errors to verify system:
+
+```bash
+# In Python shell
+from web.error_logging import log_llm_error
+import uuid
+
+request_id = str(uuid.uuid4())
+
+log_llm_error(
+    "Test LLM error for validation",
+    request_id=request_id,
+    operation="test",
+    context={"test": True},
+    recovery_suggestion="This is a test error"
+)
+
+# View the error
+# python web/view_errors.py --request <request_id>
+```
+
+Or trigger real errors by:
+1. Sending invalid JSON to `/api/recommend`
+2. Submitting empty problem_text
+3. Uploading invalid image format
+4. Querying with impossible product specifications
+
+All errors will be logged and visible via `python web/view_errors.py`.
+
+## Interaction Logging
+
+Complete audit trail of all LLM interactions, from initial user input through final recommendations. All events stored in persistent SQLite database (`data/products.db`) for production visibility and local development debugging.
+
+### Event Types
+
+Every interaction is tagged with an `event_type` and `request_id` for request tracing:
+
+| Event Type | When Fired | Data Logged | Use Case |
+|---|---|---|---|
+| `user_input` | Request begins | problem_text, image size, clarification_answers | Audit trail of user requests |
+| `clarification_required` | Phase 1 or 2 | unclear_specs, confidence_score, questions asked | Understand why clarifications were needed |
+| `llm_call_phase_1` | Before identifying job | model, prompt details, parameters | Debug LLM behavior |
+| `llm_response_phase_1` | After identifying job | identified_job, use_case, gearing, cost_range | Verify job identification accuracy |
+| `llm_call_phase_3` | Before generating recommendations | model, final_instructions, product_count | Verify product matching |
+| `llm_response_phase_3` | After recommendations generated | primary_products, recommended_tools, sections | Track final output |
+| `recommendation_result` | Request completes | product_rankings, sections, generation time | Complete transaction audit |
+| `performance_metrics` | After completion (optional) | total_time, phase_times, api_calls, tokens_used | Performance analysis |
+
+### Database Schema
+
+Interactions stored in `interactions` table (created automatically):
+
+```sql
+CREATE TABLE interactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL,           -- ISO 8601 timestamp
+    request_id TEXT NOT NULL,          -- UUID linking all events for one request
+    event_type TEXT NOT NULL,          -- user_input, llm_call_phase_1, etc.
+    data JSON NOT NULL                 -- Event-specific data as JSON
+);
+
+CREATE INDEX idx_interactions_request ON interactions(request_id);
+CREATE INDEX idx_interactions_type ON interactions(event_type);
+CREATE INDEX idx_interactions_timestamp ON interactions(timestamp);
+```
+
+### Request Tracing
+
+All events for a single user request share the same `request_id`. This enables complete request tracing:
+
+**Example trace for single recommendation request:**
+
+```
+Request ID: 550e8400-e29b-41d4-a716-446655440000
+
+[2025-01-22 10:15:30.123] user_input
+  - problem_text: "Chain keeps slipping on cassette 8 and 9"
+  - has_image: true
+  - image_size: 245382 bytes
+
+[2025-01-22 10:15:32.456] llm_call_phase_1
+  - model: "gpt-4-mini"
+  - prompt_tokens: 1243
+
+[2025-01-22 10:15:35.789] llm_response_phase_1
+  - identified_job: "improve_shifting"
+  - use_case: "urban_commuting"
+  - gearing: "3x9"
+  - cost_range: "budget"
+
+[2025-01-22 10:15:36.123] clarification_required
+  - unclear_specs: ["drivetrain_condition", "shifting_speed_preference"]
+  - confidence: 0.72
+
+[2025-01-22 10:15:38.789] llm_call_phase_3
+  - model: "gpt-4-mini"
+  - product_candidates: 45
+
+[2025-01-22 10:15:42.012] llm_response_phase_3
+  - primary_products: 3
+  - recommended_tools: 2
+  - sections: 4
+
+[2025-01-22 10:15:42.345] recommendation_result
+  - total_time_ms: 12222
+  - status: "success"
+
+[2025-01-22 10:15:42.678] performance_metrics
+  - phase_1_time_ms: 5233
+  - phase_3_time_ms: 3876
+  - total_api_calls: 2
+  - total_tokens: 3456
+```
+
+### Access Interaction Logs
+
+#### View All Interactions
+
+```bash
+python web/view_logs.py --db sqlite
+```
+
+Shows HTML viewer with all events from past 24 hours, event type, timestamp, request_id, and summary statistics.
+
+#### Filter by Request ID
+
+Retrieve complete request trace:
+
+```bash
+python web/view_logs.py --db sqlite --request 550e8400-e29b-41d4-a716-446655440000
+```
+
+Returns all events for that request_id in chronological order. Essential for debugging specific user issues.
+
+#### Filter by Event Type
+
+Find all events of a specific type:
+
+```bash
+python web/view_logs.py --db sqlite --type user_input
+python web/view_logs.py --db sqlite --type clarification_required
+python web/view_logs.py --db sqlite --type llm_call_phase_1
+python web/view_logs.py --db sqlite --type recommendation_result
+```
+
+Useful for analyzing patterns (e.g., "How many requests needed clarification?").
+
+#### Using Makefile Shortcuts
+
+```bash
+make interactions                          # View all interactions
+make interactions-request ID=550e8400-e29b # View request trace
+make interactions-type TYPE=user_input     # Filter by type
+```
+
+### Querying Interactions Programmatically
+
+Direct Python access via `error_logging` module:
+
+```python
+from web.error_logging import ErrorLogger
+
+logger = ErrorLogger()
+
+# Get all interactions for a request
+trace = logger.get_interaction_trace(request_id="550e8400-e29b")
+for event in trace:
+    print(f"{event['timestamp']} {event['event_type']}")
+
+# Get summary statistics
+summary = logger.get_interaction_summary()
+print(f"Total: {summary['total']}")
+print(f"By type: {summary['by_type']}")
+```
+
+### Integration with Error Tracking
+
+Errors and interactions stored in same database, linked by `request_id`:
+
+```bash
+# Get complete trace including errors
+python web/view_logs.py --db sqlite --request 550e8400-e29b
+python web/view_errors.py --request 550e8400-e29b
+```
+
+Correlate errors with user input to debug specific issues:
+
+```python
+from web.error_logging import ErrorLogger
+
+logger = ErrorLogger()
+trace = logger.get_interaction_trace(request_id)
+
+# Find user input and any errors
+user_input = next(e for e in trace if e['event_type'] == 'user_input')
+errors = logger.get_errors(request_id=request_id)
+
+print(f"User asked: {user_input['data']['problem_text']}")
+for error in errors:
+    print(f"Error at {error['operation']}: {error['error_message']}")
+```
+
+### Unified Database Architecture
+
+All application state stored in single `data/products.db` SQLite database:
+
+| Table | Purpose |
+|---|---|
+| `products` | Bike components from scraper |
+| `error_log` | All errors with context |
+| `interactions` | All LLM interactions |
+
+**Benefits:**
+- ✅ Single backup/restore point
+- ✅ Request tracing across errors and interactions
+- ✅ No external services required
+- ✅ Persists on Render across redeployments
+- ✅ Efficient SQL queries
+- ✅ Local file storage (no cloud costs)
+
+### Monitoring Workflow
+
+**Local Development:**
+
+```bash
+# Terminal 1: Run app
+python web/app.py
+
+# Terminal 2: Monitor interactions
+python web/view_logs.py --db sqlite
+
+# Terminal 3: Check for errors
+python web/view_errors.py --all
+```
+
+**Render Deployment Monitoring:**
+
+```bash
+# View recent interactions
+python web/view_logs.py --db sqlite --limit 100
+
+# Trace specific request
+python web/view_logs.py --db sqlite --request <request_id>
+
+# Check for errors
+python web/view_errors.py --type llm_error --limit 50
+```
+
+### Testing Interaction Logging
+
+Generate test interactions:
+
+```bash
+python -c "
+import uuid
+from web.error_logging import ErrorLogger
+
+logger = ErrorLogger()
+request_id = str(uuid.uuid4())
+
+# Log test events
+logger.log_interaction('user_input', request_id, {
+    'problem_text': 'Test request',
+    'has_image': False
+})
+
+logger.log_interaction('recommendation_result', request_id, {
+    'status': 'success',
+    'total_time_ms': 2500
+})
+
+# Retrieve and display
+trace = logger.get_interaction_trace(request_id)
+print(f'✅ Logged {len(trace)} test interactions')
+print(f'Request ID: {request_id}')
+"
+```
+
+View in log viewer:
+
+```bash
+python web/view_logs.py --db sqlite --request <request_id>
+```
+

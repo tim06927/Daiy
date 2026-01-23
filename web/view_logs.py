@@ -2,16 +2,19 @@
 """View LLM interaction logs in a readable HTML format.
 
 Usage:
-    python view_logs.py                    # View today's log
-    python view_logs.py logs/llm_*.jsonl   # View specific log file
+    python view_logs.py                           # View today's JSONL log (local)
+    python view_logs.py logs/llm_*.jsonl          # View specific JSONL log file
+    python view_logs.py --db sqlite --request abc # View request from database (production)
+    python view_logs.py --db sqlite --type user_input  # View all user inputs from database
 """
 
+import argparse
 import json
 import sys
 import webbrowser
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 
 def format_timestamp(ts: str) -> str:
@@ -655,15 +658,20 @@ def create_html_log(log_file: Path) -> str:
     return html
 
 
-def main():
-    """Main entry point."""
-    if len(sys.argv) > 1:
-        # Use provided log file
-        log_file = Path(sys.argv[1])
-    else:
-        # Use today's log file (logs directory is in web/)
-        today = datetime.now().strftime("%Y%m%d")
-        log_file = Path(__file__).parent / f"logs/llm_interactions_{today}.jsonl"
+def main(log_file: Optional[Path] = None):
+    """Main entry point.
+    
+    Args:
+        log_file: Optional log file path. If not provided, reads from sys.argv or uses today's log.
+    """
+    if log_file is None:
+        if len(sys.argv) > 1:
+            # Use provided log file from command line
+            log_file = Path(sys.argv[1])
+        else:
+            # Use today's log file (logs directory is in web/)
+            today = datetime.now().strftime("%Y%m%d")
+            log_file = Path(__file__).parent / f"logs/llm_interactions_{today}.jsonl"
 
     # Generate HTML
     html_content = create_html_log(log_file)
@@ -682,5 +690,174 @@ def main():
     webbrowser.open(f"file://{output_file.absolute()}")
 
 
+def get_db_interactions(
+    request_id: Optional[str] = None,
+    event_type: Optional[str] = None,
+    db_path: Optional[Path] = None,
+) -> List[Dict[str, Any]]:
+    """Query interactions from SQLite database."""
+    if db_path is None:
+        db_path = Path(__file__).parent.parent / "data" / "products.db"
+    
+    if not db_path.exists():
+        print(f"❌ Database not found: {db_path}")
+        return []
+    
+    try:
+        from error_logging import ErrorLogger
+        logger = ErrorLogger(db_path=db_path)
+        
+        if request_id:
+            return logger.get_interaction_trace(request_id)
+        else:
+            return logger.get_interactions(event_type=event_type, limit=1000)
+    except Exception as e:
+        print(f"❌ Error querying database: {e}")
+        return []
+
+
+def create_html_log_from_interactions(interactions: List[Dict[str, Any]]) -> str:
+    """Create HTML view for database interactions."""
+    if not interactions:
+        return "<html><body><p>No interactions found.</p></body></html>"
+    
+    # Group by request_id if multiple requests
+    requests = {}
+    for interaction in interactions:
+        req_id = interaction.get("request_id", "unknown")
+        if req_id not in requests:
+            requests[req_id] = []
+        requests[req_id].append(interaction)
+    
+    html_parts = ["""
+    <html>
+    <head>
+        <title>LLM Interactions - Database View</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+            .request { background: white; margin: 20px 0; padding: 15px; border-radius: 8px; }
+            .request h2 { margin-top: 0; color: #333; }
+            .interaction { margin: 10px 0; padding: 10px; background: #f9f9f9; border-left: 4px solid #0066cc; }
+            .event-type { font-weight: bold; color: #0066cc; margin-right: 10px; }
+            .timestamp { color: #666; font-size: 0.9em; }
+            .data { margin-top: 5px; white-space: pre-wrap; font-family: monospace; font-size: 0.9em; }
+            summary { cursor: pointer; font-weight: bold; }
+            .summary { background: #e3f2fd; padding: 5px; border-radius: 3px; }
+        </style>
+    </head>
+    <body>
+        <h1>LLM Interactions from Database</h1>
+    """]
+    
+    for req_id, events in requests.items():
+        html_parts.append(f"""
+        <div class="request">
+            <h2>Request: {escape_html(req_id)}</h2>
+            <p><strong>Events:</strong> {len(events)}</p>
+        """)
+        
+        for event in events:
+            event_type = escape_html(str(event.get("event_type", "unknown")))
+            timestamp = format_timestamp(str(event.get("timestamp", "")))
+            data = event.get("data", {})
+            
+            # Parse JSON if string
+            if isinstance(data, str):
+                try:
+                    data = json.loads(data)
+                except json.JSONDecodeError:
+                    # If parsing fails, leave data as the original string so it can still be displayed.
+                    pass
+            
+            data_str = json.dumps(data, indent=2) if data else "{}"
+            
+            html_parts.append(f"""
+            <div class="interaction">
+                <span class="event-type">{event_type}</span>
+                <span class="timestamp">{timestamp}</span>
+                <details>
+                    <summary>Details</summary>
+                    <div class="data">{escape_html(data_str)}</div>
+                </details>
+            </div>
+            """)
+        
+        html_parts.append("</div>")
+    
+    html_parts.append("""
+    </body>
+    </html>
+    """)
+    
+    return "".join(html_parts)
+
+
+def main_db_mode(args: Any) -> None:
+    """View interactions from database."""
+    interactions = get_db_interactions(
+        request_id=args.request,
+        event_type=args.type,
+        db_path=args.db_path,
+    )
+    
+    if not interactions:
+        print("❌ No interactions found")
+        return
+    
+    print(f"✅ Found {len(interactions)} interaction(s)")
+    
+    # Generate HTML
+    html_content = create_html_log_from_interactions(interactions)
+    
+    # Write to temporary HTML file
+    output_file = Path(__file__).parent / "logs" / "view_logs_db.html"
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(html_content)
+    
+    print(f"✅ Log viewer created: {output_file}")
+    print("📖 Opening in browser...")
+    
+    webbrowser.open(f"file://{output_file.absolute()}")
+
+
+
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="View LLM interaction logs (JSONL or database)"
+    )
+    parser.add_argument(
+        "log_file",
+        nargs="?",
+        help="JSONL log file to view (use with local JSONL logs)"
+    )
+    parser.add_argument(
+        "--db",
+        choices=["sqlite"],
+        help="Use database backend instead of JSONL"
+    )
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        help="Path to SQLite database (default: data/products.db)"
+    )
+    parser.add_argument(
+        "--request",
+        type=str,
+        help="Filter by request_id (for database mode)"
+    )
+    parser.add_argument(
+        "--type",
+        type=str,
+        help="Filter by event_type (for database mode)"
+    )
+    
+    args = parser.parse_args()
+    
+    if args.db == "sqlite":
+        main_db_mode(args)
+    else:
+        # Use original JSONL mode
+        main(Path(args.log_file) if args.log_file else None)
+

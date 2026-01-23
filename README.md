@@ -1,10 +1,29 @@
 # Daiy
 
-## Current Status (Jan 20, 2026)
+## Current Status (Jan 22, 2026)
 
-**Type-Safe Dynamic Specs System & Production-Ready Architecture**
+**Production-Ready Logging & Error Tracking for Render Deployment**
 
-Recent improvements focused on memory efficiency and production deployment:
+Recent improvements focused on comprehensive logging and production error monitoring:
+
+### Persistent Database Logging (Jan 22, 2026)
+- ✅ **Consolidated SQLite logging** - Single database for products, errors, AND interactions
+- ✅ **Persistent across redeployments** - All logs survive Render updates
+- ✅ **Full request tracing** - All events (user_input, LLM calls, recommendations) linked via request_id
+- ✅ **Interactive log viewer** - Query logs from database with HTML interface
+- ✅ **Production-ready monitoring** - Error tracking + interaction logging for full visibility
+
+### Error Tracking System (Jan 21, 2026)
+- ✅ **5 error types** - llm_error, validation_error, database_error, processing_error, unexpected_error
+- ✅ **Recovery suggestions** - Actionable guidance for each error
+- ✅ **Stack trace capture** - Full traceback for debugging
+- ✅ **Request correlation** - Errors linked to user inputs via request_id
+
+### Interaction Logging
+- ✅ **All events logged** - user_input, clarification_required, llm_calls, recommendations, performance_metrics
+- ✅ **Complete request trace** - Query entire interaction flow for debugging
+- ✅ **Local + Remote** - JSONL for development, SQLite for production (Render)
+- ✅ **Queryable** - Filter by request_id, event_type, or view all interactions
 
 ### Memory Optimization (Jan 21, 2026)
 - ✅ **SQLite database backend** - Replaced 500MB CSV loading with on-demand queries
@@ -17,6 +36,7 @@ Recent improvements focused on memory efficiency and production deployment:
 - ✅ **Fixed type invariance in dynamic specs** - Proper handling of `Mapping[str, Optional[str]]` for flexible product field storage
 - ✅ **Robust None-value filtering** - Dynamic specs system skips None values internally, simplifying call sites
 - ✅ **Type-safe imports** - All functions properly annotated with Mapping types for covariance
+- ✅ **Performance timing & analytics** - Track LLM vs app latency breakdown for optimization
 
 ### Three-Phase LLM Flow (Complete)
 1. **Job Identification** - Generates step-by-step instructions with `[category_key]` placeholders
@@ -30,15 +50,17 @@ Restructured monolithic 2200-line `index.html` into 10 maintainable files:
 - **Clean HTML template** - 153 lines (93% reduction)
 
 ### Quality & Testing
-- ✅ **Comprehensive test suite** - Web (11+ tests) and scraper (11+ tests) with fixtures
+- ✅ **Comprehensive test suite** - Web (18+ tests) and scraper (11+ tests) with fixtures
 - ✅ **Dynamic field discovery** - Automatic field detection from product data
 - ✅ **Multi-category support** - Products belong to multiple categories with proper deduplication
-- ✅ **Logging & debugging** - JSONL logs with HTML viewer for all interactions
+- ✅ **Logging & debugging** - SQLite + JSONL logs with HTML viewers for all interactions and errors
 
 ### Key Capabilities
 - ✅ All clarification questions are **dynamic** and **LLM-generated**
 - ✅ **Multi-category products** - No duplicates or missing items
-- ✅ **Comprehensive logging** - User inputs, clarifications, LLM calls/responses tracked
+- ✅ **Comprehensive logging** - User inputs, clarifications, LLM calls/responses, errors tracked
+- ✅ **Error tracking** - Persistent SQLite error logs with recovery suggestions
+- ✅ **Interaction logging** - Full event trace for debugging and monitoring
 - ✅ **HTML log viewer** - Interactive session browser with filters
 - ✅ **Modular frontend** - Separate concerns for easy maintenance
 - ✅ **Vision-enabled** - Image upload for bike photo analysis
@@ -51,7 +73,10 @@ Restructured monolithic 2200-line `index.html` into 10 maintainable files:
 - Frontend architecture: [web/static/README.md](web/static/README.md)
 - Scraper docs: [scrape/README.md](scrape/README.md)
 - **Pipeline flow**: [PIPELINE.md](PIPELINE.md) - Scraper to web app integration
-- **Memory optimization**: [MEMORY_OPTIMIZATION.md](MEMORY_OPTIMIZATION.md) - 512MB deployment
+- **Performance & memory**: See [web/README.md](web/README.md#performance-tracking) and [web/README.md](web/README.md#memory-optimization)
+- **Error tracking**: [web/README.md](web/README.md#error-tracking--monitoring) - Production error monitoring
+- **Interaction logging**: [web/README.md](web/README.md#interaction-logging) - LLM workflow audit trail
+- **Render deployment**: [RENDER_ERROR_LOGS.md](RENDER_ERROR_LOGS.md) - Remote error monitoring
 
 ---
 
