@@ -226,7 +226,7 @@ def consent() -> Union[str, Response]:
     POST: Process consent and redirect to original destination
     """
     # Validate redirect URL to prevent open redirect attacks
-    # For POST, check form first (hidden field), then fall back to query args
+    # Check form data first (for POST with hidden field), then query args (for GET)
     next_param = request.form.get("next") or request.args.get("next")
     next_url = _get_safe_redirect_url(next_param, "/")
 
