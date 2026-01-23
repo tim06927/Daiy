@@ -42,8 +42,16 @@ _EMAIL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Phone pattern: matches common formats like +49 123 456 7890, (555) 123-4567, etc.
-# Avoids matching short numbers (must have at least 7 digits)
+# Phone pattern: matches common formats while avoiding false positives
+# Intended to match:
+#   - International: +49 123 456 7890, +1-555-123-4567
+#   - US/EU: (555) 123-4567, 030-12345678, 555.123.4567
+#   - Simple: 1234567890 (10+ consecutive digits)
+# Avoids matching:
+#   - Short numbers like quantities (11 gears, 12 speeds)
+#   - Model numbers that don't look like phones
+# Note: This is a best-effort pattern; some edge cases may not be caught.
+# See test_privacy.py for tested formats.
 _PHONE_PATTERN = re.compile(
     r"(?<![0-9])"  # Not preceded by a digit
     r"(?:\+?[0-9]{1,3}[-.\s]?)?"  # Optional country code
@@ -167,15 +175,18 @@ def ensure_logs_schema() -> None:
             cursor.execute("PRAGMA table_info(logs)")
             existing_columns = {row[1] for row in cursor.fetchall()}
 
-            columns_to_add = [
-                ("created_at", "TEXT"),
-                ("event_type", "TEXT"),
-                ("payload_json", "TEXT"),
-                ("consent_ts", "TEXT"),
-            ]
+            # These column definitions are hardcoded and safe
+            # Using an allowlist pattern to prevent SQL injection
+            ALLOWED_COLUMNS = {
+                "created_at": "TEXT",
+                "event_type": "TEXT",
+                "payload_json": "TEXT",
+                "consent_ts": "TEXT",
+            }
 
-            for col_name, col_type in columns_to_add:
+            for col_name, col_type in ALLOWED_COLUMNS.items():
                 if col_name not in existing_columns:
+                    # Column names are validated against allowlist above
                     cursor.execute(f"ALTER TABLE logs ADD COLUMN {col_name} {col_type}")
                     logger.info(f"Added column {col_name} to logs table")
 
