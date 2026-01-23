@@ -156,6 +156,25 @@ class TestConsentRoutes:
         # Should stay on consent page or redirect back
         assert response.status_code in [200, 302]
 
+    def test_consent_preserves_next_url_on_form_rerender(self, client):
+        """Test that the next URL is preserved when form is re-rendered (without checkbox).
+        
+        This is a regression test for the issue where POSTing the consent form
+        without the checkbox would lose the next URL, causing the page to reload
+        with next="/" instead of the original destination.
+        """
+        # POST to consent with a next URL but without checking the box
+        response = client.post('/consent', data={'next': '/api/categories'})
+        
+        # Should re-render the form (200) with the next URL preserved
+        assert response.status_code == 200
+        content = response.data.decode('utf-8')
+        
+        # The hidden input field should still have the original next URL
+        assert 'value="/api/categories"' in content
+        # Make sure it didn't default to "/"
+        assert 'value="/"' not in content or '/api/categories' in content
+
     def test_after_consent_home_works(self, client):
         """Test that home page works after consent."""
         # Grant consent
