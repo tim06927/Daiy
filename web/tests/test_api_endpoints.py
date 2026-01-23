@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 @pytest.fixture
 def client(mock_csv_path, monkeypatch, repo_root):
-    """Create Flask test client."""
+    """Create Flask test client with consent already granted."""
     # Monkeypatch CSV path
     monkeypatch.setenv("CSV_PATH", mock_csv_path)
     
@@ -22,6 +22,10 @@ def client(mock_csv_path, monkeypatch, repo_root):
     app.config['TESTING'] = True
 
     with app.test_client() as test_client:
+        # Set consent in session to bypass consent gate
+        with test_client.session_transaction() as sess:
+            sess['alpha_consent'] = True
+            sess['alpha_consent_ts'] = '2025-01-01T00:00:00+00:00'
         yield test_client
 
 

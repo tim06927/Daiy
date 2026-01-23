@@ -184,12 +184,16 @@ class TestAPIErrorHandling:
 
     @pytest.fixture
     def client(self, mock_csv_path, monkeypatch):
-        """Create Flask test client."""
+        """Create Flask test client with consent already granted."""
         monkeypatch.setenv("CSV_PATH", mock_csv_path)
         from app import app
 
         app.config['TESTING'] = True
         with app.test_client() as test_client:
+            # Set consent in session to bypass consent gate
+            with test_client.session_transaction() as sess:
+                sess['alpha_consent'] = True
+                sess['alpha_consent_ts'] = '2025-01-01T00:00:00+00:00'
             yield test_client
 
     def test_recommend_with_very_long_text(self, client):
