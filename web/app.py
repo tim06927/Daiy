@@ -246,15 +246,11 @@ def consent() -> Union[str, Response]:
         if request.method == "POST":
             consent_value = request.form.get("consent")
             if consent_value:
-                try:
-                    # Store consent in session and redirect
-                    session["alpha_consent"] = True
-                    session["alpha_consent_ts"] = datetime.now(timezone.utc).isoformat()
-                    logger.info(f"Consent granted, redirecting to: {next_url}")
-                    return redirect(next_url)
-                except Exception as e:
-                    logger.error(f"Failed to set consent session: {e}", exc_info=True)
-                    # Fall through to re-render form
+                # Store consent in session and redirect
+                session["alpha_consent"] = True
+                session["alpha_consent_ts"] = datetime.now(timezone.utc).isoformat()
+                logger.info(f"Consent granted, redirecting to: {next_url}")
+                return redirect(next_url)
             else:
                 logger.debug("Consent form submitted without checkbox, re-rendering form")
 
