@@ -5,6 +5,7 @@ LLM-powered suggestions grounded in real product inventory.
 """
 
 import base64
+import logging
 import os
 import sys
 from datetime import datetime, timezone
@@ -43,6 +44,9 @@ else:
     from .privacy import run_lazy_purge, run_startup_purge
 
 app = Flask(__name__)
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # Configure session for consent cookie
 # Production detection: FLASK_SECRET_KEY env var presence indicates production (e.g., Render)
@@ -234,23 +238,28 @@ def consent() -> Union[str, Response]:
     GET: Show consent form
     POST: Process consent and redirect to original destination
     """
-    # Get redirect target (validate to prevent open redirects)
-    next_param = request.form.get("next") or request.args.get("next")
-    next_url = _get_safe_redirect_url(next_param, "/")
+    try:
+        # Get redirect target (validate to prevent open redirects)
+        next_param = request.form.get("next") or request.args.get("next")
+        next_url = _get_safe_redirect_url(next_param, "/")
 
-    if request.method == "POST":
-        consent_value = request.form.get("consent")
-        print(f"[CONSENT DEBUG] POST received. consent={consent_value}, next_url={next_url}")
-        if consent_value:
-            # Store consent in session and redirect
-            session["alpha_consent"] = True
-            session["alpha_consent_ts"] = datetime.now(timezone.utc).isoformat()
-            print(f"[CONSENT DEBUG] Session set. alpha_consent={session.get('alpha_consent')}")
-            return redirect(next_url)
-        print(f"[CONSENT DEBUG] Checkbox not checked, reloading form")
+        if request.method == "POST":
+            consent_value = request.form.get("consent")
+            if consent_value:
+                # Store consent in session and redirect
+                session["alpha_consent"] = True
+                session["alpha_consent_ts"] = datetime.now(timezone.utc).isoformat()
+                logger.info(f"Consent granted, redirecting to: {next_url}")
+                return redirect(next_url)
+            else:
+                logger.debug("Consent form submitted without checkbox, re-rendering form")
 
-    # Show consent form (GET or POST without checkbox)
-    return render_template("consent.html", next_url=next_url)
+        # Show consent form (GET or POST without checkbox)
+        return render_template("consent.html", next_url=next_url)
+    except Exception as e:
+        logger.error(f"Error in consent process: {e}", exc_info=True)
+        # Return a safe error response
+        return render_template("consent.html", next_url="/"), 500
 
 
 @app.route("/privacy", methods=["GET"])
