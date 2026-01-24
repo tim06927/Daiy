@@ -45,11 +45,20 @@ else:
 app = Flask(__name__)
 
 # Configure session for consent cookie
-app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(32).hex())
+# Production detection: FLASK_SECRET_KEY env var presence indicates production (e.g., Render)
+flask_secret_key = os.getenv("FLASK_SECRET_KEY")
+is_production = flask_secret_key is not None
+
+if is_production:
+    app.secret_key = flask_secret_key
+else:
+    # Development: generate a random key per session (sessions don't persist across restarts)
+    app.secret_key = os.urandom(32).hex()
+
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-# Secure cookies: True on Render (0.0.0.0), False locally (localhost/127.0.0.1)
-app.config["SESSION_COOKIE_SECURE"] = FLASK_HOST == "0.0.0.0"
+# Secure cookies: True in production (HTTPS), False in development (HTTP)
+app.config["SESSION_COOKIE_SECURE"] = is_production
 
 # Run startup purge (schema migration + initial purge if needed)
 run_startup_purge()
