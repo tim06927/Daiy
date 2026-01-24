@@ -47,7 +47,7 @@ app = Flask(__name__)
 # Configure session for consent cookie
 # Production detection: FLASK_SECRET_KEY env var presence indicates production (e.g., Render)
 flask_secret_key = os.getenv("FLASK_SECRET_KEY")
-is_production = flask_secret_key is not None
+is_production = flask_secret_key is not None and flask_secret_key.strip() != ""
 
 if is_production:
     app.secret_key = flask_secret_key
