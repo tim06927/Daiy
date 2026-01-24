@@ -245,14 +245,14 @@ def consent() -> Union[str, Response]:
 
     if request.method == "POST":
         consent_value = request.form.get("consent")
-        logger.debug(f"POST received. consent={consent_value}, next_url={next_url}")
+        logger.debug(f"Consent POST received, consent_checked={bool(consent_value)}")
         if consent_value:
             # Store consent in session and redirect
             session["alpha_consent"] = True
             session["alpha_consent_ts"] = datetime.now(timezone.utc).isoformat()
-            logger.debug(f"Session set. alpha_consent={session.get('alpha_consent')}")
+            logger.debug("Consent granted, redirecting")
             return redirect(next_url)
-        logger.debug(f"Checkbox not checked, reloading form")
+        logger.debug("Consent not granted, reloading form")
 
     # Show consent form (GET or POST without checkbox)
     return render_template("consent.html", next_url=next_url)
