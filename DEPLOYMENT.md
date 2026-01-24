@@ -32,10 +32,15 @@ In Render dashboard under "Environment", add:
 **Required:**
 ```
 OPENAI_API_KEY=sk-...your-key...
-FLASK_SECRET_KEY=...random-secret-key...
+FLASK_SECRET_KEY=<generate-a-random-hex-string>
 ```
 
-> **Important**: `FLASK_SECRET_KEY` is required for session cookies (used by the consent page) to work correctly. Without it, a random key is generated on each deployment, invalidating all existing sessions. Generate one with: `python -c "import secrets; print(secrets.token_hex(32))"`
+**Important**: Generate a random secret key for `FLASK_SECRET_KEY`. Example:
+```bash
+python -c "import os; print(os.urandom(32).hex())"
+```
+
+> **Important**: `FLASK_SECRET_KEY` is required for session cookies (used by the consent page) to work correctly. Without it, a random key is generated on each deployment, invalidating all existing sessions. Generate one with: `python -c "import os; print(os.urandom(32).hex())"`
 
 **Optional:**
 ```
