@@ -5,6 +5,7 @@ LLM-powered suggestions grounded in real product inventory.
 """
 
 import base64
+import logging
 import os
 import sys
 from datetime import datetime, timezone
@@ -14,6 +15,13 @@ from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from flask import Flask, Response, redirect, render_template, request, session, url_for
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file (explicitly specify path)
 env_path = Path(__file__).parent.parent / ".env"
@@ -48,8 +56,14 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(32).hex())
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-# Secure cookies: True on Render (0.0.0.0), False locally (localhost/127.0.0.1)
-app.config["SESSION_COOKIE_SECURE"] = FLASK_HOST == "0.0.0.0"
+# Secure cookies: enabled in production (Render), disabled in development
+# Can be explicitly overridden via SESSION_COOKIE_SECURE env var
+secure_cookies_env = os.getenv("SESSION_COOKIE_SECURE")
+if secure_cookies_env is not None:
+    app.config["SESSION_COOKIE_SECURE"] = secure_cookies_env.lower() == "true"
+else:
+    # Auto-detect: use FLASK_ENV to distinguish production from local dev
+    app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production"
 
 # Run startup purge (schema migration + initial purge if needed)
 run_startup_purge()
@@ -231,14 +245,14 @@ def consent() -> Union[str, Response]:
 
     if request.method == "POST":
         consent_value = request.form.get("consent")
-        print(f"[CONSENT DEBUG] POST received. consent={consent_value}, next_url={next_url}")
+        logger.debug(f"POST received. consent={consent_value}, next_url={next_url}")
         if consent_value:
             # Store consent in session and redirect
             session["alpha_consent"] = True
             session["alpha_consent_ts"] = datetime.now(timezone.utc).isoformat()
-            print(f"[CONSENT DEBUG] Session set. alpha_consent={session.get('alpha_consent')}")
+            logger.debug(f"Session set. alpha_consent={session.get('alpha_consent')}")
             return redirect(next_url)
-        print(f"[CONSENT DEBUG] Checkbox not checked, reloading form")
+        logger.debug(f"Checkbox not checked, reloading form")
 
     # Show consent form (GET or POST without checkbox)
     return render_template("consent.html", next_url=next_url)
