@@ -245,7 +245,7 @@ def consent() -> Union[str, Response]:
 
     if request.method == "POST":
         consent_value = request.form.get("consent")
-        logger.debug(f"Consent POST received, consent_checked={bool(consent_value)}")
+        logger.debug("Consent POST received, consent_checked=%s", bool(consent_value))
         if consent_value:
             # Store consent in session and redirect
             session["alpha_consent"] = True
