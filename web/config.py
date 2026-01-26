@@ -60,6 +60,3 @@ FLASK_DEBUG = os.getenv("FLASK_DEBUG", "False").lower() == "true"
 
 # Candidate selection limits (per category)
 MAX_PRODUCTS_PER_CATEGORY = int(os.getenv("MAX_PRODUCTS_PER_CATEGORY", "5"))
-
-# UI Settings
-SHOW_DEMO_NOTICE = os.getenv("SHOW_DEMO_NOTICE", "True").lower() == "true"

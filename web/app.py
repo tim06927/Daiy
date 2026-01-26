@@ -31,7 +31,6 @@ if __package__ is None or __package__ == "":
         FLASK_DEBUG,
         FLASK_HOST,
         FLASK_PORT,
-        SHOW_DEMO_NOTICE,
     )
     from privacy import run_lazy_purge, run_startup_purge
 else:
@@ -40,7 +39,6 @@ else:
         FLASK_DEBUG,
         FLASK_HOST,
         FLASK_PORT,
-        SHOW_DEMO_NOTICE,
     )
     from .privacy import run_lazy_purge, run_startup_purge
 
@@ -294,7 +292,7 @@ def health() -> Response:
 @app.route("/", methods=["GET"])
 def index() -> str:
     """Render the main recommendation page."""
-    return render_template("index.html", show_demo_notice=SHOW_DEMO_NOTICE)
+    return render_template("index.html")
 
 
 if __name__ == "__main__":

@@ -128,30 +128,6 @@ body {
   max-width: 500px;
 }
 
-.disclaimer {
-  margin-top: 3rem;
-  padding: 1rem 1.5rem;
-  max-width: 600px;
-  text-align: center;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  line-height: 1.5;
-  border-top: 1px solid var(--border);
-}
-
-.disclaimer strong {
-  color: var(--text-secondary);
-}
-
-.disclaimer a {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.disclaimer a:hover {
-  text-decoration: underline;
-}
-
 /* Results State - Split Panel */
 .results-state {
   display: none;
@@ -244,6 +220,16 @@ body {
 
 .alpha-notice strong {
   color: inherit;
+}
+
+.alpha-notice a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.alpha-notice a:hover {
+  text-decoration: underline;
 }
 
 /* ========== FOOTER ========== */
