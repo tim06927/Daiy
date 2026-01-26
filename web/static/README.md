@@ -7,7 +7,7 @@ This document describes the modular frontend architecture in `/web/static/`.
 The frontend is organized into separate CSS and JavaScript modules for maintainability, with a clean HTML template that references external assets:
 
 - **3 CSS files** - 1567 lines organized by concern
-- **7 JavaScript modules** - 1399 lines with clear responsibilities
+- **8 JavaScript modules** - 1399 lines with clear responsibilities
 - **1 HTML template** - 180 lines of semantic markup
 
 ## Directory Structure
