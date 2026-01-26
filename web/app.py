@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Union
 from urllib.parse import urlparse
+import re
 
 from dotenv import load_dotenv
 from flask import Flask, Response, redirect, render_template, request, session, url_for
@@ -96,8 +97,21 @@ def _is_safe_redirect_url(target: str) -> bool:
     if not target:
         return False
 
-    # Parse the URL
-    parsed = urlparse(target)
+    # Normalize the target:
+    # - strip surrounding whitespace
+    # - convert backslashes to forward slashes, which some browsers treat like forward slashes
+    normalized = target.strip().replace("\\", "/")
+    if not normalized:
+        return False
+
+    # Reject strings that look like they start with a URL scheme, even if
+    # urlparse would treat them as having an empty netloc (for example,
+    # "https:/example.com" or "https:///example.com").
+    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:/+", normalized):
+        return False
+
+    # Parse the normalized URL
+    parsed = urlparse(normalized)
 
     # Reject URLs with a scheme (http://, https://, javascript:, etc.)
     if parsed.scheme:
@@ -108,15 +122,11 @@ def _is_safe_redirect_url(target: str) -> bool:
         return False
 
     # Reject protocol-relative URLs (//example.com)
-    if target.startswith("//"):
-        return False
-
-    # Reject URLs that could be interpreted as protocol-relative
-    if target.startswith("/\\") or target.startswith("\\/"):
+    if normalized.startswith("//"):
         return False
 
     # Must start with / to be a valid path
-    if not target.startswith("/"):
+    if not normalized.startswith("/"):
         return False
 
     return True
