@@ -2,9 +2,22 @@
 
 ## New in Version 0.3.0
 
-**Production-Ready AI-Powered Product Recommendations with Comprehensive Logging & Monitoring**
+**AI-Powered Product Recommendations with Comprehensive Logging & Monitoring**
 
 This release brings together a complete, alpha-ready system with robust logging, error tracking, and memory-optimized deployment:
+
+### Key Capabilities
+- ✅ All clarification questions are **dynamic** and **LLM-generated**
+- ✅ **Multi-category products** - No duplicates or missing items
+- ✅ **Comprehensive logging** - User inputs, clarifications, LLM calls/responses, errors tracked
+- ✅ **Error tracking** - Persistent SQLite error logs with recovery suggestions
+- ✅ **Interaction logging** - Full event trace for debugging and monitoring
+- ✅ **HTML log viewer** - Interactive session browser with filters
+- ✅ **Modular frontend** - Separate concerns for easy maintenance
+- ✅ **Vision-enabled** - Image upload for bike photo analysis
+- ✅ **Grounded recommendations** - Only real products, no hallucinations
+- ✅ **Database-backed** - SQLite for memory efficiency (<200MB RAM)
+- ✅ **Real-time updates** - Scraper → Database → Web app (no restart needed)
 
 ### Persistent Database Logging
 - ✅ **Consolidated SQLite logging** - Single database for products, errors, AND interactions
@@ -54,19 +67,6 @@ Restructured monolithic 2200-line `index.html` into 11 maintainable files:
 - ✅ **Dynamic field discovery** - Automatic field detection from product data
 - ✅ **Multi-category support** - Products belong to multiple categories with proper deduplication
 - ✅ **Logging & debugging** - SQLite + JSONL logs with HTML viewers for all interactions and errors
-
-### Key Capabilities
-- ✅ All clarification questions are **dynamic** and **LLM-generated**
-- ✅ **Multi-category products** - No duplicates or missing items
-- ✅ **Comprehensive logging** - User inputs, clarifications, LLM calls/responses, errors tracked
-- ✅ **Error tracking** - Persistent SQLite error logs with recovery suggestions
-- ✅ **Interaction logging** - Full event trace for debugging and monitoring
-- ✅ **HTML log viewer** - Interactive session browser with filters
-- ✅ **Modular frontend** - Separate concerns for easy maintenance
-- ✅ **Vision-enabled** - Image upload for bike photo analysis
-- ✅ **Grounded recommendations** - Only real products, no hallucinations
-- ✅ **Database-backed** - SQLite for memory efficiency (<200MB RAM)
-- ✅ **Real-time updates** - Scraper → Database → Web app (no restart needed)
 
 ### For Developers
 - Backend flow: [web/README.md](web/README.md) | [web/FLOW.md](web/FLOW.md)
