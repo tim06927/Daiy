@@ -34,8 +34,8 @@ body {
   color: var(--text);
   line-height: 1.5;
   min-height: 100vh;
-  /* Responsive base font size: 16px on mobile, scales up to 18px on desktop */
-  font-size: clamp(16px, 1vw + 14px, 18px);
+  /* Responsive base font size: 16px on mobile, gradually scales up to 18px on larger screens */
+  font-size: clamp(16px, 0.25vw + 15.2px, 18px);
 }
 
 /* ========== HEADER ========== */
