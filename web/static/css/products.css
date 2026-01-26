@@ -24,7 +24,7 @@
 
 .section-header h3 {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--text);
   display: flex;
@@ -52,7 +52,7 @@
 }
 
 .category-name {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--text);
 }
@@ -141,7 +141,7 @@
 
 .product-name {
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--text);
   margin-bottom: 0.15rem;
   display: flex;
@@ -151,7 +151,7 @@
 }
 
 .product-specs {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
   margin-bottom: 0;
 }
@@ -169,7 +169,7 @@
 }
 
 .product-price {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 700;
   color: var(--text);
   font-family: "SF Mono", "Monaco", "Inconsolata", monospace;
@@ -181,7 +181,7 @@
   border: 1px solid var(--accent);
   color: var(--accent);
   border-radius: var(--radius-xs);
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
@@ -197,7 +197,7 @@
   display: inline-block;
   background: var(--accent);
   color: white;
-  font-size: 0.55rem;
+  font-size: 0.625rem;
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
   font-weight: 600;
@@ -216,7 +216,7 @@
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -231,7 +231,7 @@
 
 .alternatives-toggle .arrow {
   transition: transform 0.2s;
-  font-size: 0.55rem;
+  font-size: 0.625rem;
 }
 
 .alternatives-toggle.expanded .arrow {
@@ -278,7 +278,7 @@
 }
 
 .alt-product-card .product-name {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
 }
 
 .alt-product-card .product-fit {
@@ -286,12 +286,12 @@
 }
 
 .alt-product-card .product-price {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
 }
 
 .alt-product-card .add-to-cart-btn {
   padding: 0.2rem 0.4rem;
-  font-size: 0.6rem;
+  font-size: 0.7rem;
 }
 
 /* ========== RESULTS FOOTER ========== */
@@ -303,7 +303,7 @@
 }
 
 .footer-text {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
   font-style: italic;
 }
