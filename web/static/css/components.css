@@ -9,7 +9,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 50%;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-muted);
   cursor: help;
@@ -45,7 +45,7 @@
   padding: 0.5rem 0.75rem;
   background: var(--text);
   color: var(--bg);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   font-weight: 400;
   line-height: 1.4;
   border-radius: var(--radius-xs);
@@ -99,7 +99,7 @@
 
 /* Tooltip label prefix */
 .tooltip-label {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   margin-right: 0.15rem;
 }
@@ -116,7 +116,7 @@
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
@@ -159,7 +159,7 @@
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   position: relative;
@@ -304,7 +304,7 @@
 
 .initial-hint {
   margin-top: 1rem;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   color: var(--text-muted);
 }
 
@@ -314,7 +314,7 @@
   border-radius: 4px;
   padding: 0.15rem 0.4rem;
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
 }
 
 .upload-input {
@@ -349,7 +349,7 @@
 }
 
 .preview-name {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 500;
   color: var(--text);
   white-space: nowrap;
@@ -358,7 +358,7 @@
 }
 
 .preview-size {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
 }
 
@@ -414,7 +414,7 @@
 }
 
 .query-image-placeholder .text {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   color: var(--text-secondary);
   font-weight: 500;
 }
@@ -425,7 +425,7 @@
 }
 
 .query-text {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 500;
   color: var(--text);
   line-height: 1.4;
@@ -438,7 +438,7 @@
   color: var(--text-secondary);
   padding: 0.3rem 0.6rem;
   border-radius: var(--radius-xs);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -463,7 +463,7 @@
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-xs);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
 }
 
 .selected-option .label {
@@ -492,7 +492,7 @@
 }
 
 .diagnosis-text {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
   line-height: 1.4;
   font-style: italic;
@@ -516,7 +516,7 @@
 }
 
 .clarification-title {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text);
   margin-bottom: 1rem;
@@ -541,7 +541,7 @@
 .clarification-preview .preview-instructions {
   margin: 0.5rem 0;
   padding-left: 1.25rem;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   color: var(--text-secondary);
 }
 
@@ -550,7 +550,7 @@
 }
 
 .clarification-label {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--text);
   margin-bottom: 0.5rem;
@@ -576,7 +576,7 @@
   color: var(--text);
   border-radius: var(--radius-xs);
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 500;
   transition: all 0.15s;
 }
@@ -610,7 +610,7 @@
   border-radius: var(--radius-xs);
   background: var(--bg);
   color: var(--text);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
 }
 
 .other-input:focus {
@@ -626,7 +626,7 @@
   color: white;
   border: none;
   border-radius: var(--radius-sm);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s;
@@ -666,7 +666,7 @@
 
 .loading-text {
   color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: 1rem;
 }
 
 /* ========== ERROR MESSAGE ========== */
@@ -677,7 +677,7 @@
   padding: 1rem;
   border-radius: var(--radius-sm);
   margin-bottom: 1rem;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 
 /* ========== ERROR PANEL (Empty Categories) ========== */
@@ -722,7 +722,7 @@
 .diagnostic-info li {
   margin: 0.25rem 0;
   color: #742a2a;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .diagnostic-info code {
@@ -740,7 +740,7 @@
   padding: 0.75rem;
   margin-top: 1rem;
   border-radius: 0.25rem;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: #92400e;
 }
 
@@ -750,7 +750,7 @@
 
 /* ========== INSTRUCTIONS ========== */
 .instructions-content {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--text);
   line-height: 1.5;
 }
@@ -768,7 +768,7 @@
 }
 
 .ingredients-section h4 {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--text);
   margin: 0 0 0.5rem 0;
@@ -787,7 +787,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
   padding: 0.25rem;
 }
@@ -808,7 +808,7 @@
 }
 
 .instructions-section h4 {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--text);
   margin-bottom: 0.35rem;
@@ -828,7 +828,7 @@
 .instructions-section li {
   margin-bottom: 0.2rem;
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: 0.85rem;
 }
 
 /* ========== SETTINGS PANEL ========== */
@@ -852,7 +852,7 @@
   border-bottom: none;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
@@ -875,7 +875,7 @@
 }
 
 .settings-chevron {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   transition: transform 0.2s;
 }
 
@@ -912,7 +912,7 @@
 }
 
 .setting-group label {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-secondary);
   white-space: nowrap;
@@ -924,7 +924,7 @@
   border-radius: var(--radius-xs);
   background: var(--surface);
   color: var(--text);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-family: inherit;
   cursor: pointer;
   min-width: 120px;
