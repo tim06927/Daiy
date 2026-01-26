@@ -99,8 +99,8 @@ def _is_safe_redirect_url(target: str) -> bool:
 
     # Normalize the target:
     # - strip surrounding whitespace
-    # - remove backslashes, which some browsers treat like forward slashes
-    normalized = target.strip().replace("\\", "")
+    # - convert backslashes to forward slashes, which some browsers treat like forward slashes
+    normalized = target.strip().replace("\\", "/")
     if not normalized:
         return False
 
