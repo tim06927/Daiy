@@ -41,6 +41,16 @@ const categoryMeta = {
 };
 
 /**
+ * Escape a string for safe inclusion in a single-quoted JS string literal (e.g. inline onclick).
+ */
+function jsStringEscape(str) {
+  return String(str)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, '\\\'')
+    .replace(/\r?\n/g, '\\n');
+}
+
+/**
  * Create a product card element
  */
 function createProductCard(product, isBest, icon) {
@@ -55,7 +65,7 @@ function createProductCard(product, isBest, icon) {
   const safeName = escapeHtml(product.name || 'Product');
   const safePrice = escapeHtml(product.price || '');
   const safeSpecs = escapeHtml(specs);
-  const addToCartName = (product.name || '').replace(/'/g, "\\'");
+  const addToCartName = jsStringEscape(product.name || '');
   
   // Create tooltip for "why it fits" if available
   const whyItFits = product.why_it_fits || '';
@@ -95,7 +105,7 @@ function createAltProductCard(product, icon) {
   const imageMarkup = buildProductImage(product, icon);
   const safeName = escapeHtml(product.name || 'Product');
   const safePrice = escapeHtml(product.price || '');
-  const addToCartName = (product.name || '').replace(/'/g, "\\'");
+  const addToCartName = jsStringEscape(product.name || '');
   
   // Create tooltip for "why it fits" if available
   const whyItFits = product.why_it_fits || '';
