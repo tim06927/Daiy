@@ -233,7 +233,7 @@ body {
   text-decoration: underline;
 }
 
-.alpha-notice a:focus {
+.alpha-notice a:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
