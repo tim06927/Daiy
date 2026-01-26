@@ -21,9 +21,8 @@
       </a>
       <nav>
         <ul class="nav">
-          <li><a href="#products">Products</a></li>
-          <li><a href="#how-it-works">How it works</a></li>
-          <li><a href="#support">Support</a></li>
+          <li><a href="mailto:hello@daiy.de">Support</a></li>
+          <li><a href="{{ url_for('privacy') }}">Privacy Policy</a></li>
         </ul>
       </nav>
     </div>
@@ -172,10 +171,7 @@
     </div>
   </div>
 
-  <!-- Footer -->
-  <footer class="app-footer">
-    <a href="{{ url_for('privacy') }}">Privacy Policy</a>
-  </footer>
+
 
   <!-- External JavaScript Modules -->
   <script src="{{ url_for('static', filename='js/config.js') }}"></script>
