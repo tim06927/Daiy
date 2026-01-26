@@ -129,30 +129,6 @@ body {
   max-width: 500px;
 }
 
-.disclaimer {
-  margin-top: 3rem;
-  padding: 1rem 1.5rem;
-  max-width: 600px;
-  text-align: center;
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  line-height: 1.5;
-  border-top: 1px solid var(--border);
-}
-
-.disclaimer strong {
-  color: var(--text-secondary);
-}
-
-.disclaimer a {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.disclaimer a:hover {
-  text-decoration: underline;
-}
-
 /* Results State - Split Panel */
 .results-state {
   display: none;
@@ -247,4 +223,33 @@ body {
   color: inherit;
 }
 
+.alpha-notice a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.alpha-notice a:hover {
+  text-decoration: underline;
+}
+
+.alpha-notice a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ========== FOOTER ========== */
+.app-footer {
+  margin-top: 2rem;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+
+.app-footer a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
 
