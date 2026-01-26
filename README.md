@@ -1,19 +1,19 @@
 # Daiy
 
-## Current Status (Jan 22, 2026)
+## New in Version 0.3.0
 
-**Production-Ready Logging & Error Tracking for Render Deployment**
+**Production-Ready AI-Powered Product Recommendations with Comprehensive Logging & Monitoring**
 
-Recent improvements focused on comprehensive logging and production error monitoring:
+This release brings together a complete, production-ready system with robust logging, error tracking, and memory-optimized deployment:
 
-### Persistent Database Logging (Jan 22, 2026)
+### Persistent Database Logging
 - ✅ **Consolidated SQLite logging** - Single database for products, errors, AND interactions
 - ✅ **Persistent across redeployments** - All logs survive Render updates
 - ✅ **Full request tracing** - All events (user_input, LLM calls, recommendations) linked via request_id
 - ✅ **Interactive log viewer** - Query logs from database with HTML interface
 - ✅ **Production-ready monitoring** - Error tracking + interaction logging for full visibility
 
-### Error Tracking System (Jan 21, 2026)
+### Error Tracking System
 - ✅ **5 error types** - llm_error, validation_error, database_error, processing_error, unexpected_error
 - ✅ **Recovery suggestions** - Actionable guidance for each error
 - ✅ **Stack trace capture** - Full traceback for debugging
@@ -25,7 +25,7 @@ Recent improvements focused on comprehensive logging and production error monito
 - ✅ **Local + Remote** - JSONL for development, SQLite for production (Render)
 - ✅ **Queryable** - Filter by request_id, event_type, or view all interactions
 
-### Memory Optimization (Jan 21, 2026)
+### Memory Optimization
 - ✅ **SQLite database backend** - Replaced 500MB CSV loading with on-demand queries
 - ✅ **75% memory reduction** - From 800MB+ to <200MB (fits Render 512MB tier)
 - ✅ **Real-time pipeline** - Scraper → Database → Web app (no restart needed)
@@ -38,7 +38,7 @@ Recent improvements focused on comprehensive logging and production error monito
 - ✅ **Type-safe imports** - All functions properly annotated with Mapping types for covariance
 - ✅ **Performance timing & analytics** - Track LLM vs app latency breakdown for optimization
 
-### Three-Phase LLM Flow (Complete)
+### Three-Phase LLM Flow
 1. **Job Identification** - Generates step-by-step instructions with `[category_key]` placeholders
 2. **Clarification** - LLM-generated questions for specs with confidence < 0.8
 3. **Recommendation** - Replaces placeholders with real products and provides reasoning
