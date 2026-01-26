@@ -6,9 +6,9 @@ This document describes the modular frontend architecture in `/web/static/`.
 
 The frontend is organized into separate CSS and JavaScript modules for maintainability, with a clean HTML template that references external assets:
 
-- **3 CSS files** - ~1190 lines organized by concern
-- **7 JavaScript modules** - ~1107 lines with clear responsibilities
-- **1 HTML template** - 154 lines of semantic markup
+- **3 CSS files** - 1567 lines organized by concern
+- **8 JavaScript modules** - 1399 lines with clear responsibilities
+- **1 HTML template** - 180 lines of semantic markup
 
 ## Directory Structure
 
@@ -16,20 +16,20 @@ The frontend is organized into separate CSS and JavaScript modules for maintaina
 web/
 ├── static/
 │   ├── css/
-│   │   ├── base.css           # Variables, resets, layout, header (230 lines)
-│   │   ├── components.css     # Buttons, forms, clarification UI, tooltips (680 lines)
-│   │   └── products.css       # Product cards, categories, alternatives (350 lines)
+│   │   ├── base.css           # Variables, resets, layout, header (255 lines)
+│   │   ├── components.css     # Buttons, forms, clarification UI, tooltips (963 lines)
+│   │   └── products.css       # Product cards, categories, alternatives (349 lines)
 │   └── js/
-│       ├── config.js          # Application constants (27 lines)
-│       ├── state.js           # Reactive state management (97 lines)
-│       ├── utils.js           # Shared utilities (escapeHtml, tooltips) (50 lines)
+│       ├── config.js          # Application constants (41 lines)
+│       ├── state.js           # Reactive state management (124 lines)
+│       ├── utils.js           # Shared utilities (escapeHtml, tooltips) (100 lines)
 │       ├── image.js           # Image upload & compression (137 lines)
-│       ├── api.js             # Backend communication (59 lines)
-│       ├── clarification.js   # Clarification UI rendering (180 lines)
-│       ├── products.js        # Product display logic (280 lines)
-│       └── main.js            # Application initialization (215 lines)
+│       ├── api.js             # Backend communication (70 lines)
+│       ├── clarification.js   # Clarification UI rendering (216 lines)
+│       ├── products.js        # Product display logic (319 lines)
+│       └── main.js            # Application initialization (392 lines)
 └── templates/
-    └── index.html             # Clean HTML structure (155 lines)
+    └── index.html             # Clean HTML structure (180 lines)
 ```
 
 ## Architecture Principles

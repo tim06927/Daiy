@@ -1,59 +1,10 @@
 # Daiy
 
-## Current Status (Jan 22, 2026)
+## New in Version 0.3.0
 
-**Production-Ready Logging & Error Tracking for Render Deployment**
+**AI-Powered Product Recommendations with Comprehensive Logging & Monitoring**
 
-Recent improvements focused on comprehensive logging and production error monitoring:
-
-### Persistent Database Logging (Jan 22, 2026)
-- ✅ **Consolidated SQLite logging** - Single database for products, errors, AND interactions
-- ✅ **Persistent across redeployments** - All logs survive Render updates
-- ✅ **Full request tracing** - All events (user_input, LLM calls, recommendations) linked via request_id
-- ✅ **Interactive log viewer** - Query logs from database with HTML interface
-- ✅ **Production-ready monitoring** - Error tracking + interaction logging for full visibility
-
-### Error Tracking System (Jan 21, 2026)
-- ✅ **5 error types** - llm_error, validation_error, database_error, processing_error, unexpected_error
-- ✅ **Recovery suggestions** - Actionable guidance for each error
-- ✅ **Stack trace capture** - Full traceback for debugging
-- ✅ **Request correlation** - Errors linked to user inputs via request_id
-
-### Interaction Logging
-- ✅ **All events logged** - user_input, clarification_required, llm_calls, recommendations, performance_metrics
-- ✅ **Complete request trace** - Query entire interaction flow for debugging
-- ✅ **Local + Remote** - JSONL for development, SQLite for production (Render)
-- ✅ **Queryable** - Filter by request_id, event_type, or view all interactions
-
-### Memory Optimization (Jan 21, 2026)
-- ✅ **SQLite database backend** - Replaced 500MB CSV loading with on-demand queries
-- ✅ **75% memory reduction** - From 800MB+ to <200MB (fits Render 512MB tier)
-- ✅ **Real-time pipeline** - Scraper → Database → Web app (no restart needed)
-- ✅ **Removed heavy dependencies** - numpy, psycopg2, pillow-heif, openpyxl
-- ✅ **Image optimization** - Convert images to PNG format while preserving full quality
-
-### Backend Enhancements
-- ✅ **Fixed type invariance in dynamic specs** - Proper handling of `Mapping[str, Optional[str]]` for flexible product field storage
-- ✅ **Robust None-value filtering** - Dynamic specs system skips None values internally, simplifying call sites
-- ✅ **Type-safe imports** - All functions properly annotated with Mapping types for covariance
-- ✅ **Performance timing & analytics** - Track LLM vs app latency breakdown for optimization
-
-### Three-Phase LLM Flow (Complete)
-1. **Job Identification** - Generates step-by-step instructions with `[category_key]` placeholders
-2. **Clarification** - LLM-generated questions for specs with confidence < 0.8
-3. **Recommendation** - Replaces placeholders with real products and provides reasoning
-
-### Frontend: Modular Architecture
-Restructured monolithic 2200-line `index.html` into 10 maintainable files:
-- **3 CSS modules** - base, components, products (1190 lines total)
-- **7 JavaScript modules** - config, state, image, api, clarification, products, main (1107 lines total)
-- **Clean HTML template** - 153 lines (93% reduction)
-
-### Quality & Testing
-- ✅ **Comprehensive test suite** - Web (18+ tests) and scraper (11+ tests) with fixtures
-- ✅ **Dynamic field discovery** - Automatic field detection from product data
-- ✅ **Multi-category support** - Products belong to multiple categories with proper deduplication
-- ✅ **Logging & debugging** - SQLite + JSONL logs with HTML viewers for all interactions and errors
+This release brings together a complete, alpha-ready system with robust logging, error tracking, and memory-optimized deployment:
 
 ### Key Capabilities
 - ✅ All clarification questions are **dynamic** and **LLM-generated**
@@ -67,6 +18,55 @@ Restructured monolithic 2200-line `index.html` into 10 maintainable files:
 - ✅ **Grounded recommendations** - Only real products, no hallucinations
 - ✅ **Database-backed** - SQLite for memory efficiency (<200MB RAM)
 - ✅ **Real-time updates** - Scraper → Database → Web app (no restart needed)
+
+### Persistent Database Logging
+- ✅ **Consolidated SQLite logging** - Single database for products, errors, AND interactions
+- ✅ **Persistent across redeployments** - All logs survive Render updates
+- ✅ **Full request tracing** - All events (user_input, LLM calls, recommendations) linked via request_id
+- ✅ **Interactive log viewer** - Query logs from database with HTML interface
+- ✅ **Production-ready monitoring** - Error tracking + interaction logging for full visibility
+
+### Error Tracking System
+- ✅ **5 error types** - llm_error, validation_error, database_error, processing_error, unexpected_error
+- ✅ **Recovery suggestions** - Actionable guidance for each error
+- ✅ **Stack trace capture** - Full traceback for debugging
+- ✅ **Request correlation** - Errors linked to user inputs via request_id
+
+### Interaction Logging
+- ✅ **All events logged** - user_input, clarification_required, llm_calls, recommendations, performance_metrics
+- ✅ **Complete request trace** - Query entire interaction flow for debugging
+- ✅ **Local + Remote** - JSONL for development, SQLite for production (Render)
+- ✅ **Queryable** - Filter by request_id, event_type, or view all interactions
+
+### Memory Optimization
+- ✅ **SQLite database backend** - Replaced 500MB CSV loading with on-demand queries
+- ✅ **75% memory reduction** - From 800MB+ to <200MB (fits Render 512MB tier)
+- ✅ **Real-time pipeline** - Scraper → Database → Web app (no restart needed)
+- ✅ **Removed heavy dependencies** - numpy, psycopg2, pillow-heif, openpyxl
+- ✅ **Image optimization** - Convert images to PNG format while preserving full quality
+
+### Backend Enhancements
+- ✅ **Fixed type invariance in dynamic specs** - Proper handling of `Mapping[str, Optional[str]]` for flexible product field storage
+- ✅ **Robust None-value filtering** - Dynamic specs system skips None values internally, simplifying call sites
+- ✅ **Type-safe imports** - All functions properly annotated with Mapping types for covariance
+- ✅ **Performance timing & analytics** - Track LLM vs app latency breakdown for optimization
+
+### Three-Phase LLM Flow
+1. **Job Identification** - Generates step-by-step instructions with `[category_key]` placeholders
+2. **Clarification** - LLM-generated questions for specs with confidence < 0.8
+3. **Recommendation** - Replaces placeholders with real products and provides reasoning
+
+### Frontend: Modular Architecture
+Restructured monolithic 2200-line `index.html` into 11 maintainable files:
+- **3 CSS modules** - base, components, products (1567 lines total)
+- **8 JavaScript modules** - config, state, utils, image, api, clarification, products, main (1399 lines total)
+- **Clean HTML template** - 180 lines (92% reduction)
+
+### Quality & Testing
+- ✅ **Comprehensive test suite** - Web (18+ tests) and scraper (11+ tests) with fixtures
+- ✅ **Dynamic field discovery** - Automatic field detection from product data
+- ✅ **Multi-category support** - Products belong to multiple categories with proper deduplication
+- ✅ **Logging & debugging** - SQLite + JSONL logs with HTML viewers for all interactions and errors
 
 ### For Developers
 - Backend flow: [web/README.md](web/README.md) | [web/FLOW.md](web/FLOW.md)

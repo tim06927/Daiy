@@ -125,6 +125,7 @@ web/
 │   ├── js/             # JavaScript modules
 │   │   ├── config.js           # Constants
 │   │   ├── state.js            # State management
+│   │   ├── utils.js            # Shared utilities
 │   │   ├── image.js            # Image handling
 │   │   ├── api.js              # Backend communication
 │   │   ├── clarification.js    # Clarification UI
@@ -132,7 +133,7 @@ web/
 │   │   └── main.js             # Initialization
 │   └── README.md       # Frontend architecture guide
 ├── templates/
-│   └── index.html      # Clean HTML template (154 lines)
+│   └── index.html      # Clean HTML template (180 lines)
 ├── logs/               # LLM interaction logs (JSONL)
 ├── tests/              # Test files
 │   ├── test_model_clarification.py
@@ -263,7 +264,7 @@ Flask application setup:
 - Error handling
 
 #### `templates/index.html`
-Clean HTML template (154 lines) that references external CSS and JavaScript:
+Clean HTML template (180 lines) that references external CSS and JavaScript:
 - Structured semantic HTML
 - Links to modular CSS files in `static/css/`
 - Links to modular JavaScript files in `static/js/`
@@ -276,9 +277,10 @@ Modular frontend architecture with separation of concerns:
   - `base.css` - Variables, resets, layout, header
   - `components.css` - Forms, buttons, clarification panels
   - `products.css` - Product cards, categories, alternatives
-- **JavaScript Modules** (7 files):
+- **JavaScript Modules** (8 files):
   - `config.js` - Application constants
   - `state.js` - Centralized state management
+  - `utils.js` - Shared utilities (escapeHtml, tooltips)
   - `image.js` - Image upload and compression
   - `api.js` - Backend API communication
   - `clarification.js` - Clarification UI rendering
