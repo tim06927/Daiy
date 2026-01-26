@@ -105,7 +105,7 @@ function createAltProductCard(product, icon) {
   const imageMarkup = buildProductImage(product, icon);
   const safeName = escapeHtml(product.name || 'Product');
   const safePrice = escapeHtml(product.price || '');
-  const addToCartName = (product.name || '').replace(/'/g, "\\'");
+  const addToCartName = jsStringEscape(product.name || '');
   
   // Create tooltip for "why it fits" if available
   const whyItFits = product.why_it_fits || '';
