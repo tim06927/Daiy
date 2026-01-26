@@ -30,7 +30,7 @@ class TestConfigModelSettings:
         """Test that all expected models are present."""
         from config import MODEL_EFFORT_LEVELS, AVAILABLE_MODELS
 
-        expected_models = ["gpt-5.2", "gpt-5.2-pro", "gpt-5-mini", "gpt-5-nano"]
+        expected_models = ["gpt-5.2", "gpt-5-mini", "gpt-5-nano"]
         for model in expected_models:
             assert model in MODEL_EFFORT_LEVELS
             assert model in AVAILABLE_MODELS
@@ -41,13 +41,6 @@ class TestConfigModelSettings:
 
         expected = ["none", "low", "medium", "high", "xhigh"]
         assert MODEL_EFFORT_LEVELS["gpt-5.2"] == expected
-
-    def test_gpt52_pro_effort_levels(self):
-        """Test gpt-5.2-pro has correct effort levels."""
-        from config import MODEL_EFFORT_LEVELS
-
-        expected = ["medium", "high", "xhigh"]
-        assert MODEL_EFFORT_LEVELS["gpt-5.2-pro"] == expected
 
     def test_gpt5_mini_effort_levels(self):
         """Test gpt-5-mini has correct effort levels."""
@@ -96,11 +89,6 @@ class TestIsValidModelEffort:
         assert is_valid_model_effort("gpt-5.2", "high")
         assert is_valid_model_effort("gpt-5.2", "xhigh")
 
-        # gpt-5.2-pro combinations
-        assert is_valid_model_effort("gpt-5.2-pro", "medium")
-        assert is_valid_model_effort("gpt-5.2-pro", "high")
-        assert is_valid_model_effort("gpt-5.2-pro", "xhigh")
-
         # gpt-5-mini combinations
         assert is_valid_model_effort("gpt-5-mini", "minimal")
         assert is_valid_model_effort("gpt-5-mini", "low")
@@ -114,11 +102,6 @@ class TestIsValidModelEffort:
     def test_invalid_effort_for_model(self):
         """Test invalid effort levels for specific models."""
         from config import is_valid_model_effort
-
-        # gpt-5.2-pro doesn't support 'low' or 'none'
-        assert not is_valid_model_effort("gpt-5.2-pro", "low")
-        assert not is_valid_model_effort("gpt-5.2-pro", "none")
-        assert not is_valid_model_effort("gpt-5.2-pro", "minimal")
 
         # gpt-5-mini doesn't support 'xhigh' or 'none'
         assert not is_valid_model_effort("gpt-5-mini", "xhigh")
@@ -199,7 +182,7 @@ class TestModelsApiEndpoint:
         response = client.get("/api/models")
         data = response.json
 
-        expected_models = ["gpt-5.2", "gpt-5.2-pro", "gpt-5-mini", "gpt-5-nano"]
+        expected_models = ["gpt-5.2", "gpt-5-mini", "gpt-5-nano"]
         for model in expected_models:
             assert model in data["available_models"]
             assert model in data["models"]

@@ -217,7 +217,6 @@ Centralized configuration:
 - `DEFAULT_EFFORT` - Default reasoning effort level (low)
 - `MODEL_EFFORT_LEVELS` - Available models and their supported effort levels:
   - `gpt-5.2`: none, low, medium, high, xhigh
-  - `gpt-5.2-pro`: medium, high, xhigh
   - `gpt-5-mini`: minimal, low, medium, high
   - `gpt-5-nano`: minimal, low, medium, high
 - `FLASK_HOST/PORT` - Server settings
@@ -349,7 +348,7 @@ The app will start at `http://127.0.0.1:5000`
    - **Answered Questions** - Bubbles showing what you clarified
 7. **Adjust model settings** (optional):
    - Click the Settings button at the bottom of the page
-   - Select a different model (gpt-5.2, gpt-5.2-pro, gpt-5-mini, gpt-5-nano)
+   - Select a different model (gpt-5.2, gpt-5-mini, gpt-5-nano)
    - Select a reasoning effort level (varies by model)
    - Settings are persisted across sessions
 
@@ -498,11 +497,10 @@ The `model` and `effort` parameters are optional. If not provided, defaults to `
 {
   "models": {
     "gpt-5.2": ["none", "low", "medium", "high", "xhigh"],
-    "gpt-5.2-pro": ["medium", "high", "xhigh"],
     "gpt-5-mini": ["minimal", "low", "medium", "high"],
     "gpt-5-nano": ["minimal", "low", "medium", "high"]
   },
-  "available_models": ["gpt-5.2", "gpt-5.2-pro", "gpt-5-mini", "gpt-5-nano"],
+  "available_models": ["gpt-5.2", "gpt-5-mini", "gpt-5-nano"],
   "default_model": "gpt-5-mini",
   "default_effort": "low"
 }

@@ -19,7 +19,6 @@ DEFAULT_EFFORT = "low"
 # Available models and their supported effort levels
 MODEL_EFFORT_LEVELS: Dict[str, List[str]] = {
     "gpt-5.2": ["none", "low", "medium", "high", "xhigh"],
-    "gpt-5.2-pro": ["medium", "high", "xhigh"],
     "gpt-5-mini": ["minimal", "low", "medium", "high"],
     "gpt-5-nano": ["minimal", "low", "medium", "high"],
 }
