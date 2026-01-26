@@ -298,6 +298,63 @@ class TestUrlValidationHelpers:
         assert _is_safe_redirect_url('/search#results') is True
         assert _is_safe_redirect_url('/search?q=test#results') is True
 
+    def test_is_safe_redirect_url_whitespace_handling_safe_paths(self):
+        """Test that URLs with leading/trailing whitespace are normalized for safe paths."""
+        from app import _is_safe_redirect_url
+        # Safe paths with whitespace should be accepted after normalization
+        assert _is_safe_redirect_url('  /path  ') is True
+        assert _is_safe_redirect_url('  /search?q=test  ') is True
+        assert _is_safe_redirect_url('\t/api/categories\t') is True
+        assert _is_safe_redirect_url('  /  ') is True
+
+    def test_is_safe_redirect_url_whitespace_handling_unsafe_urls(self):
+        """Test that URLs with leading/trailing whitespace are rejected for unsafe URLs."""
+        from app import _is_safe_redirect_url
+        # Unsafe URLs with whitespace should still be rejected after normalization
+        assert _is_safe_redirect_url('  https://evil.com  ') is False
+        assert _is_safe_redirect_url('  //evil.com  ') is False
+        assert _is_safe_redirect_url('\t//evil.com/path\t') is False
+        assert _is_safe_redirect_url('  javascript:alert(1)  ') is False
+
+    def test_is_safe_redirect_url_whitespace_only(self):
+        """Test that whitespace-only strings are rejected."""
+        from app import _is_safe_redirect_url
+        assert _is_safe_redirect_url('   ') is False
+        assert _is_safe_redirect_url('\t\t') is False
+        assert _is_safe_redirect_url('\n\n') is False
+
+    def test_is_safe_redirect_url_malformed_schemes_single_slash(self):
+        """Test that malformed schemes with single slash are rejected."""
+        from app import _is_safe_redirect_url
+        # These are malformed URLs that might bypass naive URL parsers
+        assert _is_safe_redirect_url('https:/example.com') is False
+        assert _is_safe_redirect_url('http:/example.com') is False
+        assert _is_safe_redirect_url('ftp:/example.com') is False
+        assert _is_safe_redirect_url('file:/etc/passwd') is False
+
+    def test_is_safe_redirect_url_malformed_schemes_triple_slash(self):
+        """Test that malformed schemes with triple slash are rejected."""
+        from app import _is_safe_redirect_url
+        assert _is_safe_redirect_url('https:///example.com') is False
+        assert _is_safe_redirect_url('http:///example.com') is False
+
+    def test_is_safe_redirect_url_mixed_backslash_forward_slash_schemes(self):
+        """Test that mixed backslash/forward slash schemes are rejected."""
+        from app import _is_safe_redirect_url
+        # These use backslashes which get normalized to forward slashes
+        assert _is_safe_redirect_url('https:\\example.com') is False
+        assert _is_safe_redirect_url('http:\\example.com') is False
+        assert _is_safe_redirect_url('https:\\/example.com') is False
+        assert _is_safe_redirect_url('http:/\\example.com') is False
+
+    def test_is_safe_redirect_url_double_backslash_urls(self):
+        """Test that double backslash URLs are rejected."""
+        from app import _is_safe_redirect_url
+        # Double backslash gets normalized to double forward slash (protocol-relative)
+        assert _is_safe_redirect_url('\\\\example.com') is False
+        assert _is_safe_redirect_url('\\\\example.com/path') is False
+        assert _is_safe_redirect_url('\\\\evil.com?query=value') is False
+
     def test_get_safe_redirect_url_returns_valid_url(self):
         """Test that _get_safe_redirect_url returns valid URLs."""
         from app import _get_safe_redirect_url
