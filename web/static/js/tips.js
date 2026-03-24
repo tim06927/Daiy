@@ -21,12 +21,15 @@ const TipsManager = {
   start(tips) {
     if (!tips || tips.length === 0) return;
 
+    const container = document.getElementById('tips-container');
+    if (!container) return;
+
+    // Clear any previously running cycle before starting a new one
+    this.stop();
+
     this.tips = tips;
     this.currentIndex = 0;
     this.isRunning = true;
-
-    const container = document.getElementById('tips-container');
-    if (!container) return;
 
     container.classList.add('active');
     this._showTip(0);
@@ -77,6 +80,8 @@ const TipsManager = {
     }
 
     setTimeout(() => {
+      // Guard: stop() may have been called before this timeout fires
+      if (!this.isRunning || !this.tips.length) return;
       tipText.textContent = this.tips[index];
       if (tipCounter) {
         tipCounter.textContent = `${index + 1} / ${this.tips.length}`;

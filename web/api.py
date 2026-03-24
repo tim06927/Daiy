@@ -822,6 +822,9 @@ def tips() -> Union[Tuple[Response, int], Response]:
     except Exception:
         return jsonify({"tips": []}), 200
 
+    if not isinstance(data, dict):
+        data = {}
+
     problem_text = data.get("problem_text", "")
     if not isinstance(problem_text, str):
         return jsonify({"tips": []}), 200
