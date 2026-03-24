@@ -6,6 +6,13 @@
 flowchart TD
     subgraph "1. User Input"
         A[User enters query + optional image] --> B[POST /api/recommend]
+        A --> B2[POST /api/tips - parallel, fastest model]
+    end
+
+    subgraph "1b. Loading Tips"
+        B2 --> T1[🤖 LLM gpt-5-nano: generate tips]
+        T1 --> T2[Return tips array]
+        T2 --> T3[Animate tips one-by-one during wait]
     end
 
     subgraph "2. Job Identification"
@@ -25,6 +32,7 @@ flowchart TD
         J -->|Yes| K[Return clarification_questions]
         K --> L[User answers ALL questions at once]
         L --> B
+        L --> B2
     end
 
     subgraph "4. Product Selection"
@@ -37,6 +45,7 @@ flowchart TD
         P --> Q[🤖 LLM: final recommendation]
         Q --> R[Finalize instructions with product names]
         R --> S[Return response to frontend]
+        S --> T4[Stop tips animation]
     end
 
     subgraph "6. Frontend Display"
@@ -296,6 +305,7 @@ Key prompt features:
 | `candidate_selection.py` | Filter products by category & fit values |
 | `prompts.py` | Build LLM prompts for recommendation |
 | `templates/index.html` | Frontend: clarification UI, product display |
+| `static/js/tips.js` | Loading tips animation manager (TipsManager) |
 
 ## Category System
 
@@ -321,6 +331,49 @@ When `need_clarification: true`:
    - "Other" button for custom text entry
 3. User can answer in any order
 4. Submit button enabled when all answered
+
+## Loading Tips (Wait-Time Feature)
+
+To bridge the wait between user submission and LLM response, the system fires a parallel
+request to the **fastest available model** (`gpt-5-nano`, minimal effort) to generate
+contextual repair/installation tips.
+
+### How It Works
+
+1. **Parallel dispatch**: `fetchTips()` fires alongside `fetchRecommendations()` — it does
+   NOT block (uses `.then()`, not `await`).
+2. **Tips arrive first**: Because `gpt-5-nano` with `minimal` effort responds much faster.
+3. **Animated display**: `TipsManager` shows tips one-by-one with fade-in/out in the
+   loading area, looping until the main response arrives.
+4. **Automatic cleanup**: `TipsManager.stop()` is called when the main response returns
+   (success, error, or clarification).
+
+### API Endpoint
+
+```
+POST /api/tips
+{
+  "problem_text": "My chain is worn out"
+}
+
+Response:
+{
+  "tips": [
+    "Always degrease old chain before measuring it.",
+    "Use a torque wrench for cassette lockring.",
+    "Check chain length against the old chain.",
+    ...
+  ]
+}
+```
+
+### Configuration (`config.py`)
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| `TIPS_MODEL` | `gpt-5-nano` | Fastest available model |
+| `TIPS_EFFORT` | `minimal` | Lowest reasoning effort for speed |
+| `TIPS_MAX_COUNT` | `6` | Max tips to generate |
 
 ## VS Code Extensions for Viewing
 

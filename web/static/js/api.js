@@ -43,6 +43,29 @@ async function fetchRecommendations(problemText) {
 }
 
 /**
+ * Fetch quick tips from the fastest model (runs parallel to main request)
+ * @param {string} problemText - User's problem description
+ * @returns {Promise<string[]>} Array of tip strings
+ */
+async function fetchTips(problemText) {
+  try {
+    const resp = await fetch(CONFIG.API.TIPS, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ problem_text: problemText }),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      return data.tips || [];
+    }
+  } catch (e) {
+    // Tips are non-critical — silently fail
+    console.warn('Tips fetch failed (non-critical):', e);
+  }
+  return [];
+}
+
+/**
  * Fetch available models and their effort levels from backend
  * @returns {Promise<Object>} Models configuration
  */

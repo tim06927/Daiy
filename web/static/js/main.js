@@ -68,6 +68,7 @@ function resetToInitial() {
   elements.resultsState.classList.remove('active');
   elements.initialState.classList.remove('hidden');
   AppState.reset();
+  TipsManager.stop();
   elements.selectedOptionsEl.innerHTML = '';
   elements.clarificationPanel.classList.remove('active');
   elements.productCategories.classList.remove('active');
@@ -241,8 +242,19 @@ async function handleSearch() {
   // Switch to results state
   switchToResultsState();
 
+  // Fire tips request in parallel (non-blocking, fastest model)
+  fetchTips(problemText).then(tips => {
+    // Only start tips if the main request is still loading
+    if (elements.loadingState.classList.contains('active')) {
+      TipsManager.start(tips);
+    }
+  });
+
   try {
     const data = await fetchRecommendations(problemText);
+
+    // Stop tips animation before showing results
+    TipsManager.stop();
 
     // Check for empty categories error
     if (data.error === "empty_categories") {
@@ -260,6 +272,7 @@ async function handleSearch() {
     showResults(data);
 
   } catch (error) {
+    TipsManager.stop();
     showError(error.message);
   } finally {
     elements.searchBtn.disabled = false;

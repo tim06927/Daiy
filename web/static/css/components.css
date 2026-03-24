@@ -669,6 +669,53 @@
   font-size: 1rem;
 }
 
+/* ========== LOADING TIPS ========== */
+.tips-container {
+  display: none;
+  margin-top: 1.5rem;
+  padding: 1rem 1.5rem;
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  min-height: 4rem;
+  position: relative;
+}
+
+.tips-container.active {
+  display: block;
+  animation: tipsSlideIn 0.4s ease-out;
+}
+
+@keyframes tipsSlideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.tip-icon {
+  font-size: 1.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.tip-text {
+  color: var(--text-primary, #333);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  min-height: 1.5em;
+}
+
+.tip-text.visible {
+  opacity: 1;
+}
+
+.tip-counter {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #999);
+}
+
 /* ========== ERROR MESSAGE ========== */
 .error-message {
   background: #fef2f2;
