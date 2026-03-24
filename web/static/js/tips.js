@@ -12,7 +12,7 @@ const TipsManager = {
   isRunning: false,
 
   /** Interval between tip transitions (ms) */
-  INTERVAL: 4000,
+  INTERVAL: 8000,
 
   /**
    * Start displaying tips in the loading area.
@@ -67,6 +67,15 @@ const TipsManager = {
     // Fade out
     tipText.classList.remove('visible');
 
+    // Restart progress bar animation
+    const bar = document.getElementById('tip-progress-bar');
+    if (bar) {
+      bar.style.animation = 'none';
+      // Force reflow so the browser picks up the reset
+      void bar.offsetWidth;
+      bar.style.animation = '';
+    }
+
     setTimeout(() => {
       tipText.textContent = this.tips[index];
       if (tipCounter) {
@@ -74,6 +83,6 @@ const TipsManager = {
       }
       // Fade in
       tipText.classList.add('visible');
-    }, 300); // matches CSS transition duration
+    }, 500); // matches CSS transition duration
   }
 };

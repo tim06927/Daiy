@@ -672,48 +672,89 @@
 /* ========== LOADING TIPS ========== */
 .tips-container {
   display: none;
-  margin-top: 1.5rem;
-  padding: 1rem 1.5rem;
-  background: var(--bg-secondary, #f8f9fa);
-  border-radius: var(--radius-sm);
-  text-align: center;
-  min-height: 4rem;
+  margin-top: 2rem;
+  padding: 1.5rem 2rem 1.25rem;
+  background: linear-gradient(135deg, var(--accent-light, #e6f0fa) 0%, #f0f7ff 100%);
+  border: 1px solid var(--accent, #0066cc);
+  border-radius: var(--radius, 12px);
+  text-align: left;
+  min-height: 5.5rem;
   position: relative;
+  box-shadow: var(--shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
+  overflow: hidden;
 }
 
 .tips-container.active {
   display: block;
-  animation: tipsSlideIn 0.4s ease-out;
+  animation: tipsSlideIn 0.5s ease-out;
 }
 
 @keyframes tipsSlideIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.tip-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .tip-icon {
-  font-size: 1.25rem;
-  margin-bottom: 0.35rem;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.tip-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent, #0066cc);
+}
+
+.tip-counter {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #666);
+  font-variant-numeric: tabular-nums;
 }
 
 .tip-text {
-  color: var(--text-primary, #333);
-  font-size: 0.95rem;
-  line-height: 1.5;
+  color: var(--text, #1a1a1a);
+  font-size: 1.1rem;
+  line-height: 1.6;
   opacity: 0;
-  transition: opacity 0.3s ease;
-  min-height: 1.5em;
+  transition: opacity 0.5s ease;
+  min-height: 1.8em;
+  margin: 0;
 }
 
 .tip-text.visible {
   opacity: 1;
 }
 
-.tip-counter {
-  display: block;
-  margin-top: 0.5rem;
-  font-size: 0.75rem;
-  color: var(--text-secondary, #999);
+/* Progress bar that fills over the tip interval */
+.tip-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.tip-progress-bar {
+  height: 100%;
+  width: 0;
+  background: var(--accent, #0066cc);
+  animation: tipFill 8s linear forwards;
+}
+
+@keyframes tipFill {
+  from { width: 0; }
+  to   { width: 100%; }
 }
 
 /* ========== ERROR MESSAGE ========== */
