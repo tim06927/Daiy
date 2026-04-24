@@ -5,7 +5,8 @@ const CONFIG = {
   // API endpoints
   API: {
     RECOMMEND: '/api/recommend',
-    MODELS: '/api/models'
+    MODELS: '/api/models',
+    TIPS: '/api/tips'
   },
   
   // Image compression settings

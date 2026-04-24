@@ -793,3 +793,77 @@ def list_models() -> Response:
         "default_model": DEFAULT_MODEL,
         "default_effort": DEFAULT_EFFORT,
     })
+
+
+@api.route("/tips", methods=["POST"])
+def tips() -> Union[Tuple[Response, int], Response]:
+    """Generate quick installation/repair tips using the fastest model.
+
+    Runs in parallel with the main recommendation flow to fill wait time.
+    Uses the fastest available model with minimal reasoning effort.
+
+    Request JSON:
+        {
+            "problem_text": "User's description of needs"
+        }
+
+    Response JSON:
+        {
+            "tips": ["Tip 1 text", "Tip 2 text", ...]
+        }
+    """
+    if __package__ is None or __package__ == "":
+        from config import TIPS_MODEL, TIPS_EFFORT, TIPS_MAX_COUNT
+    else:
+        from .config import TIPS_MODEL, TIPS_EFFORT, TIPS_MAX_COUNT
+
+    try:
+        data = request.get_json(force=True)
+    except Exception:
+        return jsonify({"tips": []}), 200
+
+    if not isinstance(data, dict):
+        data = {}
+
+    problem_text = data.get("problem_text", "")
+    if not isinstance(problem_text, str):
+        return jsonify({"tips": []}), 200
+    problem_text = problem_text.strip()
+    if not problem_text:
+        return jsonify({"tips": []}), 200
+
+    prompt = (
+        f"The user has a bike maintenance issue: \"{problem_text}\"\n\n"
+        f"Generate exactly {TIPS_MAX_COUNT} short, practical tips related to this "
+        "bike repair or installation task. Each tip should be one sentence (max 15 words), "
+        "actionable, and helpful while they wait for product recommendations.\n"
+        "Focus on: safety, preparation, common mistakes to avoid, and useful techniques.\n\n"
+        "Return ONLY a JSON array of strings, e.g.:\n"
+        "[\"Tip one.\", \"Tip two.\", ...]"
+    )
+
+    try:
+        from openai import OpenAI
+
+        client = OpenAI()
+        resp = client.responses.create(
+            model=TIPS_MODEL,
+            input=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
+            reasoning={"effort": TIPS_EFFORT},
+        )
+
+        for item in resp.output:
+            if hasattr(item, "content") and item.content is not None:
+                raw = item.content[0].text
+                try:
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, list):
+                        tips_list = [str(t) for t in parsed[:TIPS_MAX_COUNT]]
+                        return jsonify({"tips": tips_list})
+                except json.JSONDecodeError:
+                    pass
+
+    except Exception as e:
+        logger.warning(f"Tips generation failed (non-critical): {e}")
+
+    return jsonify({"tips": []}), 200

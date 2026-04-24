@@ -1,0 +1,11 @@
+[Unit]
+Description=Run FlexDNS update for Daiy Flask app
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=24h
+RandomizedDelaySec=15min
+Unit=flexdns-daiy.service
+
+[Install]
+WantedBy=timers.target

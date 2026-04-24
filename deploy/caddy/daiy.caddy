@@ -1,0 +1,4 @@
+{$DAIY_PUBLIC_HOST:app.daiy.de} {
+	encode zstd gzip
+	reverse_proxy {$DAIY_UPSTREAM:127.0.0.1:5001}
+}

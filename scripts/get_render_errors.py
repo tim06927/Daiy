@@ -6,6 +6,10 @@ Usage:
     python scripts/get_render_errors.py                  # Default service
     python scripts/get_render_errors.py daiy-web-prod    # Specific service
     python scripts/get_render_errors.py - errors.json    # Save to file
+
+Environment:
+    RENDER_CLI      Override Render CLI binary (default: render)
+    RENDER_TIMEOUT  Timeout in seconds for remote calls (default: 30)
 """
 
 import json
@@ -35,6 +39,7 @@ def get_render_errors(
     """
     
     render_cli = render_cmd or os.environ.get("RENDER_CLI", "render")
+    timeout = int(os.environ.get("RENDER_TIMEOUT", "30"))
 
     # Resolve full path for better error messages
     cli_path = shutil.which(render_cli)
@@ -73,43 +78,51 @@ def get_render_errors(
     
     cmd += " --export json"
     
-    try:
-        # Execute on Render via render ssh (or exec for other CLIs)
-        print("📡 Connecting to Render...")
-        
-        # Try ssh first (render CLI), fall back to exec (other CLIs)
-        ssh_result = subprocess.run(
-            [cli_path, "ssh", service_name, cmd],
+    def _run_remote(args):
+        return subprocess.run(
+            args,
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=timeout,
         )
+
+    try:
+        # Execute on Render via render ssh (preferred) and fall back to exec
+        print("📡 Connecting to Render...")
+
+        ssh_args = [cli_path, "ssh", service_name, cmd]
+        try:
+            ssh_result = _run_remote(ssh_args)
+        except subprocess.TimeoutExpired:
+            print(f"⏳ render ssh timed out after {timeout}s, retrying with render exec...")
+            ssh_result = None
         
-        # If ssh command failed, try exec (for other Render CLIs)
-        if ssh_result.returncode != 0 and "unknown command" in ssh_result.stderr:
-            result = subprocess.run(
-                [cli_path, "exec", "--service", service_name, cmd],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-        else:
-            result = ssh_result
-        
+        result = ssh_result
+
+        # Fallback when ssh is unavailable or failed
+        if result is None or (result.returncode != 0 and "unknown command" in result.stderr):
+            exec_args = [cli_path, "exec", "--service", service_name, cmd]
+            try:
+                result = _run_remote(exec_args)
+            except subprocess.TimeoutExpired:
+                print(f"❌ Connection timeout after {timeout}s using render exec")
+                print("   Check if your service is running on Render dashboard")
+                return False
+
         if result.returncode != 0:
-            print(f"❌ Error: {result.stderr}")
+            print(f"❌ Error: {result.stderr.strip()}")
             if "Service not found" in result.stderr or "Not found" in result.stderr:
                 print("")
                 print("💡 Check your service name:")
                 print("   render services")
             return False
-        
+
         # Parse JSON output
         try:
             errors = json.loads(result.stdout)
         except json.JSONDecodeError:
             print("❌ Failed to parse response from Render")
-            print("Response:", result.stdout[:200])
+            print("Response:", result.stdout[:500])
             return False
         
         if not errors:

@@ -57,5 +57,10 @@ FLASK_HOST = os.getenv("FLASK_HOST", "0.0.0.0")
 FLASK_PORT = int(os.getenv("FLASK_PORT", os.getenv("PORT", "5000")))
 FLASK_DEBUG = os.getenv("FLASK_DEBUG", "False").lower() == "true"
 
+# Tips feature: fastest model for parallel loading tips
+TIPS_MODEL = "gpt-5-nano"
+TIPS_EFFORT = "minimal"
+TIPS_MAX_COUNT = 6  # Number of tips to generate
+
 # Candidate selection limits (per category)
 MAX_PRODUCTS_PER_CATEGORY = int(os.getenv("MAX_PRODUCTS_PER_CATEGORY", "5"))

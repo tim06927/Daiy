@@ -1,0 +1,22 @@
+[Unit]
+Description=Daiy Flask recommendation app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tim
+Group=tim
+WorkingDirectory=/home/tim/git/Daiy
+EnvironmentFile=/home/tim/git/Daiy/.env
+EnvironmentFile=-/etc/daiy/daiy.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PORT=5001
+Environment=FLASK_HOST=127.0.0.1
+Environment=FLASK_PORT=5001
+ExecStart=/home/tim/git/Daiy/.venv/bin/gunicorn --workers 1 --timeout 120 --bind 127.0.0.1:5001 web.app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

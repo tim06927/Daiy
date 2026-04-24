@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Copy this to /usr/local/sbin/update-flexdns-daiy and add the provider-specific
+# update command. Keep credentials out of the repository.
+#
+# This script should update the DNS record named by DAIY_PUBLIC_HOST.
+# For this server today that defaults to app.daiy.de.
+
+if [ -f /etc/daiy/daiy.env ]; then
+  set -a
+  . /etc/daiy/daiy.env
+  set +a
+fi
+
+: "${DAIY_PUBLIC_HOST:=app.daiy.de}"
+
+echo "Update FlexDNS for ${DAIY_PUBLIC_HOST} here"
+exit 1
