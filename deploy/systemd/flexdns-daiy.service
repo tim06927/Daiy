@@ -1,0 +1,9 @@
+[Unit]
+Description=Update FlexDNS record for Daiy Flask app
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/daiy/daiy.env
+ExecStart=/bin/sh -c 'test -x /usr/local/sbin/update-flexdns-daiy && exec /usr/local/sbin/update-flexdns-daiy'
