@@ -59,7 +59,7 @@ async function fetchTips(problemText) {
       return data.tips || [];
     }
   } catch (e) {
-    // Tips are non-critical — silently fail
+    // Tips are non-critical — log warning and fall back to empty list
     console.warn('Tips fetch failed (non-critical):', e);
   }
   return [];
